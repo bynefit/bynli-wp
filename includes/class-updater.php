@@ -78,13 +78,29 @@ class Bynli_Connect_Updater {
         if (empty($hook_extra['plugin']) || $hook_extra['plugin'] !== $this->plugin_basename) {
             return $source;
         }
+        if (!$wp_filesystem) return $source;
 
-        $desired = trailingslashit($remote_source) . self::PLUGIN_SLUG;
-        if ($source === $desired) return $source;
+        $source_norm = untrailingslashit((string)$source);
+        $remote_norm = untrailingslashit((string)$remote_source);
 
-        if ($wp_filesystem && $wp_filesystem->move($source, $desired, true)) {
-            return $desired;
+        if (basename($source_norm) === self::PLUGIN_SLUG) {
+            return $source;
         }
+
+        $desired = $remote_norm . '/' . self::PLUGIN_SLUG;
+
+        if ($source_norm === $desired) {
+            return $source;
+        }
+
+        if ($wp_filesystem->exists($desired)) {
+            $wp_filesystem->delete($desired, true);
+        }
+
+        if ($wp_filesystem->move($source_norm, $desired, true)) {
+            return trailingslashit($desired);
+        }
+
         return $source;
     }
 

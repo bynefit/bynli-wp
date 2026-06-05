@@ -93,6 +93,7 @@ No. The `bynli.js` loader is only enqueued on pages where at least one shortcode
 == Changelog ==
 
 = 0.3.2 =
+* **Fix:** the auto-updater's source-rename filter was comparing a trailing-slashed path against a non-trailing-slashed one, then trying to "rename" the unzipped folder to itself. On some hosts this left the temp directory unreadable, producing `Filesystem error. A directory could not be read.` during the install step. The filter now short-circuits when the source basename is already correct and skips the move when paths are equivalent.
 * Settings page rebuilt to match the Bynli ecosystem aesthetic — Bricolage Grotesque wordmark with the gold period accent, warm-dark header card on ivory background, restrained editorial typography.
 * Heartbeat is now AJAX — no page reload, the status pill flips live without losing your scroll position.
 * New "Disconnect" action clears the saved key from this install (does not revoke it server-side).
