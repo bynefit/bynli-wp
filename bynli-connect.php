@@ -3,7 +3,7 @@
  * Plugin Name:       Bynli Connect
  * Plugin URI:        https://bynli.com/guides/wordpress
  * Description:       Connect a WordPress site to Bynli — reports daily usage and exposes Bynli shortcodes for forms, modals, toasts, confirms, and the floating widget.
- * Version:           0.3.0
+ * Version:           0.3.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Bynefit
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BYNLI_CONNECT_VERSION', '0.3.0');
+define('BYNLI_CONNECT_VERSION', '0.3.1');
 define('BYNLI_CONNECT_PLUGIN_FILE', __FILE__);
 define('BYNLI_CONNECT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BYNLI_CONNECT_DEFAULT_API_BASE', 'https://bynli.com');
