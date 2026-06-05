@@ -367,6 +367,8 @@ class Bynli_Connect_Settings {
                             <?php
                             $samples = [
                                 ['name' => 'Form',    'code' => '[bynli-form id="frm_abc123"]'],
+                                ['name' => 'Events',  'code' => '[bynli-events team="your-team" limit="5"]'],
+                                ['name' => 'Donate',  'code' => '[bynli-donate team="your-team" amounts="10,25,50,100" default_amount="25" cause="general"]'],
                                 ['name' => 'Modal',   'code' => '[bynli-modal label="Read more" title="Welcome" body="Thanks for stopping by."]'],
                                 ['name' => 'Confirm', 'code' => '[bynli-confirm label="Sign out" message="Sign out now?" href="/logout"]'],
                                 ['name' => 'Toast',   'code' => '[bynli-toast message="Welcome back!" kind="success"]'],

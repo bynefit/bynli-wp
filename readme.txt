@@ -4,7 +4,7 @@ Tags:              bynli, integration, hosting, metering, shortcodes
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.3.2
+Stable tag:        0.4.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,10 @@ Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in
 No. The `bynli.js` loader is only enqueued on pages where at least one shortcode is present.
 
 == Changelog ==
+
+= 0.4.0 =
+* **New:** `[bynli-events]` shortcode — drop an upcoming-events list anywhere on your WordPress site, sourced live from your Bynli team. Three render modes: `cards` (default), `list`, `bare`.
+* **New:** `[bynli-donate]` shortcode — preset amount picker + custom amount input, routed to Bynli's existing donation flow with `source=embed` attribution.
 
 = 0.3.2 =
 * **Fix:** the auto-updater's source-rename filter was comparing a trailing-slashed path against a non-trailing-slashed one, then trying to "rename" the unzipped folder to itself. On some hosts this left the temp directory unreadable, producing `Filesystem error. A directory could not be read.` during the install step. The filter now short-circuits when the source basename is already correct and skips the move when paths are equivalent.

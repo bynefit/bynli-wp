@@ -2,7 +2,7 @@
 if (!defined('ABSPATH')) { exit; }
 
 /**
- * Shortcode handlers for Bynli Connect v0.2.
+ * Shortcode handlers for Bynli Connect.
  *
  * Each shortcode emits the same `data-bynli` HTML that a Bynli-hosted
  * team site uses. The bynli.js loader is enqueued exactly once per
@@ -23,6 +23,12 @@ if (!defined('ABSPATH')) { exit; }
  *
  *   [bynli-widget team="acme"]            Floating Bynli widget bubble
  *
+ *   [bynli-events team="acme" limit="5" style="cards"]
+ *                                         Read-only upcoming events for a team
+ *
+ *   [bynli-donate team="acme" amounts="10,25,50,100" default_amount="25" cause="general"]
+ *                                         Donate card (preset + custom amount)
+ *
  * For each shortcode, attribute names map directly onto the
  * data-* attributes the team-site builders read — keeps the contract
  * single-source-of-truth across all hosts.
@@ -39,6 +45,8 @@ class Bynli_Connect_Shortcodes {
         add_shortcode('bynli-confirm', [$this, 'render_confirm']);
         add_shortcode('bynli-toast',   [$this, 'render_toast']);
         add_shortcode('bynli-widget',  [$this, 'render_widget']);
+        add_shortcode('bynli-events',  [$this, 'render_events']);
+        add_shortcode('bynli-donate',  [$this, 'render_donate']);
 
         // Enqueue the loader on wp_footer ONLY if a shortcode marked it
         // needed during page render.
@@ -171,5 +179,67 @@ class Bynli_Connect_Shortcodes {
         $attrs .= ' async';
 
         return '<script' . $attrs . '></script>';
+    }
+
+    // ── Events ─────────────────────────────────────────────────────
+    public function render_events($atts = []): string {
+        $a = shortcode_atts([
+            'team'  => '',
+            'limit' => '5',
+            'style' => 'cards',      // cards | list | bare
+            'scope' => 'upcoming',   // upcoming | past
+        ], (array) $atts, 'bynli-events');
+
+        $team = strtolower((string) $a['team']);
+        if (!preg_match('/^[a-z0-9\-]{3,100}$/', $team)) {
+            return '<!-- bynli-events: bad or missing team slug -->';
+        }
+        $this->need_loader();
+
+        $limit = max(1, min(50, (int) $a['limit']));
+        $style = in_array($a['style'], ['cards', 'list', 'bare'], true) ? $a['style'] : 'cards';
+        $scope = in_array($a['scope'], ['upcoming', 'past'],          true) ? $a['scope'] : 'upcoming';
+
+        $attrs  = ' data-bynli="events"';
+        $attrs .= ' data-team="'  . esc_attr($team)        . '"';
+        $attrs .= ' data-limit="' . esc_attr((string)$limit) . '"';
+        $attrs .= ' data-style="' . esc_attr($style)       . '"';
+        $attrs .= ' data-scope="' . esc_attr($scope)       . '"';
+
+        return '<div' . $attrs . '></div>';
+    }
+
+    // ── Donate ─────────────────────────────────────────────────────
+    public function render_donate($atts = []): string {
+        $a = shortcode_atts([
+            'team'           => '',
+            'amounts'        => '',
+            'default_amount' => '',
+            'cause'          => '',
+            'cause_label'    => '',
+            'style'          => 'card',    // card | button
+            'modal'          => '',         // "1" to host in iframe modal
+            'label'          => '',
+        ], (array) $atts, 'bynli-donate');
+
+        $team = strtolower((string) $a['team']);
+        if (!preg_match('/^[a-z0-9\-]{3,100}$/', $team)) {
+            return '<!-- bynli-donate: bad or missing team slug -->';
+        }
+        $this->need_loader();
+
+        $style = in_array($a['style'], ['card', 'button'], true) ? $a['style'] : 'card';
+
+        $attrs  = ' data-bynli="donate"';
+        $attrs .= ' data-team="'  . esc_attr($team)  . '"';
+        $attrs .= ' data-style="' . esc_attr($style) . '"';
+        if ($a['amounts']        !== '') $attrs .= ' data-amounts="'        . esc_attr($a['amounts'])        . '"';
+        if ($a['default_amount'] !== '') $attrs .= ' data-default-amount="' . esc_attr($a['default_amount']) . '"';
+        if ($a['cause']          !== '') $attrs .= ' data-cause="'          . esc_attr($a['cause'])          . '"';
+        if ($a['cause_label']    !== '') $attrs .= ' data-cause-label="'    . esc_attr($a['cause_label'])    . '"';
+        if ($a['label']          !== '') $attrs .= ' data-label="'          . esc_attr($a['label'])          . '"';
+        if ((string)$a['modal']  === '1') $attrs .= ' data-modal="1"';
+
+        return '<div' . $attrs . '></div>';
     }
 }
