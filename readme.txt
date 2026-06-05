@@ -4,7 +4,7 @@ Tags:              bynli, integration, hosting, metering, shortcodes
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.2.0
+Stable tag:        0.3.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,10 @@ Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in
 No. The `bynli.js` loader is only enqueued on pages where at least one shortcode is present.
 
 == Changelog ==
+
+= 0.3.0 =
+* Auto-updates from Bynli — WordPress now sees Bynli Connect updates in Plugins → Updates and on the Updates page. No more manual zip swaps.
+* Settings → Bynli Connect now shows the installed vs latest version and a "Check for updates now" button.
 
 = 0.2.0 =
 * Add `[bynli-form]`, `[bynli-modal]`, `[bynli-confirm]`, `[bynli-toast]`, `[bynli-widget]` shortcodes.

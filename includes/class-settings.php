@@ -145,6 +145,37 @@ class Bynli_Connect_Settings {
                     <?php endif; ?>
                 </table>
             <?php endif; ?>
+
+            <h2>Updates</h2>
+            <p>Bynli Connect ships outside the wp.org directory; updates come straight from Bynli. WordPress checks for a new version automatically (cached for 12 hours); click below to check immediately.</p>
+            <?php $upd = Bynli_Connect_Updater::last_check_meta();
+                  $cleared = isset($_GET['cleared']) && (string)$_GET['cleared'] === 'updates'; ?>
+            <?php if ($cleared): ?>
+                <div class="notice notice-success is-dismissible"><p>Update cache cleared. WordPress will re-check on the next page load.</p></div>
+            <?php endif; ?>
+            <table class="form-table" role="presentation">
+                <tr><th>Installed</th> <td><code><?php echo esc_html(BYNLI_CONNECT_VERSION); ?></code></td></tr>
+                <tr><th>Latest</th>    <td><?php
+                    if (!empty($upd['version'])) {
+                        echo '<code>' . esc_html($upd['version']) . '</code>';
+                        if (version_compare($upd['version'], BYNLI_CONNECT_VERSION, '>')) {
+                            echo ' &nbsp;<a href="' . esc_url(admin_url('plugins.php')) . '" class="button button-primary">Go to Plugins → Update</a>';
+                        } else {
+                            echo ' &nbsp;<span style="color:#1d8a4e">✓ up to date</span>';
+                        }
+                    } else {
+                        echo '<em>not checked yet</em>';
+                    }
+                ?></td></tr>
+                <?php if (!empty($upd['error'])): ?>
+                    <tr><th>Last error</th><td><code><?php echo esc_html($upd['error']); ?></code></td></tr>
+                <?php endif; ?>
+            </table>
+            <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
+                <input type="hidden" name="action" value="bynli_connect_clear_update_cache">
+                <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
+                <?php submit_button('Check for updates now', 'secondary', 'submit', false); ?>
+            </form>
         </div>
         <?php
     }
