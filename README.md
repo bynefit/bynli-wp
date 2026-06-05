@@ -1,16 +1,34 @@
 # Bynli Connect (WordPress plugin)
 
-Official WordPress plugin for [Bynli](https://bynli.com). Connects a WordPress site to a Bynli team for daily usage reporting and (soon) inline shortcodes for forms, events, and donations.
+Official WordPress plugin for [Bynli](https://bynli.com). Connects a WordPress site to a Bynli team for daily usage reporting and inline Bynli shortcodes.
 
-## What it does today (0.1.0)
+## What it does today (0.2.0)
 
 - **Daily usage report** to `POST https://bynli.com/api/site-host/report` — storage bytes, WP/PHP versions, home URL. No user data.
 - **Heartbeat test** from Settings → Bynli Connect to verify the connection.
 - **HMAC-signed** payloads with a per-site key issued by `/dash/sites/host-keys` on Bynli.
+- **Shortcodes**: `[bynli-form]`, `[bynli-modal]`, `[bynli-confirm]`, `[bynli-toast]`, `[bynli-widget]`.
+
+The `bynli.js` loader is enqueued only on pages where at least one shortcode is present.
+
+### Shortcode examples
+
+```
+[bynli-form id="frm_abc123"]
+[bynli-form id="frm_abc123" style="bootstrap" success="Thanks!" success_mode="toast"]
+
+[bynli-modal label="Read more" title="Welcome" body="Thanks for stopping by." confirm="Got it"]
+
+[bynli-confirm label="Sign out" message="Sign out now?" href="/logout" danger="1"]
+
+[bynli-toast message="Welcome back!" kind="success"]
+
+[bynli-widget team="your-team"]
+```
 
 ## What's coming
 
-- Shortcodes: `[bynli-form id="frm_xxx"]`, `[bynli-events]`, `[bynli-donate]`
+- `[bynli-events]` and `[bynli-donate]` (need new builders on the Bynli side first)
 - Bandwidth counting from server logs (when available)
 - Auto-update from WordPress.org plugin directory
 
@@ -30,6 +48,7 @@ includes/
   class-settings.php       admin settings page + test-heartbeat handler
   class-reporter.php       wp_remote_post wrapper, daily cron handler
   class-signer.php         HMAC-SHA256 signer
+  class-shortcodes.php     [bynli-form] / [bynli-modal] / [bynli-confirm] / [bynli-toast] / [bynli-widget]
 readme.txt                 WordPress.org-formatted readme
 ```
 

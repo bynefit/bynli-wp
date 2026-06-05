@@ -10,6 +10,7 @@ class Bynli_Connect_Plugin {
 
     private function __construct() {
         new Bynli_Connect_Settings();
+        new Bynli_Connect_Shortcodes();
 
         add_action('bynli_connect_daily_report', [Bynli_Connect_Reporter::class, 'send_daily']);
 
