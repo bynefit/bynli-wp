@@ -4,7 +4,7 @@ Tags:              bynli, integration, hosting, metering, shortcodes
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.3.0
+Stable tag:        0.3.1
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,11 @@ Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in
 No. The `bynli.js` loader is only enqueued on pages where at least one shortcode is present.
 
 == Changelog ==
+
+= 0.3.1 =
+* Settings page redesign — Bynli-branded header with connection status pill, separate cards for Connection / Activity / Shortcodes / Updates, copy-to-clipboard for shortcode examples, reveal/hide toggle for the API key, inline format validation.
+* Onboarding card shown when no API key is set, with a direct link to the Bynli host-keys page.
+* Activity card surfaces last report time, kind, HTTP, and next scheduled daily run.
 
 = 0.3.0 =
 * Auto-updates from Bynli — WordPress now sees Bynli Connect updates in Plugins → Updates and on the Updates page. No more manual zip swaps.
