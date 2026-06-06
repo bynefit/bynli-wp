@@ -876,3 +876,89 @@
     color: rgba(0, 0, 0, 0.6);
     font-weight: 400;
 }
+
+/* ── New ticket form (v0.7) — list-view collapsible panel ─────────── */
+
+.bcn-new-ticket {
+    margin: 18px 0 24px;
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    padding: 14px 18px;
+}
+
+.bcn-new-ticket > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--bcn-text-1, #1a1f2b);
+    list-style: none;
+    padding: 4px 0;
+}
+
+.bcn-new-ticket > summary::-webkit-details-marker {
+    display: none;
+}
+
+.bcn-new-ticket > summary::after {
+    content: '▾';
+    margin-left: 8px;
+    color: var(--bcn-text-2, #5b6473);
+    transition: transform 0.18s ease;
+    display: inline-block;
+}
+
+.bcn-new-ticket[open] > summary::after {
+    transform: rotate(180deg);
+}
+
+.bcn-new-ticket-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.bcn-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+}
+
+.bcn-field label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--bcn-text-1, #1a1f2b);
+}
+
+.bcn-field input[type="text"],
+.bcn-field select,
+.bcn-field textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.16);
+    background: #fff;
+    color: var(--bcn-text-1, #1a1f2b);
+}
+
+.bcn-field textarea {
+    resize: vertical;
+    min-height: 110px;
+}
+
+.bcn-field input[type="text"]:focus,
+.bcn-field select:focus,
+.bcn-field textarea:focus {
+    outline: 2px solid var(--bcn-gold, #d4933a);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+
+.bcn-field-hint {
+    font-size: 0.85rem;
+    color: var(--bcn-text-2, #5b6473);
+}
