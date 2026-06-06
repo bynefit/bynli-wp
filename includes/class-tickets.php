@@ -13,10 +13,14 @@ if (!defined('ABSPATH')) { exit; }
  */
 class Bynli_Connect_Tickets {
 
-    const MENU_SLUG  = 'bynli-connect-tickets';
+    const MENU_SLUG       = 'bynli-connect-tickets';
+    const NONCE_REPLY     = 'bynli_connect_ticket_reply';
+    const NONCE_RESOLVE   = 'bynli_connect_ticket_resolve';
 
     public function __construct() {
-        add_action('admin_menu', [$this, 'register_menu'], 11);
+        add_action('admin_menu',                                [$this, 'register_menu'], 11);
+        add_action('admin_post_bynli_connect_ticket_reply',     [$this, 'handle_reply']);
+        add_action('admin_post_bynli_connect_ticket_resolve',   [$this, 'handle_resolve']);
     }
 
     public function register_menu(): void {
@@ -30,6 +34,81 @@ class Bynli_Connect_Tickets {
             self::MENU_SLUG,
             [$this, 'render']
         );
+    }
+
+    /**
+     * POST handler — site-attributed reply on a ticket. (bynli#1208 v0.6)
+     * Wired to admin-post.php so we get a real WP nonce on the form.
+     * Redirects back to the detail view with a flash flag in the query.
+     */
+    public function handle_reply(): void {
+        if (!current_user_can('manage_options')) wp_die('Forbidden.', 403);
+
+        $ref  = isset($_POST['ticket_ref']) ? sanitize_text_field((string)$_POST['ticket_ref']) : '';
+        $body = isset($_POST['reply_body']) ? wp_unslash((string)$_POST['reply_body']) : '';
+        $body = trim($body);
+
+        if (!preg_match('/^[A-Za-z0-9_-]{3,64}$/', $ref)) {
+            wp_die('Invalid ticket reference.', 400);
+        }
+        check_admin_referer(self::NONCE_REPLY . '_' . $ref);
+
+        $base = admin_url('options-general.php?page=' . self::MENU_SLUG . '&ticket_ref=' . rawurlencode($ref));
+
+        if ($body === '') {
+            wp_safe_redirect(add_query_arg(['result' => 'empty'], $base));
+            exit;
+        }
+
+        // Attribute the reply to the WP user who clicked send so Bynli
+        // can label it on the thread + route follow-up support emails
+        // back to them, even if they have no Bynli account.
+        // (bynli#1208 followup — bynli#1249)
+        $payload = ['body' => $body];
+        $wp_user = wp_get_current_user();
+        if ($wp_user && $wp_user->exists()) {
+            if (!empty($wp_user->user_email))   $payload['wp_user_email'] = (string)$wp_user->user_email;
+            if (!empty($wp_user->display_name)) $payload['wp_user_name']  = (string)$wp_user->display_name;
+        }
+
+        $res = Bynli_Connect_Api::post('/api/site-host/tickets/' . rawurlencode($ref) . '/reply', $payload);
+        $args = ['result' => $res['ok'] ? 'replied' : 'reply_failed'];
+        if (!$res['ok']) $args['err'] = rawurlencode((string)($res['message'] ?? 'unknown'));
+        wp_safe_redirect(add_query_arg($args, $base));
+        exit;
+    }
+
+    /**
+     * POST handler — site-attributed resolve. Optional "note" posts a final
+     * reply alongside the resolve flip on the server.
+     */
+    public function handle_resolve(): void {
+        if (!current_user_can('manage_options')) wp_die('Forbidden.', 403);
+
+        $ref  = isset($_POST['ticket_ref']) ? sanitize_text_field((string)$_POST['ticket_ref']) : '';
+        $note = isset($_POST['resolve_note']) ? trim(wp_unslash((string)$_POST['resolve_note'])) : '';
+
+        if (!preg_match('/^[A-Za-z0-9_-]{3,64}$/', $ref)) {
+            wp_die('Invalid ticket reference.', 400);
+        }
+        check_admin_referer(self::NONCE_RESOLVE . '_' . $ref);
+
+        $payload = $note !== '' ? ['note' => $note] : [];
+        // WP user identity attached to the optional final note + the
+        // resolve audit log on Bynli. Same plumbing as handle_reply.
+        $wp_user = wp_get_current_user();
+        if ($wp_user && $wp_user->exists()) {
+            if (!empty($wp_user->user_email))   $payload['wp_user_email'] = (string)$wp_user->user_email;
+            if (!empty($wp_user->display_name)) $payload['wp_user_name']  = (string)$wp_user->display_name;
+        }
+
+        $res = Bynli_Connect_Api::post('/api/site-host/tickets/' . rawurlencode($ref) . '/resolve', $payload);
+
+        $base = admin_url('options-general.php?page=' . self::MENU_SLUG . '&ticket_ref=' . rawurlencode($ref));
+        $args = ['result' => $res['ok'] ? 'resolved' : 'resolve_failed'];
+        if (!$res['ok']) $args['err'] = rawurlencode((string)($res['message'] ?? 'unknown'));
+        wp_safe_redirect(add_query_arg($args, $base));
+        exit;
     }
 
     /** Top-level renderer — routes to list or detail based on ?ticket_ref=. */
@@ -168,11 +247,41 @@ class Bynli_Connect_Tickets {
         $res = Bynli_Connect_Api::get('/api/site-host/tickets/' . rawurlencode($ref));
         $list_url = menu_page_url(self::MENU_SLUG, false);
 
+        // Flash messages from handle_reply / handle_resolve redirects.
+        $flash_result = isset($_GET['result']) ? sanitize_text_field((string)$_GET['result']) : '';
+        $flash_err    = isset($_GET['err'])    ? sanitize_text_field(urldecode((string)$_GET['err'])) : '';
+
         ?>
         <div class="wrap bcn-wrap bcn-tickets bcn-ticket-detail">
             <p>
                 <a href="<?php echo esc_url($list_url); ?>">&larr; <?php esc_html_e('All tickets', 'bynli-connect'); ?></a>
             </p>
+
+            <?php
+            // Flash strip — only renders for known result codes so a tampered
+            // query string can't paint arbitrary HTML.
+            $flash_map = [
+                'replied'         => ['ok',   __('Reply posted. Bynli support will be notified.', 'bynli-connect')],
+                'resolved'        => ['ok',   __('Ticket marked resolved. Bynli will close it on their side.', 'bynli-connect')],
+                'empty'           => ['warn', __('Reply cannot be empty.', 'bynli-connect')],
+                'reply_failed'    => ['err',  __('Could not post reply.', 'bynli-connect')],
+                'resolve_failed'  => ['err',  __('Could not mark resolved.', 'bynli-connect')],
+            ];
+            if (isset($flash_map[$flash_result])):
+                list($kind, $msg) = $flash_map[$flash_result];
+                $cls = $kind === 'ok' ? 'bcn-notice-ok' : ($kind === 'warn' ? 'bcn-notice-warn' : 'bcn-notice-err');
+                $ico = $kind === 'ok' ? 'yes-alt' : ($kind === 'warn' ? 'warning' : 'dismiss');
+            ?>
+                <div class="bcn-notice <?php echo esc_attr($cls); ?>">
+                    <span class="dashicons dashicons-<?php echo esc_attr($ico); ?>"></span>
+                    <span>
+                        <?php echo esc_html($msg); ?>
+                        <?php if ($flash_err !== '' && $kind === 'err'): ?>
+                            <span class="bcn-flash-err"> &mdash; <?php echo esc_html($flash_err); ?></span>
+                        <?php endif; ?>
+                    </span>
+                </div>
+            <?php endif; ?>
 
             <?php if (!$res['ok']):
                 $is_404 = ($res['status'] ?? 0) === 404;
@@ -258,22 +367,85 @@ class Bynli_Connect_Tickets {
                     </article>
                 <?php endforeach; endif; ?>
 
+                <?php if ($st !== 'resolved'): ?>
                 <footer class="bcn-thread-foot">
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="bcn-reply-form">
+                        <input type="hidden" name="action"     value="bynli_connect_ticket_reply">
+                        <input type="hidden" name="ticket_ref" value="<?php echo esc_attr((string)($ticket['ticket_ref'] ?? $ref)); ?>">
+                        <?php wp_nonce_field(self::NONCE_REPLY . '_' . ((string)($ticket['ticket_ref'] ?? $ref))); ?>
+
+                        <label class="bcn-label" for="bcn-reply-body"><?php esc_html_e('Reply', 'bynli-connect'); ?></label>
+                        <textarea id="bcn-reply-body" name="reply_body" rows="4"
+                                  class="bcn-input bcn-textarea" maxlength="5000"
+                                  placeholder="<?php esc_attr_e('Write a reply…', 'bynli-connect'); ?>"
+                                  required></textarea>
+                        <?php
+                        // Show the WP user the plugin will attribute this
+                        // reply to — Bynli labels the thread with it AND
+                        // routes staff follow-up emails to this address.
+                        $current = wp_get_current_user();
+                        $who_name  = $current && $current->exists() ? (string)$current->display_name : '';
+                        $who_email = $current && $current->exists() ? (string)$current->user_email   : '';
+                        ?>
+                        <p class="bcn-hint">
+                            <?php
+                            if ($who_email !== '') {
+                                printf(
+                                    /* translators: %1$s: display name, %2$s: email */
+                                    esc_html__('Posted as %1$s (%2$s). Bynli staff will email this address with any reply.', 'bynli-connect'),
+                                    esc_html($who_name ?: $who_email),
+                                    esc_html($who_email)
+                                );
+                            } else {
+                                esc_html_e('Posted as your connected WordPress site.', 'bynli-connect');
+                            }
+                            ?>
+                            <?php esc_html_e('Max 5000 characters.', 'bynli-connect'); ?>
+                        </p>
+
+                        <div class="bcn-reply-actions">
+                            <button type="submit" class="bcn-btn bcn-btn-primary">
+                                <?php esc_html_e('Send reply', 'bynli-connect'); ?>
+                            </button>
+                            <a class="bcn-btn" href="<?php echo esc_url('https://bynli.com/dash/support/center?tx=' . rawurlencode((string)($ticket['ticket_ref'] ?? $ref))); ?>" target="_blank" rel="noopener">
+                                <?php esc_html_e('Open on Bynli', 'bynli-connect'); ?>
+                                <span class="dashicons dashicons-external"></span>
+                            </a>
+                        </div>
+                    </form>
+
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="bcn-resolve-form"
+                          onsubmit="return confirm('<?php echo esc_js(__('Mark this ticket resolved? Staff will see the close on their side.', 'bynli-connect')); ?>');">
+                        <input type="hidden" name="action"     value="bynli_connect_ticket_resolve">
+                        <input type="hidden" name="ticket_ref" value="<?php echo esc_attr((string)($ticket['ticket_ref'] ?? $ref)); ?>">
+                        <?php wp_nonce_field(self::NONCE_RESOLVE . '_' . ((string)($ticket['ticket_ref'] ?? $ref))); ?>
+
+                        <details class="bcn-resolve-details">
+                            <summary><?php esc_html_e('Mark resolved', 'bynli-connect'); ?></summary>
+                            <label class="bcn-label" for="bcn-resolve-note"><?php esc_html_e('Optional final note', 'bynli-connect'); ?></label>
+                            <textarea id="bcn-resolve-note" name="resolve_note" rows="2"
+                                      class="bcn-input bcn-textarea" maxlength="5000"
+                                      placeholder="<?php esc_attr_e('e.g. Got it working — thanks!', 'bynli-connect'); ?>"></textarea>
+                            <p class="bcn-hint"><?php esc_html_e('If filled, posted as a final reply before closing the ticket.', 'bynli-connect'); ?></p>
+                            <button type="submit" class="bcn-btn">
+                                <?php esc_html_e('Mark resolved', 'bynli-connect'); ?>
+                            </button>
+                        </details>
+                    </form>
+                </footer>
+                <?php else: ?>
+                <footer class="bcn-thread-foot">
+                    <p class="bcn-thread-resolved"><?php
+                        printf(esc_html__('Resolved %s — thread closed. Open on Bynli to reopen if needed.', 'bynli-connect'), esc_html(self::human_when($resolved !== '' ? $resolved : ($ticket['updated_at'] ?? ''))));
+                    ?></p>
                     <p>
-                        <?php esc_html_e('Reply or resolve from the WordPress side is coming in a later release. For now, open the ticket on Bynli to respond:', 'bynli-connect'); ?>
-                    </p>
-                    <p>
-                        <a class="bcn-btn bcn-btn-primary" href="<?php echo esc_url('https://bynli.com/dash/support/center?tx=' . rawurlencode((string)($ticket['ticket_ref'] ?? $ref))); ?>" target="_blank" rel="noopener">
-                            <?php esc_html_e('Open ticket on Bynli', 'bynli-connect'); ?>
+                        <a class="bcn-btn" href="<?php echo esc_url('https://bynli.com/dash/support/center?tx=' . rawurlencode((string)($ticket['ticket_ref'] ?? $ref))); ?>" target="_blank" rel="noopener">
+                            <?php esc_html_e('Open on Bynli', 'bynli-connect'); ?>
                             <span class="dashicons dashicons-external"></span>
                         </a>
                     </p>
-                    <?php if ($resolved !== ''): ?>
-                        <p class="bcn-thread-resolved"><?php
-                            printf(esc_html__('Resolved %s', 'bynli-connect'), esc_html(self::human_when($resolved)));
-                        ?></p>
-                    <?php endif; ?>
                 </footer>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
         <?php

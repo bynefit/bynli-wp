@@ -4,7 +4,7 @@ Tags:              bynli, integration, hosting, metering, shortcodes
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.5.0
+Stable tag:        0.6.1
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,15 @@ Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in
 No. The `bynli.js` loader is only enqueued on pages where at least one shortcode is present.
 
 == Changelog ==
+
+= 0.6.1 =
+* **Improved:** Replies + Mark resolved now send the active WordPress user's display name and email to Bynli. Threads show the actual person who replied (instead of just the site host), and Bynli staff can email that person back even if they have no Bynli account.
+* The reply form now shows which WP user the reply will be posted as, with the email Bynli will use for follow-ups.
+
+= 0.6.0 =
+* **New:** Reply to support tickets directly from the **Bynli Tickets** page. Posts as your connected WordPress site — no specific Bynli user attribution (that's coming in a later release).
+* **New:** "Mark resolved" action with an optional final note. Idempotent — double-clicking is safe.
+* **New:** `Bynli_Connect_Api::post()` helper for signed POSTs (sibling to `::get()`). Reused by reply and resolve; available for future write surfaces.
 
 = 0.5.0 =
 * **New:** **Bynli Tickets** page in Settings — see your team's open support tickets and read the full thread without leaving WordPress. Auth uses the existing site-host key; no new credentials. Reply / resolve from WordPress come in a later release; for now those still happen on Bynli.
