@@ -788,3 +788,91 @@
     color: #166534;
     font-size: 0.85rem;
 }
+
+/* ─ Tickets — write surface (bynli#1208 v0.6) ────────────────────── */
+
+.bcn-tickets .bcn-thread-foot {
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.bcn-reply-form,
+.bcn-resolve-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bcn-textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.16);
+    background: #fff;
+    color: var(--bcn-text-1, #1a1f2b);
+    resize: vertical;
+    min-height: 90px;
+}
+
+.bcn-textarea:focus {
+    outline: 2px solid var(--bcn-gold, #d4933a);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+
+.bcn-reply-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.bcn-resolve-details {
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+
+.bcn-resolve-details > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--bcn-text-1, #1a1f2b);
+    padding: 4px 0;
+    list-style: none;
+}
+
+.bcn-resolve-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.bcn-resolve-details > summary::after {
+    content: '▾';
+    margin-left: 6px;
+    color: var(--bcn-text-2, #5b6473);
+    transition: transform 0.18s ease;
+    display: inline-block;
+}
+
+.bcn-resolve-details[open] > summary::after {
+    transform: rotate(180deg);
+}
+
+.bcn-resolve-details[open] {
+    padding-bottom: 14px;
+}
+
+.bcn-resolve-details > * + * {
+    margin-top: 8px;
+}
+
+.bcn-flash-err {
+    color: rgba(0, 0, 0, 0.6);
+    font-weight: 400;
+}
