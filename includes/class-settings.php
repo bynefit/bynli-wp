@@ -32,7 +32,13 @@ class Bynli_Connect_Settings {
     }
 
     public function enqueue_assets(string $hook): void {
-        if ($hook !== 'settings_page_' . self::MENU_SLUG) return;
+        // Settings page + Tickets page share the same admin styles + fonts
+        // (bcn-* CSS lives in assets/admin.css). The Tickets page is also a
+        // submenu of options-general, so its hook is 'settings_page_<slug>'.
+        if (
+            $hook !== 'settings_page_' . self::MENU_SLUG
+            && $hook !== 'settings_page_' . Bynli_Connect_Tickets::MENU_SLUG
+        ) return;
         $base = plugins_url('assets/', BYNLI_CONNECT_PLUGIN_FILE);
         wp_enqueue_style('dashicons');
         wp_enqueue_style('bynli-connect-fonts',

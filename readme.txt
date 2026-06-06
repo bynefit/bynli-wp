@@ -4,7 +4,7 @@ Tags:              bynli, integration, hosting, metering, shortcodes
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.4.0
+Stable tag:        0.5.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,10 @@ Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in
 No. The `bynli.js` loader is only enqueued on pages where at least one shortcode is present.
 
 == Changelog ==
+
+= 0.5.0 =
+* **New:** **Bynli Tickets** page in Settings — see your team's open support tickets and read the full thread without leaving WordPress. Auth uses the existing site-host key; no new credentials. Reply / resolve from WordPress come in a later release; for now those still happen on Bynli.
+* **New:** `Bynli_Connect_Api::get()` helper — signed-GET path for any future read endpoint to reuse.
 
 = 0.4.0 =
 * **New:** `[bynli-events]` shortcode — drop an upcoming-events list anywhere on your WordPress site, sourced live from your Bynli team. Three render modes: `cards` (default), `list`, `bare`.

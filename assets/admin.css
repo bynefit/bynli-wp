@@ -603,3 +603,188 @@
     .bcn-onboard { padding: 22px 24px; }
     .bcn-onboard::before { left: 22px; top: 22px; }
 }
+
+/* ─ Tickets surface (bynli#1208 v0.5) ─────────────────────────────── */
+
+.bcn-tickets .bcn-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 14px 0 18px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.bcn-tickets .bcn-tab {
+    padding: 8px 14px;
+    border-radius: 6px 6px 0 0;
+    font-weight: 500;
+    color: var(--bcn-text-2, #5b6473);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+}
+
+.bcn-tickets .bcn-tab:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: var(--bcn-text-1, #1a1f2b);
+}
+
+.bcn-tickets .bcn-tab.is-active {
+    color: var(--bcn-text-1, #1a1f2b);
+    border-bottom-color: var(--bcn-gold, #d4933a);
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.bcn-tickets .bcn-empty {
+    padding: 32px;
+    text-align: center;
+    color: var(--bcn-text-2, #5b6473);
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 10px;
+}
+
+.bcn-ticket-table {
+    margin-top: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.bcn-ticket-table th,
+.bcn-ticket-table td {
+    vertical-align: top;
+    padding: 12px 14px;
+}
+
+.bcn-ticket-subj a {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.bcn-ticket-ref {
+    margin-left: 8px;
+    font-size: 0.75rem;
+    color: var(--bcn-text-2, #5b6473);
+}
+
+.bcn-ticket-preview {
+    margin: 6px 0 0;
+    font-size: 0.85rem;
+    color: var(--bcn-text-2, #5b6473);
+    max-width: 60ch;
+}
+
+.bcn-pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--bcn-text-1, #1a1f2b);
+}
+
+.bcn-pill-open        { background: rgba(212, 147, 58, 0.16); color: #8a5a16; }
+.bcn-pill-in_progress { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
+.bcn-pill-resolved    { background: rgba(34, 197, 94, 0.16); color: #166534; }
+
+.bcn-pill-pri-low    { background: rgba(0, 0, 0, 0.05); color: #555; }
+.bcn-pill-pri-normal { background: rgba(0, 0, 0, 0.06); color: #444; }
+.bcn-pill-pri-high   { background: rgba(212, 147, 58, 0.18); color: #8a5a16; }
+.bcn-pill-pri-urgent { background: rgba(220, 38, 38, 0.14); color: #991b1b; }
+
+.bcn-pill-staff      { background: rgba(20, 30, 50, 0.85); color: #f4eedb; }
+
+/* ─ Ticket detail ─────────────────────────────────────────────────── */
+
+.bcn-ticket-detail .bcn-header {
+    margin-bottom: 16px;
+}
+
+.bcn-ticket-title {
+    margin: 0 0 4px;
+    font-family: var(--bcn-display, "Bricolage Grotesque", system-ui, sans-serif);
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.bcn-ticket-meta {
+    margin: 0;
+    color: var(--bcn-text-2, #5b6473);
+    font-size: 0.85rem;
+}
+
+.bcn-ticket-status-chips {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.bcn-thread-msg {
+    margin: 14px 0;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: #fff;
+}
+
+.bcn-thread-msg--staff {
+    background: rgba(20, 30, 50, 0.04);
+    border-color: rgba(20, 30, 50, 0.12);
+}
+
+.bcn-thread-msg--customer {
+    background: rgba(212, 147, 58, 0.04);
+    border-color: rgba(212, 147, 58, 0.18);
+}
+
+.bcn-thread-msg-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+}
+
+.bcn-thread-msg-when {
+    color: var(--bcn-text-2, #5b6473);
+    font-size: 0.78rem;
+    margin-left: auto;
+}
+
+.bcn-thread-msg-body {
+    color: var(--bcn-text-1, #1a1f2b);
+    font-size: 0.94rem;
+    line-height: 1.6;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.bcn-thread-msg-att {
+    margin: 10px 0 0;
+    font-size: 0.82rem;
+    color: var(--bcn-text-2, #5b6473);
+}
+
+.bcn-thread-msg-att .dashicons {
+    color: var(--bcn-text-2, #5b6473);
+    vertical-align: middle;
+    margin-right: 2px;
+}
+
+.bcn-thread-msg-att-size {
+    color: var(--bcn-text-2, #5b6473);
+    opacity: 0.7;
+}
+
+.bcn-thread-foot {
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.bcn-thread-resolved {
+    margin-top: 14px;
+    color: #166534;
+    font-size: 0.85rem;
+}
