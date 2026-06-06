@@ -177,11 +177,100 @@
         });
     }
 
+    function wireAjaxForms() {
+        const forms = document.querySelectorAll('form.bcn-ajax-form');
+        if (!forms.length) return;
+        if (!cfg || !cfg.ajaxUrl) return;
+
+        forms.forEach((form) => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const action = form.getAttribute('data-bcn-action') || '';
+                if (!action) return;
+
+                const fb = form.querySelector('[data-role="feedback"]');
+                const submit = form.querySelector('[data-role="submit"]');
+                const origLabel = submit ? submit.textContent : '';
+
+                if (fb) {
+                    fb.hidden = true;
+                    fb.textContent = '';
+                    fb.className = 'bcn-form-feedback';
+                }
+                if (submit) {
+                    submit.disabled = true;
+                    submit.textContent = 'Sending…';
+                }
+
+                const fd = new FormData(form);
+                fd.append('action', action);
+
+                let res, body;
+                try {
+                    res = await fetch(cfg.ajaxUrl, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: fd,
+                    });
+                    body = await res.json().catch(() => null);
+                } catch (err) {
+                    if (fb) {
+                        fb.hidden = false;
+                        fb.classList.add('is-err');
+                        fb.textContent = 'Network error — please try again.';
+                    }
+                    if (submit) {
+                        submit.disabled = false;
+                        submit.textContent = origLabel;
+                    }
+                    return;
+                }
+
+                if (body && body.success) {
+                    const detailUrl = body.data && body.data.detail_url;
+                    if (detailUrl) {
+                        window.location.href = detailUrl;
+                        return;
+                    }
+                    if (fb) {
+                        fb.hidden = false;
+                        fb.classList.add('is-ok');
+                        fb.textContent = 'Sent.';
+                    }
+                    form.reset();
+                } else {
+                    const msg = (body && body.data && body.data.message)
+                        ? body.data.message
+                        : 'Request failed. Please try again.';
+                    if (fb) {
+                        fb.hidden = false;
+                        fb.classList.add('is-err');
+                        fb.textContent = msg;
+                    }
+                    const field = body && body.data && body.data.field;
+                    if (field) {
+                        const inputName = ({ subject: 'ticket_subject', body: 'ticket_body' })[field];
+                        if (inputName) {
+                            const el = form.querySelector('[name="' + inputName + '"]');
+                            if (el && typeof el.focus === 'function') el.focus();
+                        }
+                    }
+                }
+
+                if (submit) {
+                    submit.disabled = false;
+                    submit.textContent = origLabel;
+                }
+            });
+        });
+    }
+
     ready(() => {
         wireRevealToggles();
         wireCopyButtons();
         wireKeyValidation();
         wireHeartbeat();
         wireDisconnect();
+        wireAjaxForms();
     });
 })();

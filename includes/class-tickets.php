@@ -16,11 +16,18 @@ class Bynli_Connect_Tickets {
     const MENU_SLUG       = 'bynli-connect-tickets';
     const NONCE_REPLY     = 'bynli_connect_ticket_reply';
     const NONCE_RESOLVE   = 'bynli_connect_ticket_resolve';
+    const NONCE_NEW       = 'bynli_connect_ticket_new';
 
     public function __construct() {
         add_action('admin_menu',                                [$this, 'register_menu'], 11);
         add_action('admin_post_bynli_connect_ticket_reply',     [$this, 'handle_reply']);
         add_action('admin_post_bynli_connect_ticket_resolve',   [$this, 'handle_resolve']);
+        // handle_new is AJAX-only — no admin-post variant. Bynli coding
+        // standards forbid redirect-after-POST for state changes; the new
+        // ticket form submits via admin-ajax, JS shows inline errors, and
+        // on success the JS navigates to the new ticket's detail page
+        // (legit "resource just created" exception, not a reload).
+        add_action('wp_ajax_bynli_connect_ticket_new',          [$this, 'handle_new']);
     }
 
     public function register_menu(): void {
@@ -111,6 +118,81 @@ class Bynli_Connect_Tickets {
         exit;
     }
 
+    /**
+     * AJAX handler — open a new ticket from wp-admin. (bynli#1208 v0.7)
+     *
+     * Site-attributed via the host key; subject/body/category come from
+     * the form. Categories are restricted to the four the server accepts
+     * from a host-key flow (technical / billing / general / account).
+     *
+     * Returns JSON via wp_send_json_*. The form's JS handler renders the
+     * error inline on failure and navigates to the new ticket's detail
+     * view (?result=opened) on success — that navigation is the "user
+     * just created a resource, take them there" exception to the no-
+     * redirect-after-POST rule.
+     */
+    public function handle_new(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('You do not have permission to open tickets.', 'bynli-connect')], 403);
+        }
+        if (!check_ajax_referer(self::NONCE_NEW, '_ajax_nonce', false)) {
+            wp_send_json_error(['message' => __('Security check failed. Reload the page and try again.', 'bynli-connect')], 403);
+        }
+
+        $subject  = isset($_POST['ticket_subject']) ? trim(wp_unslash((string)$_POST['ticket_subject'])) : '';
+        $body     = isset($_POST['ticket_body'])    ? trim(wp_unslash((string)$_POST['ticket_body']))    : '';
+        $category = isset($_POST['ticket_category']) ? sanitize_text_field((string)$_POST['ticket_category']) : 'general';
+
+        $allowed_cats = ['technical', 'billing', 'general', 'account'];
+        if (!in_array($category, $allowed_cats, true)) $category = 'general';
+
+        if ($subject === '' || mb_strlen($subject) < 3) {
+            wp_send_json_error([
+                'message' => __('Subject is required (at least 3 characters).', 'bynli-connect'),
+                'field'   => 'subject',
+            ], 400);
+        }
+        if ($body === '') {
+            wp_send_json_error([
+                'message' => __('Message is required.', 'bynli-connect'),
+                'field'   => 'body',
+            ], 400);
+        }
+
+        $payload = [
+            'subject'  => $subject,
+            'body'     => $body,
+            'category' => $category,
+        ];
+        $wp_user = wp_get_current_user();
+        if ($wp_user && $wp_user->exists()) {
+            if (!empty($wp_user->user_email))   $payload['wp_user_email'] = (string)$wp_user->user_email;
+            if (!empty($wp_user->display_name)) $payload['wp_user_name']  = (string)$wp_user->display_name;
+        }
+
+        $res = Bynli_Connect_Api::post('/api/site-host/tickets', $payload);
+
+        if (!$res['ok']) {
+            $status = is_int($res['status'] ?? null) && $res['status'] >= 400 && $res['status'] < 600
+                ? (int)$res['status']
+                : 502;
+            wp_send_json_error([
+                'message' => (string)($res['message'] ?? __('Could not open the ticket.', 'bynli-connect')),
+            ], $status);
+        }
+
+        $ref = (string)($res['data']['ticket_ref'] ?? '');
+        $list_base = admin_url('options-general.php?page=' . self::MENU_SLUG);
+        $detail_url = $ref !== '' && preg_match('/^[A-Za-z0-9_-]{3,64}$/', $ref)
+            ? add_query_arg(['ticket_ref' => $ref, 'result' => 'opened'], $list_base)
+            : add_query_arg(['result' => 'opened'], $list_base);
+
+        wp_send_json_success([
+            'ticket_ref' => $ref,
+            'detail_url' => $detail_url,
+        ]);
+    }
+
     /** Top-level renderer — routes to list or detail based on ?ticket_ref=. */
     public function render(): void {
         if (!current_user_can('manage_options')) wp_die('Forbidden.', 403);
@@ -154,6 +236,9 @@ class Bynli_Connect_Tickets {
 
         $res = Bynli_Connect_Api::get('/api/site-host/tickets', ['status' => $status]);
 
+        $flash_result = isset($_GET['result']) ? sanitize_text_field((string)$_GET['result']) : '';
+        $form_open    = isset($_GET['new']) && $_GET['new'] === '1';
+
         ?>
         <div class="wrap bcn-wrap bcn-tickets">
             <header class="bcn-header">
@@ -162,11 +247,86 @@ class Bynli_Connect_Tickets {
                     <span class="bcn-divider-v" aria-hidden="true"></span>
                     <span class="bcn-product">Support tickets</span>
                 </div>
-                <a class="bcn-btn" href="https://bynli.com/dash/support/center" target="_blank" rel="noopener">
-                    Open new ticket
-                    <span class="dashicons dashicons-external"></span>
+                <a class="bcn-btn" href="<?php echo esc_url(add_query_arg(['new' => '1'], menu_page_url(self::MENU_SLUG, false))); ?>#bcn-new-ticket">
+                    <span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span>
+                    <?php esc_html_e('Open new ticket', 'bynli-connect'); ?>
                 </a>
             </header>
+
+            <?php
+            // Only 'opened' lands here as a flash — errors no longer
+            // redirect (Bynli AJAX standard); JS shows them inline on
+            // the form below.
+            if ($flash_result === 'opened'):
+            ?>
+                <div class="bcn-notice bcn-notice-ok">
+                    <span class="dashicons dashicons-yes-alt"></span>
+                    <span><?php esc_html_e('Ticket opened. Bynli support will be notified.', 'bynli-connect'); ?></span>
+                </div>
+            <?php endif; ?>
+
+            <details id="bcn-new-ticket" class="bcn-new-ticket"<?php echo $form_open ? ' open' : ''; ?>>
+                <summary><?php esc_html_e('Open a new ticket from this site', 'bynli-connect'); ?></summary>
+                <form class="bcn-new-ticket-form bcn-ajax-form"
+                      data-bcn-action="bynli_connect_ticket_new"
+                      novalidate>
+                    <input type="hidden" name="_ajax_nonce" value="<?php echo esc_attr(wp_create_nonce(self::NONCE_NEW)); ?>" />
+
+                    <div class="bcn-form-feedback" data-role="feedback" hidden></div>
+
+                    <p class="bcn-field">
+                        <label for="bcn-new-subject"><?php esc_html_e('Subject', 'bynli-connect'); ?></label>
+                        <input type="text" id="bcn-new-subject" name="ticket_subject"
+                               maxlength="200" minlength="3" required
+                               placeholder="<?php esc_attr_e('Short summary of the problem', 'bynli-connect'); ?>" />
+                    </p>
+
+                    <p class="bcn-field">
+                        <label for="bcn-new-category"><?php esc_html_e('Category', 'bynli-connect'); ?></label>
+                        <select id="bcn-new-category" name="ticket_category">
+                            <?php
+                            $cats = [
+                                'technical' => __('Technical — something on the site is broken', 'bynli-connect'),
+                                'billing'   => __('Billing — questions about an invoice or charge', 'bynli-connect'),
+                                'account'   => __('Account — access, roles, or settings', 'bynli-connect'),
+                                'general'   => __('General — anything else', 'bynli-connect'),
+                            ];
+                            foreach ($cats as $key => $label):
+                            ?>
+                                <option value="<?php echo esc_attr($key); ?>"<?php selected('general', $key); ?>>
+                                    <?php echo esc_html($label); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </p>
+
+                    <p class="bcn-field">
+                        <label for="bcn-new-body"><?php esc_html_e('Message', 'bynli-connect'); ?></label>
+                        <textarea id="bcn-new-body" name="ticket_body" rows="6" maxlength="5000" required
+                                  placeholder="<?php esc_attr_e('Describe what you need help with. Bynli staff will see this immediately.', 'bynli-connect'); ?>"></textarea>
+                        <span class="bcn-field-hint">
+                            <?php
+                            $wp_user = wp_get_current_user();
+                            if ($wp_user && $wp_user->exists() && !empty($wp_user->user_email)) {
+                                printf(
+                                    esc_html__('Posting as %1$s (%2$s). Bynli staff will email this address with any reply.', 'bynli-connect'),
+                                    esc_html($wp_user->display_name ?: $wp_user->user_login),
+                                    esc_html($wp_user->user_email)
+                                );
+                            } else {
+                                esc_html_e('Bynli staff will reply to this WordPress site.', 'bynli-connect');
+                            }
+                            ?>
+                        </span>
+                    </p>
+
+                    <p class="bcn-actions">
+                        <button type="submit" class="button button-primary" data-role="submit">
+                            <?php esc_html_e('Send to Bynli support', 'bynli-connect'); ?>
+                        </button>
+                    </p>
+                </form>
+            </details>
 
             <nav class="bcn-tabs" aria-label="Ticket status filter">
                 <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'all' => 'All'] as $k => $label):
@@ -195,8 +355,8 @@ class Bynli_Connect_Tickets {
                             ? esc_html__('No open tickets right now. ', 'bynli-connect')
                             : esc_html__('No tickets matching this filter. ', 'bynli-connect');
                         ?>
-                        <a href="https://bynli.com/dash/support/center" target="_blank" rel="noopener">
-                            Open a new ticket on Bynli
+                        <a href="<?php echo esc_url(add_query_arg(['new' => '1'], menu_page_url(self::MENU_SLUG, false))); ?>#bcn-new-ticket">
+                            <?php esc_html_e('Open a new one from this site', 'bynli-connect'); ?>
                         </a>.
                     </p>
                 <?php else: ?>
@@ -261,6 +421,7 @@ class Bynli_Connect_Tickets {
             // Flash strip — only renders for known result codes so a tampered
             // query string can't paint arbitrary HTML.
             $flash_map = [
+                'opened'          => ['ok',   __('Ticket opened. Bynli support will be notified.', 'bynli-connect')],
                 'replied'         => ['ok',   __('Reply posted. Bynli support will be notified.', 'bynli-connect')],
                 'resolved'        => ['ok',   __('Ticket marked resolved. Bynli will close it on their side.', 'bynli-connect')],
                 'empty'           => ['warn', __('Reply cannot be empty.', 'bynli-connect')],

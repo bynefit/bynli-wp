@@ -4,7 +4,7 @@ Tags:              bynli, integration, hosting, metering, shortcodes
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.6.1
+Stable tag:        0.7.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,12 @@ Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in
 No. The `bynli.js` loader is only enqueued on pages where at least one shortcode is present.
 
 == Changelog ==
+
+= 0.7.0 =
+* **New:** Open a support ticket from WordPress. The **Bynli Tickets** page has an "Open new ticket" panel (subject + category + message); submissions are site-attributed and immediately visible to Bynli staff. No more bouncing to bynli.com to file a ticket.
+* Categories supported from WordPress: Technical, Billing, Account, General. Payment + dispute tickets still need to be opened from bynli.com (they require a transaction reference).
+* The form names the WordPress user the ticket will be filed as, with the email Bynli staff will reply to.
+* Submission is AJAX — validation errors render inline; on success the new ticket's detail view opens automatically.
 
 = 0.6.1 =
 * **Improved:** Replies + Mark resolved now send the active WordPress user's display name and email to Bynli. Threads show the actual person who replied (instead of just the site host), and Bynli staff can email that person back even if they have no Bynli account.
