@@ -60,9 +60,18 @@ class Bynli_Connect_Tickets {
             exit;
         }
 
-        $res = Bynli_Connect_Api::post('/api/site-host/tickets/' . rawurlencode($ref) . '/reply', [
-            'body' => $body,
-        ]);
+        // Attribute the reply to the WP user who clicked send so Bynli
+        // can label it on the thread + route follow-up support emails
+        // back to them, even if they have no Bynli account.
+        // (bynli#1208 followup — bynli#1249)
+        $payload = ['body' => $body];
+        $wp_user = wp_get_current_user();
+        if ($wp_user && $wp_user->exists()) {
+            if (!empty($wp_user->user_email))   $payload['wp_user_email'] = (string)$wp_user->user_email;
+            if (!empty($wp_user->display_name)) $payload['wp_user_name']  = (string)$wp_user->display_name;
+        }
+
+        $res = Bynli_Connect_Api::post('/api/site-host/tickets/' . rawurlencode($ref) . '/reply', $payload);
         $args = ['result' => $res['ok'] ? 'replied' : 'reply_failed'];
         if (!$res['ok']) $args['err'] = rawurlencode((string)($res['message'] ?? 'unknown'));
         wp_safe_redirect(add_query_arg($args, $base));
@@ -85,6 +94,14 @@ class Bynli_Connect_Tickets {
         check_admin_referer(self::NONCE_RESOLVE . '_' . $ref);
 
         $payload = $note !== '' ? ['note' => $note] : [];
+        // WP user identity attached to the optional final note + the
+        // resolve audit log on Bynli. Same plumbing as handle_reply.
+        $wp_user = wp_get_current_user();
+        if ($wp_user && $wp_user->exists()) {
+            if (!empty($wp_user->user_email))   $payload['wp_user_email'] = (string)$wp_user->user_email;
+            if (!empty($wp_user->display_name)) $payload['wp_user_name']  = (string)$wp_user->display_name;
+        }
+
         $res = Bynli_Connect_Api::post('/api/site-host/tickets/' . rawurlencode($ref) . '/resolve', $payload);
 
         $base = admin_url('options-general.php?page=' . self::MENU_SLUG . '&ticket_ref=' . rawurlencode($ref));
@@ -362,8 +379,27 @@ class Bynli_Connect_Tickets {
                                   class="bcn-input bcn-textarea" maxlength="5000"
                                   placeholder="<?php esc_attr_e('Write a reply…', 'bynli-connect'); ?>"
                                   required></textarea>
+                        <?php
+                        // Show the WP user the plugin will attribute this
+                        // reply to — Bynli labels the thread with it AND
+                        // routes staff follow-up emails to this address.
+                        $current = wp_get_current_user();
+                        $who_name  = $current && $current->exists() ? (string)$current->display_name : '';
+                        $who_email = $current && $current->exists() ? (string)$current->user_email   : '';
+                        ?>
                         <p class="bcn-hint">
-                            <?php esc_html_e('Posted as your connected WordPress site — not attributed to a specific user.', 'bynli-connect'); ?>
+                            <?php
+                            if ($who_email !== '') {
+                                printf(
+                                    /* translators: %1$s: display name, %2$s: email */
+                                    esc_html__('Posted as %1$s (%2$s). Bynli staff will email this address with any reply.', 'bynli-connect'),
+                                    esc_html($who_name ?: $who_email),
+                                    esc_html($who_email)
+                                );
+                            } else {
+                                esc_html_e('Posted as your connected WordPress site.', 'bynli-connect');
+                            }
+                            ?>
                             <?php esc_html_e('Max 5000 characters.', 'bynli-connect'); ?>
                         </p>
 
