@@ -962,3 +962,22 @@
     font-size: 0.85rem;
     color: var(--bcn-text-2, #5b6473);
 }
+
+.bcn-form-feedback {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.bcn-form-feedback.is-ok {
+    background: rgba(29, 138, 78, 0.08);
+    border: 1px solid rgba(29, 138, 78, 0.35);
+    color: #155a36;
+}
+
+.bcn-form-feedback.is-err {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #8a1f1f;
+}
