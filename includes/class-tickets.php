@@ -1,16 +1,6 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
 
-/**
- * Bynli_Connect_Tickets — WP-admin surface for the team's Bynli support
- * tickets. v0.5 read-only (bynli#1208) — list view + thread reader. Reply
- * + resolve come in v0.6 via separate POST endpoints.
- *
- * Registers as a submenu page under the existing Settings → Bynli Connect
- * entry (keeps the plugin's admin footprint to one parent). The page reads
- * from /api/site-host/tickets and /api/site-host/tickets/{ref} using the
- * existing site-host key — no extra credentials to set up.
- */
 class Bynli_Connect_Tickets {
 
     const MENU_SLUG       = 'bynli-connect-tickets';
@@ -237,7 +227,7 @@ class Bynli_Connect_Tickets {
         ?>
         <div class="wrap bcn-wrap">
             <h1>Bynli Support Tickets</h1>
-            <div class="bcn-notice bcn-notice-warn" style="margin-top:16px">
+            <div class="bcn-notice bcn-notice-warn bcn-pad-top">
                 <span class="dashicons dashicons-warning"></span>
                 <span>
                     No Bynli site-host key configured yet —
