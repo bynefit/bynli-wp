@@ -1,6 +1,6 @@
 === Bynli Connect ===
 Contributors:      bynefit
-Tags:              bynli, integration, hosting, metering, shortcodes
+Tags:              bynli, tickets, support, shortcodes, integration
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
@@ -8,51 +8,75 @@ Stable tag:        0.8.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
-Connect a WordPress site to a Bynli team — daily usage reporting and inline Bynli shortcodes for forms, modals, toasts, confirms, and the floating widget.
+Bring your Bynli team into WordPress — answer support tickets, drop in live forms, events, and donate cards, and let Bynli auto-update the plugin for you.
 
 == Description ==
 
-Bynli Connect is the official WordPress plugin for [Bynli](https://bynli.com). Install it on any WordPress site that Bynli manages on behalf of your team, paste your per-site API key from `/dash/sites/host-keys`, and the plugin will:
+Hook this site up to your Bynli team. One key, and Bynli shows up where you already are.
 
-* Report daily storage usage to Bynli (no personal data leaves your site — just byte counts and version info).
-* Send a heartbeat from the admin so you can verify the connection is alive.
-* Expose shortcodes for embedding Bynli features inline anywhere in WordPress.
+Here's what lights up the moment you save the key:
 
-This plugin does **not** alter your site's content, change permalinks, or modify any other plugin's behaviour. The shortcodes are inert until placed in a post or page.
+* **Your support tickets, in wp-admin.** Open Settings → Bynli Tickets. See every open thread, read the full conversation, reply in place, mark resolved with a closing note, or open a brand new ticket — no bouncing to bynli.com.
+* **Bynli features inside posts.** Drop a single shortcode and a Bynli form, events list, donate card, modal, confirm, toast, or floating widget renders live from your team's data. The runtime only loads on pages that actually use one.
+* **Daily usage reports.** Bytes and version strings, that's it — no user data, no post content, no visitor info ever leaves your site.
+* **Auto-updates from Bynli.** New version drops on Bynli, WordPress sees it on **Plugins → Updates**. No swapping zips, no FTP.
 
-== Shortcodes (v0.2) ==
+This plugin does **not** change your content, modify permalinks, or override any other plugin. The shortcodes are inert until you place them in a post or page.
+
+Connect your site once, and the rest of Bynli quietly follows you into WordPress.
+
+== Shortcodes ==
 
 = [bynli-form] =
 
-One-line embed of a Bynli form. The form ID comes from `/dash/forms` on Bynli.
+A Bynli form, in one line.
 
 `[bynli-form id="frm_abc123"]`
 
-Optional attributes:
+Optional:
+
 * `style="default"` — `default`, `bootstrap`, or `bare`
 * `success="Thanks — we'll be in touch."` — message shown after submit
 * `success_mode="toast"` — `toast`, `replace`, or `hide`
 
+= [bynli-events] =
+
+Live upcoming events from your team. Pulls from Bynli the moment the page renders.
+
+`[bynli-events team="your-team" limit="5" style="cards"]`
+
+* `style` — `cards` (default), `list`, or `bare`
+* `scope` — `upcoming` (default) or `past`
+* `limit` — 1 to 50
+
+= [bynli-donate] =
+
+A donation card with preset amounts + a custom amount input. Routes straight to Bynli's existing donation flow.
+
+`[bynli-donate team="your-team" amounts="10,25,50,100" default_amount="25" cause="general"]`
+
+* `style` — `card` (default) or `button`
+* `cause_label` — friendly label shown to donors
+* `modal="1"` — open the donation form in an iframe modal instead of navigating
+
 = [bynli-modal] =
 
-Click-to-open modal trigger.
+Click-to-open modal.
 
 `[bynli-modal label="Read more" title="Welcome" body="Thanks for stopping by."]`
 
-Optional attributes:
-* `confirm="Got it"` — primary button label
-* `cancel="Cancel"` — cancel button label
-* `href="/somewhere"` — URL to follow when confirm is clicked
+* `confirm`, `cancel` — button labels
+* `href` — where to go when the user confirms
 
 = [bynli-confirm] =
 
-Confirm-before-navigation prompt.
+Confirm-before-navigate.
 
 `[bynli-confirm label="Sign out" message="Sign out now?" yes="Sign out" href="/logout" danger="1"]`
 
 = [bynli-toast] =
 
-A toast notification. Fires on page load by default, or on click.
+A toast notification.
 
 `[bynli-toast message="Welcome back!" kind="success"]`
 `[bynli-toast message="Heads up" kind="warning" on="click" label="Show note"]`
@@ -65,30 +89,46 @@ The floating Bynli widget bubble.
 
 `[bynli-widget team="your-team"]`
 
-Optional attributes: `position`, `label`.
+Optional: `position`, `label`.
 
 == Installation ==
 
-1. Upload `bynli-connect.zip` via Plugins → Add New → Upload, or copy the folder into `wp-content/plugins/`.
+1. Upload `bynli-connect.zip` via **Plugins → Add New → Upload**, or copy the folder into `wp-content/plugins/`.
 2. Activate the plugin.
-3. In your Bynli dashboard, open `/dash/sites/host-keys`, pick your `wp_managed` site, and click **Generate key**. Copy the plaintext key once — it isn't shown again.
-4. In WordPress: Settings → Bynli Connect. Paste the key. Save.
-5. Click **Send heartbeat** to verify the connection.
-6. Add any shortcode (e.g. `[bynli-form id="frm_xxx"]`) to a post or page.
+3. In your Bynli dashboard, open `/dash/sites/host-keys`, pick this site, and click **Generate key**. Copy the plaintext key once — Bynli won't show it again.
+4. WordPress: **Settings → Bynli Connect**. Paste the key. Save.
+5. Click **Send heartbeat** to confirm Bynli is hearing you.
+6. Now you're connected. Add a shortcode to any post — or hop over to **Settings → Bynli Tickets** if you have open support threads.
 
 == Frequently Asked Questions ==
 
 = Does this send any personal data? =
 
-No. The plugin reports only byte counts, request counts, and version strings. No user data, post content, or visitor information is transmitted.
+No. The plugin reports byte counts, request counts, and version strings. No user data, no post content, no visitor information ever leaves your site.
 
-= What if my key is compromised? =
+= What if my API key is compromised? =
 
-Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in Settings → Bynli Connect, save. The old key stops working immediately.
+Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in **Settings → Bynli Connect**, save. The old key stops working the instant Bynli marks it revoked.
 
-= Does Bynli's runtime load on every page? =
+= Does the Bynli runtime load on every page? =
 
-No. The `bynli.js` loader is only enqueued on pages where at least one shortcode is present.
+No. The `bynli.js` loader only enqueues on pages that actually use a Bynli shortcode. Empty pages stay untouched.
+
+= Can I reply to tickets from WordPress, or do I still need to go to bynli.com? =
+
+You can do both. Replies, resolves, and new tickets all work from WordPress — and they're attributed to the WordPress user who clicked send, so Bynli staff see who answered and can email that person back. The full ticket history (attachments, payment refs, transaction-tied tickets) still lives on bynli.com when you need the long view.
+
+= How do updates work? =
+
+The plugin polls Bynli every 12 hours for a version manifest. When a new version is available, WordPress shows it on **Plugins → Updates** like any other plugin. Hit **Update now** — that's it. No WordPress.org account, no FTP, no zip-swapping.
+
+= Can I disconnect a site without revoking the key? =
+
+Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from this install. Bynli's server-side key stays valid — visit `/dash/sites/host-keys` to revoke it there if you also want to kill it server-side.
+
+= Where do I get support for the plugin itself? =
+
+Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
 

@@ -1,84 +1,106 @@
-# Bynli Connect (WordPress plugin)
+# Bynli Connect for WordPress
 
-Official WordPress plugin for [Bynli](https://bynli.com). Connects a WordPress site to a Bynli team for daily usage reporting and inline Bynli shortcodes.
+Hook a WordPress site up to your Bynli team. One key, and the rest of Bynli shows up where you already are.
 
-## What it does today (0.2.0)
+This is the plugin that runs on customer WordPress installs. Small surface, no nonsense:
 
-- **Daily usage report** to `POST https://bynli.com/api/site-host/report` — storage bytes, WP/PHP versions, home URL. No user data.
-- **Heartbeat test** from Settings → Bynli Connect to verify the connection.
-- **HMAC-signed** payloads with a per-site key issued by `/dash/sites/host-keys` on Bynli.
-- **Shortcodes**: `[bynli-form]`, `[bynli-modal]`, `[bynli-confirm]`, `[bynli-toast]`, `[bynli-widget]`.
-
-The `bynli.js` loader is enqueued only on pages where at least one shortcode is present.
-
-### Shortcode examples
-
-```
-[bynli-form id="frm_abc123"]
-[bynli-form id="frm_abc123" style="bootstrap" success="Thanks!" success_mode="toast"]
-
-[bynli-modal label="Read more" title="Welcome" body="Thanks for stopping by." confirm="Got it"]
-
-[bynli-confirm label="Sign out" message="Sign out now?" href="/logout" danger="1"]
-
-[bynli-toast message="Welcome back!" kind="success"]
-
-[bynli-widget team="your-team"]
-```
-
-## What's coming
-
-- `[bynli-events]` and `[bynli-donate]` (need new builders on the Bynli side first)
-- Bandwidth counting from server logs (when available)
-- Auto-update from WordPress.org plugin directory
+- **Your support tickets, in wp-admin.** Read the thread, reply, mark resolved, open a new one — without leaving WordPress. Replies and resolutions land instantly with no page reload.
+- **Daily usage reports to Bynli.** Storage bytes and WP/PHP versions. No user data, no post content, no visitor info. Bytes and version strings, that's it.
+- **Bynli features inside posts.** Drop a shortcode in any page and it renders live from your Bynli team's data.
+- **Auto-updates from Bynli.** New version lands on Bynli, WordPress sees it on Plugins → Updates. No more swapping zips by hand.
 
 ## Install
 
-1. Download `bynli-connect.zip` from the [Releases page](https://github.com/bynefit/bynli-wp/releases).
-2. WP admin → Plugins → Add New → Upload Plugin → choose the zip → Install Now → Activate.
-3. Settings → Bynli Connect → paste your API key (generated at `https://bynli.com/dash/sites/host-keys`).
-4. Click **Send heartbeat** to verify.
+1. Grab the latest `bynli-connect.zip` from [Releases](https://github.com/bynefit/bynli-wp/releases).
+2. WP admin → **Plugins → Add New → Upload Plugin** → pick the zip → **Activate**.
+3. Open [bynli.com/dash/sites/host-keys](https://bynli.com/dash/sites/host-keys) (you'll need to be signed in as a team admin), generate a key for this site, and copy it once — Bynli won't show it again.
+4. WP admin → **Settings → Bynli Connect** → paste the key → **Save** → **Send heartbeat** to confirm Bynli is hearing you.
 
-## Repo layout
+That's it. From here you can add any shortcode to any post or page.
 
+## Shortcodes — drop in, render live
+
+```text
+[bynli-form id="frm_abc123"]
+[bynli-events team="your-team" limit="5" style="cards"]
+[bynli-donate team="your-team" amounts="10,25,50,100" default_amount="25" cause="general"]
+[bynli-modal label="Read more" title="Welcome" body="Thanks for stopping by."]
+[bynli-confirm label="Sign out" message="Sign out now?" href="/logout"]
+[bynli-toast message="Welcome back!" kind="success"]
+[bynli-widget team="your-team"]
 ```
-bynli-connect.php          plugin entry, header, requires + bootstraps
-includes/
-  class-plugin.php         lifecycle (activation, cron schedule)
-  class-settings.php       admin settings page + test-heartbeat handler
-  class-reporter.php       wp_remote_post wrapper, daily cron handler
-  class-signer.php         HMAC-SHA256 signer
-  class-shortcodes.php     [bynli-form] / [bynli-modal] / [bynli-confirm] / [bynli-toast] / [bynli-widget]
-readme.txt                 WordPress.org-formatted readme
-```
 
-## Signing scheme (must match Bynli server)
+The `bynli.js` loader only enqueues on pages that actually use a shortcode — empty pages stay untouched.
 
-```
+Full reference: [bynli.com/guides/wordpress](https://bynli.com/guides/wordpress).
+
+## Tickets surface
+
+Once you're connected, **Settings → Bynli Tickets** lights up:
+
+- See every open, in-progress, or resolved ticket for your team.
+- Click a row to read the full thread, see attachments, and answer in place.
+- Mark a ticket resolved with an optional closing note.
+- Open a brand new ticket without bouncing to bynli.com.
+
+Replies and resolves are attributed to the WordPress user who clicked send — Bynli labels the thread accordingly and routes any follow-up email to the same address.
+
+## What this plugin does NOT do
+
+- It does **not** modify your site's content, change permalinks, or override other plugins.
+- It does **not** send anything visitor-related to Bynli. Storage and version numbers only.
+- It does **not** load `bynli.js` on pages without a shortcode.
+- It does **not** store the API key in plaintext anywhere visible — the settings page input is password-typed, with a deliberate one-tap reveal.
+
+## How it talks to Bynli
+
+Every call is a signed HTTP request to `bynli.com`. Two pieces:
+
+```text
 HMAC_SHA256( plaintext_key, timestamp + "\n" + body )
 ```
 
-Headers on every request:
-```
+```text
 Authorization:      Bearer <bynli_sh_...>
 X-Bynli-Timestamp:  <unix-seconds>
 X-Bynli-Signature:  sha256=<hex>
 Content-Type:       application/json
 ```
 
-Server rejects timestamps outside a 300-second window (replay protection).
+The Bynli server rejects timestamps outside a 5-minute window, so replay attacks need a tight clock.
 
-## Development
+## Repo layout
 
-This plugin has no build step — plain PHP. To work on it:
+```text
+bynli-connect.php             plugin entry — version, constants, bootstraps
+includes/
+  class-plugin.php            singleton + cron schedule
+  class-settings.php          settings page + heartbeat AJAX
+  class-signer.php            HMAC-SHA256
+  class-api.php               signed GET + POST helper
+  class-reporter.php          daily report + heartbeat
+  class-shortcodes.php        all seven shortcodes
+  class-tickets.php           Bynli Tickets submenu (list / detail / reply / resolve / new)
+  class-updater.php           self-update from /api/site-host/version
+assets/
+  admin.css                   bcn-* styles
+  admin.js                    wireAjaxForms + heartbeat + reveal toggle
+readme.txt                    WordPress.org-formatted readme
+```
+
+## Working on the plugin
+
+No build step. Plain PHP + vanilla JS.
 
 ```bash
 git clone https://github.com/bynefit/bynli-wp.git
 cd bynli-wp
-# symlink into a local WP install's wp-content/plugins/
+# symlink into a local WP install
 ln -s "$(pwd)" /path/to/wordpress/wp-content/plugins/bynli-connect
 ```
 
+Then activate via WP admin and point its API base at your dev Bynli (Settings → Bynli Connect → API base).
+
 ## License
 
-GPL-2.0-or-later. See `LICENSE`.
+GPL-2.0-or-later. See [`LICENSE`](LICENSE).
