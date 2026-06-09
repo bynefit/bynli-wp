@@ -177,6 +177,34 @@
         });
     }
 
+    const BCN_ON_SUCCESS = {
+        reply(form, data) {
+            if (!data || !data.message_html) return false;
+            const foot = form.closest('.bcn-thread-foot');
+            if (!foot || !foot.parentNode) return false;
+            const tmp = document.createElement('div');
+            tmp.innerHTML = String(data.message_html).trim();
+            const article = tmp.firstElementChild;
+            if (!article) return false;
+            foot.parentNode.insertBefore(article, foot);
+            const ta = form.querySelector('textarea[name="reply_body"]');
+            if (ta) ta.value = '';
+            if (typeof article.scrollIntoView === 'function') {
+                article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return true;
+        },
+        resolve(form, data) {
+            if (!data || !data.foot_html) return false;
+            const foot = form.closest('.bcn-thread-foot');
+            if (!foot) return false;
+            foot.innerHTML = String(data.foot_html);
+            return true;
+        },
+    };
+
+    const BCN_FIELD_MAP = { subject: 'ticket_subject', body: 'ticket_body' };
+
     function wireAjaxForms() {
         const forms = document.querySelectorAll('form.bcn-ajax-form');
         if (!forms.length) return;
@@ -185,6 +213,10 @@
         forms.forEach((form) => {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
+
+                const confirmMsg = form.getAttribute('data-bcn-confirm');
+                if (confirmMsg && !window.confirm(confirmMsg)) return;
+
                 const action = form.getAttribute('data-bcn-action') || '';
                 if (!action) return;
 
@@ -202,12 +234,19 @@
                     submit.textContent = 'Sending…';
                 }
 
+                const restoreSubmit = () => {
+                    if (submit) {
+                        submit.disabled = false;
+                        submit.textContent = origLabel;
+                    }
+                };
+
                 const fd = new FormData(form);
                 fd.append('action', action);
 
-                let res, body;
+                let body;
                 try {
-                    res = await fetch(cfg.ajaxUrl, {
+                    const res = await fetch(cfg.ajaxUrl, {
                         method: 'POST',
                         credentials: 'same-origin',
                         body: fd,
@@ -219,17 +258,32 @@
                         fb.classList.add('is-err');
                         fb.textContent = 'Network error — please try again.';
                     }
-                    if (submit) {
-                        submit.disabled = false;
-                        submit.textContent = origLabel;
-                    }
+                    restoreSubmit();
                     return;
                 }
 
                 if (body && body.success) {
-                    const detailUrl = body.data && body.data.detail_url;
-                    if (detailUrl) {
-                        window.location.href = detailUrl;
+                    const data = body.data || {};
+                    const onSuccess = form.getAttribute('data-bcn-on-success');
+                    if (onSuccess && typeof BCN_ON_SUCCESS[onSuccess] === 'function') {
+                        const handled = BCN_ON_SUCCESS[onSuccess](form, data);
+                        if (handled) {
+                            if (fb) {
+                                fb.hidden = false;
+                                fb.classList.add('is-ok');
+                                fb.textContent = 'Sent.';
+                                setTimeout(() => {
+                                    fb.hidden = true;
+                                    fb.textContent = '';
+                                    fb.className = 'bcn-form-feedback';
+                                }, 1800);
+                            }
+                            restoreSubmit();
+                            return;
+                        }
+                    }
+                    if (data.detail_url) {
+                        window.location.href = data.detail_url;
                         return;
                     }
                     if (fb) {
@@ -249,18 +303,13 @@
                     }
                     const field = body && body.data && body.data.field;
                     if (field) {
-                        const inputName = ({ subject: 'ticket_subject', body: 'ticket_body' })[field];
-                        if (inputName) {
-                            const el = form.querySelector('[name="' + inputName + '"]');
-                            if (el && typeof el.focus === 'function') el.focus();
-                        }
+                        const inputName = BCN_FIELD_MAP[field] || field;
+                        const el = form.querySelector('[name="' + inputName + '"]');
+                        if (el && typeof el.focus === 'function') el.focus();
                     }
                 }
 
-                if (submit) {
-                    submit.disabled = false;
-                    submit.textContent = origLabel;
-                }
+                restoreSubmit();
             });
         });
     }

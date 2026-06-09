@@ -4,7 +4,7 @@ Tags:              bynli, integration, hosting, metering, shortcodes
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.7.0
+Stable tag:        0.8.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -91,6 +91,10 @@ Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in
 No. The `bynli.js` loader is only enqueued on pages where at least one shortcode is present.
 
 == Changelog ==
+
+= 0.8.0 =
+* **Improved:** Replying and marking resolved on a ticket no longer reloads the page. Replies appear inline at the bottom of the thread the moment Bynli accepts them; marking resolved swaps the form area for the closed-thread banner in place. Validation and server errors show in the form, not as URL flash codes.
+* **Fix:** The "Open on Bynli" button on the ticket detail view now opens the Bynli support center landing instead of an unrelated form route. A direct deep-link to the specific ticket is coming once the server exposes it.
 
 = 0.7.0 =
 * **New:** Open a support ticket from WordPress. The **Bynli Tickets** page has an "Open new ticket" panel (subject + category + message); submissions are site-attributed and immediately visible to Bynli staff. No more bouncing to bynli.com to file a ticket.
