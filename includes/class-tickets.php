@@ -81,7 +81,7 @@ class Bynli_Connect_Tickets {
         $author   = ($wp_user && $wp_user->exists() && !empty($wp_user->display_name))
             ? (string)$wp_user->display_name
             : __('Team member', 'bynli-connect');
-        $when_iso = (string)($res['data']['reply']['created_at'] ?? gmdate('c'));
+        $when_iso = (string)($res['data']['created_at'] ?? gmdate('Y-m-d H:i:s'));
 
         wp_send_json_success([
             'message_html' => self::render_thread_message_html([
@@ -129,7 +129,7 @@ class Bynli_Connect_Tickets {
             ], $status);
         }
 
-        $resolved_iso = (string)($res['data']['ticket']['resolved_at'] ?? gmdate('c'));
+        $resolved_iso = gmdate('Y-m-d H:i:s');
 
         wp_send_json_success([
             'status'    => 'resolved',
