@@ -604,7 +604,7 @@
     .bcn-onboard::before { left: 22px; top: 22px; }
 }
 
-/* ─ Tickets surface (bynli#1208 v0.5) ─────────────────────────────── */
+/* ─ Tickets surface (v0.5) ──────────────────────────────────────── */
 
 .bcn-tickets .bcn-tabs {
     display: flex;
@@ -789,7 +789,7 @@
     font-size: 0.85rem;
 }
 
-/* ─ Tickets — write surface (bynli#1208 v0.6) ────────────────────── */
+/* ─ Tickets — write surface (v0.6) ─────────────────────────────── */
 
 .bcn-tickets .bcn-thread-foot {
     margin-top: 28px;
