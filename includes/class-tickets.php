@@ -128,7 +128,7 @@ class Bynli_Connect_Tickets {
     }
 
     /**
-     * AJAX handler — open a new ticket from wp-admin. (bynli#1208 v0.7)
+     * AJAX handler — open a new ticket from wp-admin (v0.7).
      *
      * Site-attributed via the host key; subject/body/category come from
      * the form. Categories are restricted to the four the server accepts
