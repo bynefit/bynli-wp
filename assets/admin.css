@@ -442,6 +442,14 @@
 /* ─ Spacing utilities ─────────────────────────────────────────────── */
 .bcn-pad-top { margin-top: 14px; }
 
+/* ─ Spinner glyph — used inside AJAX submit buttons during fetch ──── */
+.bcn-wrap .bcn-spin {
+    animation: bcn-spin 0.9s linear infinite;
+}
+@keyframes bcn-spin {
+    to { transform: rotate(360deg); }
+}
+
 /* ─ Action row ─────────────────────────────────────────────────────── */
 .bcn-actions {
     display: flex;

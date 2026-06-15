@@ -222,7 +222,7 @@
 
                 const fb = form.querySelector('[data-role="feedback"]');
                 const submit = form.querySelector('[data-role="submit"]');
-                const origLabel = submit ? submit.textContent : '';
+                const origMarkup = submit ? submit.innerHTML : '';
 
                 if (fb) {
                     fb.hidden = true;
@@ -231,13 +231,15 @@
                 }
                 if (submit) {
                     submit.disabled = true;
-                    submit.textContent = 'Sending…';
+                    submit.setAttribute('aria-busy', 'true');
+                    submit.innerHTML = '<span class="dashicons dashicons-update bcn-spin" aria-hidden="true"></span> Sending…';
                 }
 
                 const restoreSubmit = () => {
                     if (submit) {
                         submit.disabled = false;
-                        submit.textContent = origLabel;
+                        submit.removeAttribute('aria-busy');
+                        submit.innerHTML = origMarkup;
                     }
                 };
 
