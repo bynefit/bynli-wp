@@ -154,7 +154,7 @@ class Bynli_Connect_Shortcodes {
             $label = $a['label'] !== '' ? $a['label'] : 'Show';
             return '<button type="button"' . $attrs . '>' . esc_html($label) . '</button>';
         }
-        return '<span aria-hidden="true" style="display:none"' . $attrs . '></span>';
+        return '<span aria-hidden="true" hidden' . $attrs . '></span>';
     }
 
     // ── Widget (floating bubble) ────────────────────────────────────
