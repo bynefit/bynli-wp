@@ -634,18 +634,70 @@
 }
 
 .bcn-tickets .bcn-empty {
-    padding: 32px;
+    padding: 48px 32px;
     text-align: center;
     color: var(--bcn-text-2, #5b6473);
     background: rgba(0, 0, 0, 0.02);
     border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.bcn-tickets .bcn-empty-icon.dashicons {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+    color: var(--bcn-text-2, #5b6473);
+    opacity: 0.45;
+    margin-bottom: 4px;
+}
+
+.bcn-tickets .bcn-empty-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--bcn-text-1, #1a1f2b);
+}
+
+.bcn-tickets .bcn-empty-cta {
+    margin: 0;
+    font-size: 0.9rem;
 }
 
 .bcn-ticket-table {
     margin-top: 8px;
+    width: 100%;
+    border-collapse: collapse;
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 10px;
     overflow: hidden;
+    background: #fff;
+}
+
+.bcn-ticket-table thead th {
+    background: rgba(0, 0, 0, 0.03);
+    color: var(--bcn-text-2, #5b6473);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: left;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.bcn-ticket-table tbody tr {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    transition: background 120ms ease;
+}
+
+.bcn-ticket-table tbody tr:last-child {
+    border-bottom: 0;
+}
+
+.bcn-ticket-table tbody tr:hover {
+    background: rgba(212, 147, 58, 0.04);
 }
 
 .bcn-ticket-table th,
