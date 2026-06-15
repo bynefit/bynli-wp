@@ -4,7 +4,7 @@ Tags:              bynli, tickets, support, shortcodes, integration
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.8.0
+Stable tag:        0.8.1
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,11 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.8.1 =
+* **Improved:** Submit buttons on the Tickets pages (reply, mark resolved, open new ticket) now show a spinner while sending — no more wondering whether your reply went through on a slow connection.
+* **Improved:** The empty-ticket states are now a proper designed card with an icon and headline instead of a bare line of text, and the ticket list table is cleaner and more consistent with the rest of the page.
+* Under the hood: unified the button and color system across the Tickets surface and tidied the stylesheet (no behavior change).
 
 = 0.8.0 =
 * **Improved:** Replying and marking resolved on a ticket no longer reloads the page. Replies appear inline at the bottom of the thread the moment Bynli accepts them; marking resolved swaps the form area for the closed-thread banner in place. Validation and server errors show in the form, not as URL flash codes.
