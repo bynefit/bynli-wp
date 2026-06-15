@@ -330,7 +330,7 @@ class Bynli_Connect_Tickets {
                     </p>
 
                     <p class="bcn-actions">
-                        <button type="submit" class="button button-primary" data-role="submit">
+                        <button type="submit" class="bcn-btn bcn-btn-primary" data-role="submit">
                             <?php esc_html_e('Send to Bynli support', 'bynli-connect'); ?>
                         </button>
                     </p>
@@ -358,18 +358,23 @@ class Bynli_Connect_Tickets {
                 $tickets = $res['data']['tickets'] ?? [];
             ?>
                 <?php if (empty($tickets)): ?>
-                    <p class="bcn-empty">
-                        <?php
-                        echo $status === 'open'
-                            ? esc_html__('No open tickets right now. ', 'bynli-connect')
-                            : esc_html__('No tickets matching this filter. ', 'bynli-connect');
-                        ?>
-                        <a href="<?php echo esc_url(add_query_arg(['new' => '1'], menu_page_url(self::MENU_SLUG, false))); ?>#bcn-new-ticket">
-                            <?php esc_html_e('Open a new one from this site', 'bynli-connect'); ?>
-                        </a>.
-                    </p>
+                    <div class="bcn-empty" role="status">
+                        <span class="dashicons dashicons-tickets-alt bcn-empty-icon" aria-hidden="true"></span>
+                        <p class="bcn-empty-title">
+                            <?php
+                            echo $status === 'open'
+                                ? esc_html__('No open tickets right now.', 'bynli-connect')
+                                : esc_html__('No tickets matching this filter.', 'bynli-connect');
+                            ?>
+                        </p>
+                        <p class="bcn-empty-cta">
+                            <a href="<?php echo esc_url(add_query_arg(['new' => '1'], menu_page_url(self::MENU_SLUG, false))); ?>#bcn-new-ticket">
+                                <?php esc_html_e('Open a new one from this site', 'bynli-connect'); ?>
+                            </a>
+                        </p>
+                    </div>
                 <?php else: ?>
-                    <table class="widefat striped bcn-ticket-table">
+                    <table class="bcn-ticket-table">
                         <thead>
                             <tr>
                                 <th><?php esc_html_e('Subject', 'bynli-connect'); ?></th>
