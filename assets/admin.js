@@ -497,6 +497,93 @@
         });
     }
 
+    // ── Live form picker: load the team's real forms, click to insert the id ──
+
+    function bcnCodeNodes(code) {
+        // Build token-colored spans (mirrors sc_code_html) via DOM so values
+        // are never interpolated as HTML.
+        const frag = document.createDocumentFragment();
+        const span = (cls, txt) => { const s = document.createElement('span'); s.className = cls; s.textContent = txt; return s; };
+        const m = /^\[([a-z0-9-]+)\s*(.*)\]$/i.exec(String(code).trim());
+        if (!m) { frag.appendChild(document.createTextNode(String(code))); return frag; }
+        frag.appendChild(span('bcn-cb-b', '['));
+        frag.appendChild(span('bcn-cb-t', m[1]));
+        const re = /([a-z0-9_-]+)="([^"]*)"/gi;
+        let pair;
+        while ((pair = re.exec(m[2]))) {
+            frag.appendChild(document.createTextNode(' '));
+            frag.appendChild(span('bcn-cb-a', pair[1]));
+            frag.appendChild(span('bcn-cb-p', '='));
+            frag.appendChild(span('bcn-cb-v', '"' + pair[2] + '"'));
+        }
+        frag.appendChild(span('bcn-cb-b', ']'));
+        return frag;
+    }
+
+    function insertForm(id, item) {
+        const detail = item.closest('.bcn-sc-detail');
+        if (!detail) return;
+        const code  = '[bynli-form id="' + id + '"]';
+        const block = detail.querySelector('.bcn-code-block');
+        if (block) { block.textContent = ''; block.appendChild(bcnCodeNodes(code)); }
+        const copy = detail.querySelector('.bcn-sc-copy');
+        if (copy) copy.setAttribute('data-text', code);
+        detail.querySelectorAll('.bcn-form-item').forEach((i) => i.classList.toggle('is-selected', i === item));
+    }
+
+    function renderFormList(listEl, data) {
+        listEl.textContent = '';
+        if (!data || !data.success) {
+            const n = document.createElement('div'); n.className = 'bcn-note is-err';
+            n.textContent = (data && data.data && data.data.message) || 'Could not load your forms.';
+            listEl.appendChild(n);
+            return;
+        }
+        const forms = (data.data && data.data.forms) || [];
+        if (!forms.length) {
+            const n = document.createElement('div'); n.className = 'bcn-note';
+            n.textContent = 'No forms found for this team yet.';
+            listEl.appendChild(n);
+            return;
+        }
+        forms.forEach((f) => {
+            const item = document.createElement('button');
+            item.type = 'button'; item.className = 'bcn-form-item';
+            const t = document.createElement('span'); t.className = 'bcn-form-item-title'; t.textContent = f.title || '(untitled)';
+            const c = document.createElement('code'); c.className = 'bcn-form-item-id'; c.textContent = f.id;
+            item.appendChild(t); item.appendChild(c);
+            item.addEventListener('click', () => insertForm(f.id, item));
+            listEl.appendChild(item);
+        });
+    }
+
+    function wireFormPicker() {
+        document.querySelectorAll('[data-bcn-load-forms]').forEach((btn) => {
+            if (!cfg || !cfg.ajaxUrl) return;
+            const listEl = btn.parentElement && btn.parentElement.querySelector('[data-role="forms-list"]');
+            btn.addEventListener('click', async () => {
+                const orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="dashicons dashicons-update bcn-spin"></span> Loading…';
+                const body = new URLSearchParams();
+                body.set('action', 'bynli_connect_forms');
+                body.set('_wpnonce', btn.getAttribute('data-nonce') || '');
+                let data;
+                try {
+                    const res = await fetch(cfg.ajaxUrl, {
+                        method: 'POST', credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: body.toString(),
+                    });
+                    data = await res.json();
+                } catch (e) { data = { success: false, data: { message: 'Network error.' } }; }
+                btn.disabled = false;
+                btn.innerHTML = orig;
+                if (listEl) renderFormList(listEl, data);
+            });
+        });
+    }
+
     // ── Shortcode previewer: swap the detail panel for the picked shortcode ──
     function wireShortcodePicker() {
         const items = document.querySelectorAll('.bcn-sc-item[data-sc]');
@@ -529,6 +616,7 @@
         wirePanels();
         wireSparklines();
         wireShortcodePicker();
+        wireFormPicker();
         wireVisibility();
         wireClientMode();
         let rt;
