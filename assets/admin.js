@@ -456,6 +456,28 @@
         document.querySelectorAll('.bcn-spark[data-series]').forEach(buildSpark);
     }
 
+    // ── Shortcode previewer: swap the detail panel for the picked shortcode ──
+    function wireShortcodePicker() {
+        const items = document.querySelectorAll('.bcn-sc-item[data-sc]');
+        if (!items.length) return;
+        items.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const tag = btn.getAttribute('data-sc');
+                document.querySelectorAll('.bcn-sc-item').forEach((b) => {
+                    const on = (b === btn);
+                    b.classList.toggle('active', on);
+                    b.setAttribute('aria-selected', on ? 'true' : 'false');
+                });
+                document.querySelectorAll('.bcn-sc-detail').forEach((d) => {
+                    const on = (d.getAttribute('data-sc-detail') === tag);
+                    d.classList.toggle('active', on);
+                    if (on) d.removeAttribute('hidden');
+                    else    d.setAttribute('hidden', '');
+                });
+            });
+        });
+    }
+
     ready(() => {
         wireRevealToggles();
         wireCopyButtons();
@@ -466,6 +488,7 @@
         wirePanels();
         wireTheme();
         wireSparklines();
+        wireShortcodePicker();
         let rt;
         window.addEventListener('resize', () => {
             clearTimeout(rt);

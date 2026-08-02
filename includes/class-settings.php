@@ -603,33 +603,202 @@ class Bynli_Connect_Settings {
         <?php
     }
 
-    private function render_shortcodes(array $ctx): void {
-        // Carried from the old Shortcodes card; the data-driven previewer
-        // (list + detail + live preview) replaces this in a later phase of #29.
-        $samples = [
-            ['name' => 'Form',    'code' => '[bynli-form id="frm_abc123"]'],
-            ['name' => 'Events',  'code' => '[bynli-events team="your-team" limit="5"]'],
-            ['name' => 'Donate',  'code' => '[bynli-donate team="your-team" amounts="10,25,50,100" default_amount="25" cause="general"]'],
-            ['name' => 'Modal',   'code' => '[bynli-modal label="Read more" title="Welcome" body="Thanks for stopping by."]'],
-            ['name' => 'Confirm', 'code' => '[bynli-confirm label="Sign out" message="Sign out now?" href="/logout"]'],
-            ['name' => 'Toast',   'code' => '[bynli-toast message="Welcome back!" kind="success"]'],
-            ['name' => 'Widget',  'code' => '[bynli-widget team="your-team"]'],
+    /**
+     * The 7 shortcodes, mirroring Bynli_Connect_Shortcodes. Attribute rows are
+     * [name, accepts, default]; the single source of truth for the attrs is
+     * class-shortcodes.php — keep these in step with it.
+     */
+    private function shortcode_catalog(): array {
+        return [
+            'bynli-form' => [
+                'label' => 'Form', 'preview' => 'form',
+                'desc'  => 'Embed a Bynefit form. Submissions land in the team’s Bynefit inbox + email.',
+                'code'  => '[bynli-form id="frm_abc123"]',
+                'attrs' => [
+                    ['id', 'Form id from Bynefit (frm_…) — required', '—'],
+                    ['style', 'default · bootstrap · bare', 'default'],
+                    ['success', 'Message shown after submit', '—'],
+                    ['success_mode', 'toast · replace · hide', 'toast'],
+                ],
+            ],
+            'bynli-events' => [
+                'label' => 'Events', 'preview' => 'events',
+                'desc'  => 'Read-only list of a team’s events.',
+                'code'  => '[bynli-events team="your-team" limit="5" style="cards"]',
+                'attrs' => [
+                    ['team', 'Team slug — required', '—'],
+                    ['limit', '1–50', '5'],
+                    ['style', 'cards · list · bare', 'cards'],
+                    ['scope', 'upcoming · past', 'upcoming'],
+                ],
+            ],
+            'bynli-donate' => [
+                'label' => 'Donate', 'preview' => 'donate',
+                'desc'  => 'Donation card with preset + custom amounts.',
+                'code'  => '[bynli-donate team="your-team" amounts="10,25,50,100" default_amount="25" cause="general"]',
+                'attrs' => [
+                    ['team', 'Team slug — required', '—'],
+                    ['amounts', 'Comma-separated presets', '—'],
+                    ['default_amount', 'Pre-selected amount', '—'],
+                    ['cause', 'Cause key', '—'],
+                    ['style', 'card · button', 'card'],
+                ],
+            ],
+            'bynli-modal' => [
+                'label' => 'Modal', 'preview' => 'modal',
+                'desc'  => 'A button that opens a Bynefit modal.',
+                'code'  => '[bynli-modal label="Read more" title="Welcome" body="Thanks for stopping by."]',
+                'attrs' => [
+                    ['label', 'Button text', 'Open'],
+                    ['title', 'Modal heading', '—'],
+                    ['body', 'Modal body text', '—'],
+                    ['href', 'Optional link the confirm follows', '—'],
+                ],
+            ],
+            'bynli-confirm' => [
+                'label' => 'Confirm', 'preview' => 'confirm',
+                'desc'  => 'Confirm prompt before navigation.',
+                'code'  => '[bynli-confirm label="Sign out" message="Sign out now?" href="/logout"]',
+                'attrs' => [
+                    ['label', 'Button text', 'Continue'],
+                    ['message', 'Prompt shown', 'Are you sure?'],
+                    ['href', 'Where “yes” goes', '—'],
+                    ['danger', '1 for a destructive style', '—'],
+                ],
+            ],
+            'bynli-toast' => [
+                'label' => 'Toast', 'preview' => 'toast',
+                'desc'  => 'A toast on load, or on a button press.',
+                'code'  => '[bynli-toast message="Welcome back!" kind="success"]',
+                'attrs' => [
+                    ['message', 'Toast text — required', '—'],
+                    ['kind', 'info · success · error · warning', 'info'],
+                    ['on', 'load · click', 'load'],
+                    ['label', 'Button text when on="click"', 'Show'],
+                ],
+            ],
+            'bynli-widget' => [
+                'label' => 'Widget', 'preview' => 'widget',
+                'desc'  => 'Floating Bynefit bubble (loads its own script).',
+                'code'  => '[bynli-widget team="your-team"]',
+                'attrs' => [
+                    ['team', 'Team slug — required', '—'],
+                    ['position', 'Corner placement', '—'],
+                    ['label', 'Bubble label', '—'],
+                ],
+            ],
         ];
+    }
+
+    /** Token-color a shortcode string into safe span HTML for the code block. */
+    private function sc_code_html(string $code): string {
+        $inner = preg_replace('/^\[|\]$/', '', trim($code));
+        if (!preg_match('/^([a-z0-9\-]+)\s*(.*)$/s', (string) $inner, $m)) {
+            return esc_html($code);
+        }
+        $html = '<span class="bcn-cb-b">[</span><span class="bcn-cb-t">' . esc_html($m[1]) . '</span>';
+        if (preg_match_all('/([a-z0-9_\-]+)="([^"]*)"/i', $m[2], $pairs, PREG_SET_ORDER)) {
+            foreach ($pairs as $p) {
+                $html .= ' <span class="bcn-cb-a">' . esc_html($p[1]) . '</span>'
+                       . '<span class="bcn-cb-p">=</span>'
+                       . '<span class="bcn-cb-v">"' . esc_html($p[2]) . '"</span>';
+            }
+        }
+        return $html . '<span class="bcn-cb-b">]</span>';
+    }
+
+    /** Illustrative (non-functional) mock of each component for the preview frame. */
+    private function sc_preview(string $kind): void {
+        switch ($kind) {
+            case 'form':
+                echo '<div class="bcn-pv-form"><span class="bcn-pv-input">you@example.com</span>'
+                   . '<span class="bcn-btn primary sm">Submit</span></div>';
+                break;
+            case 'events':
+                echo '<div class="bcn-pv-events">'
+                   . '<div class="bcn-pv-ev"><span class="bcn-pv-ev-d">SAT 12</span><span>Volunteer morning</span></div>'
+                   . '<div class="bcn-pv-ev"><span class="bcn-pv-ev-d">TUE 15</span><span>Community dinner</span></div></div>';
+                break;
+            case 'donate':
+                echo '<div class="bcn-pv-donate"><span class="bcn-pv-amt">$10</span>'
+                   . '<span class="bcn-pv-amt is-on">$25</span><span class="bcn-pv-amt">$50</span>'
+                   . '<span class="bcn-btn primary sm">Donate</span></div>';
+                break;
+            case 'modal':
+                echo '<button type="button" class="bcn-btn sm" disabled>Read more</button>';
+                break;
+            case 'confirm':
+                echo '<button type="button" class="bcn-btn danger sm" disabled>Sign out</button>';
+                break;
+            case 'toast':
+                echo '<span class="bcn-pv-toast"><span class="dashicons dashicons-yes-alt"></span> Welcome back!</span>';
+                break;
+            case 'widget':
+                echo '<span class="bcn-pv-bubble"><span class="dashicons dashicons-format-chat"></span></span>';
+                break;
+        }
+    }
+
+    private function render_sc_detail(string $tag, array $e): void {
+        ?>
+        <div class="bcn-sc-head">
+            <h3 class="bcn-sc-title"><?php echo esc_html($e['label']); ?></h3>
+            <p class="bcn-sc-desc"><?php echo esc_html($e['desc']); ?></p>
+        </div>
+        <div class="bcn-code-row">
+            <pre class="bcn-code-block"><?php echo $this->sc_code_html($e['code']); // token spans, all values esc_html'd ?></pre>
+            <button type="button" class="bcn-sc-copy" data-text="<?php echo esc_attr($e['code']); ?>">Copy</button>
+        </div>
+        <div class="bcn-preview-frame" data-label="Preview">
+            <?php $this->sc_preview($e['preview']); ?>
+        </div>
+        <div class="bcn-attr-wrap">
+            <table class="bcn-attr-table">
+                <thead><tr><th>Attribute</th><th>Accepts</th><th>Default</th></tr></thead>
+                <tbody>
+                    <?php foreach ($e['attrs'] as $row): ?>
+                        <tr>
+                            <td><code><?php echo esc_html($row[0]); ?></code></td>
+                            <td><?php echo esc_html($row[1]); ?></td>
+                            <td><?php echo esc_html($row[2]); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
+    }
+
+    private function render_shortcodes(array $ctx): void {
+        $cat   = $this->shortcode_catalog();
+        $tags  = array_keys($cat);
+        $first = $tags[0];
         ?>
         <section class="bcn-card">
             <div class="bcn-card-head">
                 <h2>Shortcodes</h2>
-                <span class="bcn-card-sub">Drop into any post or page</span>
+                <span class="bcn-card-sub">Drop any Bynefit component into a post or page</span>
             </div>
             <div class="bcn-card-body">
-                <div class="bcn-shortcodes">
-                    <?php foreach ($samples as $s): ?>
-                        <div class="bcn-shortcode-row">
-                            <span class="bcn-sc-name"><?php echo esc_html($s['name']); ?></span>
-                            <code class="bcn-sc-code"><?php echo esc_html($s['code']); ?></code>
-                            <button type="button" class="bcn-sc-copy" data-text="<?php echo esc_attr($s['code']); ?>">Copy</button>
-                        </div>
-                    <?php endforeach; ?>
+                <div class="bcn-sc-layout">
+                    <div class="bcn-sc-list" role="tablist" aria-label="Shortcodes">
+                        <?php foreach ($cat as $tag => $e): $on = ($tag === $first); ?>
+                            <button type="button" class="bcn-sc-item<?php echo $on ? ' active' : ''; ?>"
+                                    data-sc="<?php echo esc_attr($tag); ?>"
+                                    role="tab" aria-selected="<?php echo $on ? 'true' : 'false'; ?>">
+                                <span class="bcn-sc-item-name"><?php echo esc_html($e['label']); ?></span>
+                                <code class="bcn-sc-item-tag">[<?php echo esc_html($tag); ?>]</code>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="bcn-sc-detail-wrap">
+                        <?php foreach ($cat as $tag => $e): $on = ($tag === $first); ?>
+                            <div class="bcn-sc-detail<?php echo $on ? ' active' : ''; ?>"
+                                 data-sc-detail="<?php echo esc_attr($tag); ?>" <?php echo $on ? '' : 'hidden'; ?>>
+                                <?php $this->render_sc_detail($tag, $e); ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
                 <p class="bcn-hint bcn-pad-top">Full reference at <a href="https://bynli.com/guides/wordpress" target="_blank" rel="noopener">/guides/wordpress</a>.</p>
             </div>
