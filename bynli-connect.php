@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name:       Bynefit Connect
- * Plugin URI:        https://bynli.com/guides/wordpress
+ * Plugin URI:        https://bynefit.com/guides/wordpress
  * Description:       Connect a WordPress site to Bynefit — reports daily usage and exposes Bynefit shortcodes for forms, modals, toasts, confirms, and the floating widget.
- * Version:           0.9.2
+ * Version:           0.9.3
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Bynefit
@@ -11,17 +11,17 @@
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       bynli-connect
- * Update URI:        https://bynli.com/api/site-host/version
+ * Update URI:        https://bynefit.com/api/site-host/version
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BYNLI_CONNECT_VERSION', '0.9.2');
+define('BYNLI_CONNECT_VERSION', '0.9.3');
 define('BYNLI_CONNECT_PLUGIN_FILE', __FILE__);
 define('BYNLI_CONNECT_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('BYNLI_CONNECT_DEFAULT_API_BASE', 'https://bynli.com');
+define('BYNLI_CONNECT_DEFAULT_API_BASE', 'https://bynefit.com');
 
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-settings.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-signer.php';
