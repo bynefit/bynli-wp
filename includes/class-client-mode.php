@@ -23,9 +23,17 @@ class Bynli_Connect_Client_Mode {
     const NONCE       = 'bynli_connect_client_mode';
     const AJAX        = 'bynli_connect_client_mode';
 
+    // Client roster management (assign / invite / revoke) — admin-only.
+    const AJAX_ASSIGN  = 'bynli_connect_client_assign';
+    const AJAX_REVOKE  = 'bynli_connect_client_revoke';
+    const NONCE_MANAGE = 'bynli_connect_client_manage';
+
     public function __construct() {
         // The save handler must exist regardless of state so an admin can toggle.
         add_action('wp_ajax_' . self::AJAX, [$this, 'handle_ajax']);
+        // Roster management must also work regardless of state (admin-only).
+        add_action('wp_ajax_' . self::AJAX_ASSIGN, [$this, 'handle_assign']);
+        add_action('wp_ajax_' . self::AJAX_REVOKE, [$this, 'handle_revoke']);
 
         if (!self::enabled()) return;   // dormant unless an admin turned it on
 
@@ -266,7 +274,7 @@ class Bynli_Connect_Client_Mode {
         <section class="bcn-card">
             <div class="bcn-card-head">
                 <h2>Client mode</h2>
-                <span class="bcn-card-sub">A locked-down portal for content editors</span>
+                <span class="bcn-card-sub">A simple, locked-down portal for the site's owner</span>
             </div>
             <div class="bcn-card-body">
                 <div class="bcn-field">
@@ -275,19 +283,191 @@ class Bynli_Connect_Client_Mode {
                             data-bcn-client-mode
                             data-nonce="<?php echo esc_attr(wp_create_nonce(self::NONCE)); ?>">
                         <option value="0" <?php selected(!$on); ?>>Off — everyone uses the full WordPress admin</option>
-                        <option value="1" <?php selected($on); ?>>On — a <code>Client</code> role gets a locked portal</option>
+                        <option value="1" <?php selected($on); ?>>On — the site owner gets a simple locked portal</option>
                     </select>
                     <p class="bcn-hint" data-role="client-hint"><?php echo $on
-                        ? esc_html('On — users with the Client role see only the Portal (pages, posts, media); the rest of wp-admin is hidden. Administrators are unaffected.')
+                        ? esc_html('On — the site owner (Client) sees only the Portal (pages, posts, media); the rest of wp-admin is hidden. Your admin account is unaffected.')
                         : esc_html('Off — no role or lockdown is applied.'); ?></p>
                     <div class="bcn-note" data-role="client-status" aria-live="polite" hidden>
                         <span class="dashicons" data-role="ico" aria-hidden="true"></span>
                         <span data-role="msg"></span>
                     </div>
+                    <?php if (!$on): ?>
+                    <p class="bcn-hint">Turn this on to invite clients and give them a locked portal. Administrators always keep full access.</p>
+                    <?php endif; ?>
                 </div>
-                <p class="bcn-hint">Assign the <strong>Client</strong> role to a user (Users → Edit) to give them the locked portal. Administrators always keep full access.</p>
+                <?php self::render_manager($on); ?>
             </div>
         </section>
         <?php
+    }
+
+    /**
+     * Client roster + add/invite controls. Rendered inside the card and hidden
+     * (not omitted) when client mode is off, so the toggle can reveal it with
+     * no page reload. Admin-only surface — the card only renders on the
+     * Connection panel, which is already manage_options-gated.
+     */
+    private static function render_manager(bool $visible): void {
+        $clients    = self::client_rows();
+        $assignable = self::assignable_rows();
+        ?>
+        <div class="bcn-client-manager" data-bcn-clients
+             data-nonce="<?php echo esc_attr(wp_create_nonce(self::NONCE_MANAGE)); ?>"
+             <?php echo $visible ? '' : 'hidden'; ?>>
+            <h3 class="bcn-client-title">Clients</h3>
+
+            <ul class="bcn-client-list" data-role="client-list">
+                <?php if (empty($clients)): ?>
+                    <li class="bcn-client-empty" data-role="client-empty">No clients yet — add or invite one below.</li>
+                <?php else: foreach ($clients as $c): ?>
+                    <li class="bcn-client-item" data-uid="<?php echo esc_attr((string) $c['id']); ?>">
+                        <span class="bcn-client-meta">
+                            <span class="bcn-client-name"><?php echo esc_html($c['name']); ?></span>
+                            <span class="bcn-client-email"><?php echo esc_html($c['email']); ?></span>
+                        </span>
+                        <button type="button" class="bcn-btn danger sm" data-role="client-remove"
+                                data-uid="<?php echo esc_attr((string) $c['id']); ?>">Remove</button>
+                    </li>
+                <?php endforeach; endif; ?>
+            </ul>
+
+            <div class="bcn-field">
+                <label class="bcn-label" for="bcn-client-user">Make an existing user a client</label>
+                <div class="bcn-client-row">
+                    <select class="bcn-input sans" id="bcn-client-user" data-role="client-user">
+                        <?php if (empty($assignable)): ?>
+                            <option value="">No eligible users</option>
+                        <?php else: ?>
+                            <option value="">Choose a user…</option>
+                            <?php foreach ($assignable as $a): ?>
+                                <option value="<?php echo esc_attr((string) $a['id']); ?>"><?php echo esc_html($a['name'] . ' — ' . $a['email']); ?></option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                    <button type="button" class="bcn-btn sm" data-role="client-add">Make client</button>
+                </div>
+            </div>
+
+            <div class="bcn-field">
+                <label class="bcn-label" for="bcn-client-email">Or invite a new client by email</label>
+                <div class="bcn-client-row">
+                    <input type="text"  class="bcn-input sans" id="bcn-client-name"  data-role="client-name"  placeholder="Name (optional)" autocomplete="off">
+                    <input type="email" class="bcn-input sans" id="bcn-client-email" data-role="client-email" placeholder="client@example.com" autocomplete="off">
+                    <button type="button" class="bcn-btn primary sm" data-role="client-invite">Invite</button>
+                </div>
+                <p class="bcn-hint">Creates a locked Client account and emails them a link to set their password.</p>
+            </div>
+
+            <div class="bcn-note" data-role="client-manage-status" aria-live="polite" hidden>
+                <span class="dashicons" data-role="ico" aria-hidden="true"></span>
+                <span data-role="msg"></span>
+            </div>
+        </div>
+        <?php
+    }
+
+    // ── Client roster helpers ────────────────────────────────────────────
+
+    public static function client_rows(): array {
+        $out = [];
+        foreach (get_users(['role' => self::ROLE, 'number' => 200, 'orderby' => 'display_name']) as $u) {
+            $out[] = ['id' => (int) $u->ID, 'name' => $u->display_name, 'email' => $u->user_email];
+        }
+        return $out;
+    }
+
+    public static function assignable_rows(): array {
+        $out = [];
+        foreach (get_users(['number' => 200, 'orderby' => 'display_name']) as $u) {
+            if (user_can($u, 'manage_options')) continue;                 // admins are never clients
+            if (in_array(self::ROLE, (array) $u->roles, true)) continue;  // already a client
+            $out[] = ['id' => (int) $u->ID, 'name' => $u->display_name, 'email' => $u->user_email];
+        }
+        return $out;
+    }
+
+    // ── Client assignment (admin only) ───────────────────────────────────
+
+    public function handle_assign(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Forbidden.'], 403);
+        }
+        if (!check_ajax_referer(self::NONCE_MANAGE, '_wpnonce', false)) {
+            wp_send_json_error(['message' => 'Security check failed. Reload and try again.'], 400);
+        }
+        $this->ensure_role();   // the role must exist before we can grant it
+
+        $uid   = isset($_POST['user_id']) ? absint($_POST['user_id']) : 0;
+        $email = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : '';
+
+        if ($uid > 0) {
+            $user = get_user_by('id', $uid);
+            if (!$user) {
+                wp_send_json_error(['message' => 'That user no longer exists.'], 404);
+            }
+            if (user_can($user, 'manage_options')) {
+                wp_send_json_error(['message' => 'Administrators can’t be made clients.'], 400);
+            }
+            $user->set_role(self::ROLE);
+        } elseif ($email !== '') {
+            if (!is_email($email)) {
+                wp_send_json_error(['message' => 'Enter a valid email address.'], 400);
+            }
+            $existing = get_user_by('email', $email);
+            if ($existing) {
+                if (user_can($existing, 'manage_options')) {
+                    wp_send_json_error(['message' => 'That email belongs to an administrator.'], 400);
+                }
+                $existing->set_role(self::ROLE);
+            } else {
+                $name = isset($_POST['name']) ? sanitize_text_field(wp_unslash($_POST['name'])) : '';
+                $base = sanitize_user(current(explode('@', $email)), true);
+                if ($base === '') { $base = 'client'; }
+                $username = $base; $n = 1;
+                while (username_exists($username)) { $username = $base . $n; $n++; }
+                $new_id = wp_insert_user([
+                    'user_login'   => $username,
+                    'user_email'   => $email,
+                    'user_pass'    => wp_generate_password(24, true, true),
+                    'display_name' => $name !== '' ? $name : $username,
+                    'first_name'   => $name,
+                    'role'         => self::ROLE,
+                ]);
+                if (is_wp_error($new_id)) {
+                    error_log('[Bynli Connect] client invite failed: ' . $new_id->get_error_message());
+                    wp_send_json_error(['message' => $new_id->get_error_message()], 400);
+                }
+                wp_send_new_user_notifications($new_id, 'user');   // set-password email to the client
+            }
+        } else {
+            wp_send_json_error(['message' => 'Pick a user or enter an email.'], 400);
+        }
+
+        wp_send_json_success([
+            'clients'    => self::client_rows(),
+            'assignable' => self::assignable_rows(),
+        ]);
+    }
+
+    public function handle_revoke(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Forbidden.'], 403);
+        }
+        if (!check_ajax_referer(self::NONCE_MANAGE, '_wpnonce', false)) {
+            wp_send_json_error(['message' => 'Security check failed. Reload and try again.'], 400);
+        }
+        $uid  = isset($_POST['user_id']) ? absint($_POST['user_id']) : 0;
+        $user = $uid ? get_user_by('id', $uid) : null;
+        if (!$user) {
+            wp_send_json_error(['message' => 'That user no longer exists.'], 404);
+        }
+        if (in_array(self::ROLE, (array) $user->roles, true)) {
+            $user->set_role('subscriber');   // revert to the default low-privilege role
+        }
+        wp_send_json_success([
+            'clients'    => self::client_rows(),
+            'assignable' => self::assignable_rows(),
+        ]);
     }
 }
