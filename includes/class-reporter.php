@@ -2,8 +2,13 @@
 if (!defined('ABSPATH')) { exit; }
 
 class Bynli_Connect_Reporter {
-    const ENDPOINT_PATH = '/api/site-host/report';
-    const OPTION_LAST   = 'bynli_connect_last_report';
+    const ENDPOINT_PATH  = '/api/site-host/report';
+    const OPTION_LAST    = 'bynli_connect_last_report';
+    // Rolling history of recent posts (heartbeat + daily), newest last. Drives
+    // the Overview 7-day heartbeat sparkline (#29) — deterministic, no external
+    // fetch. Capped so the option stays small.
+    const OPTION_HISTORY = 'bynli_connect_report_history';
+    const HISTORY_MAX    = 14;
 
     public static function send_heartbeat(): array {
         return self::post(['kind' => 'heartbeat']);
@@ -90,16 +95,36 @@ class Bynli_Connect_Reporter {
         $code = wp_remote_retrieve_response_code($resp);
         $raw  = wp_remote_retrieve_body($resp);
         $json = json_decode($raw, true);
+        $ok   = (is_array($json) && !empty($json['ok']));
+
+        // Storage is only measured on daily posts; carry the last known value
+        // forward on a heartbeat so the Overview metric doesn't blank out
+        // between daily runs (and we never re-walk the filesystem on load).
+        $prev    = self::last_report();
+        $storage = isset($payload['storage_bytes'])
+            ? (int)$payload['storage_bytes']
+            : (isset($prev['storage_bytes']) ? (int)$prev['storage_bytes'] : null);
 
         update_option(self::OPTION_LAST, [
-            'at'      => time(),
-            'kind'    => $payload['kind'],
-            'status'  => $code,
-            'ok'      => (is_array($json) && !empty($json['ok'])),
-            'message' => is_array($json) ? ($json['error'] ?? '') : substr($raw, 0, 200),
+            'at'            => time(),
+            'kind'          => $payload['kind'],
+            'status'        => $code,
+            'ok'            => $ok,
+            'message'       => is_array($json) ? ($json['error'] ?? '') : substr($raw, 0, 200),
+            'storage_bytes' => $storage,
         ], false);
 
-        if ($code >= 200 && $code < 300 && is_array($json) && !empty($json['ok'])) {
+        $hist   = self::history();
+        $hist[] = [
+            'at'            => time(),
+            'kind'          => $payload['kind'],
+            'ok'            => $ok,
+            'status'        => $code,
+            'storage_bytes' => isset($payload['storage_bytes']) ? (int)$payload['storage_bytes'] : null,
+        ];
+        update_option(self::OPTION_HISTORY, array_slice($hist, -self::HISTORY_MAX), false);
+
+        if ($code >= 200 && $code < 300 && $ok) {
             return ['ok' => true, 'status' => $code, 'response' => $json];
         }
         return ['ok' => false, 'status' => $code, 'response' => $json ?: $raw];
@@ -107,6 +132,12 @@ class Bynli_Connect_Reporter {
 
     public static function last_report(): array {
         $val = get_option(self::OPTION_LAST, null);
+        return is_array($val) ? $val : [];
+    }
+
+    /** Rolling post history (oldest → newest), each: at, kind, ok, status, storage_bytes. */
+    public static function history(): array {
+        $val = get_option(self::OPTION_HISTORY, null);
         return is_array($val) ? $val : [];
     }
 }

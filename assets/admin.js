@@ -79,21 +79,29 @@
         const re = /^bynli_sh_[0-9a-f]{32}$/;
         const validate = () => {
             const v = (input.value || '').trim();
-            if (v === '') {
-                out.textContent = '';
-                out.removeAttribute('data-state');
-                return;
-            }
+            out.classList.remove('ok', 'err');
+            if (v === '') { out.textContent = ''; return; }
             if (re.test(v)) {
                 out.textContent = 'Format looks valid';
-                out.setAttribute('data-state', 'ok');
+                out.classList.add('ok');
             } else {
                 out.textContent = 'Expected: bynli_sh_ + 32 hex characters';
-                out.setAttribute('data-state', 'err');
+                out.classList.add('err');
             }
         };
         input.addEventListener('input', validate);
         validate();
+    }
+
+    function setNote(el, state, ico, msg) {
+        if (!el) return;
+        el.hidden = false;
+        el.className = 'bcn-note ' + state;
+        const icoEl = el.querySelector('[data-role="ico"]');
+        const msgEl = el.querySelector('[data-role="msg"]');
+        if (icoEl) icoEl.className = 'dashicons ' + ico;
+        if (msgEl) msgEl.textContent = msg;
+        else el.textContent = msg;
     }
 
     function wireHeartbeat() {
@@ -108,59 +116,43 @@
 
             btn.setAttribute('aria-busy', 'true');
             btn.disabled = true;
-            btn.innerHTML = '<span class="dashicons dashicons-update"></span> Sending…';
-            if (statusEl) {
-                statusEl.textContent = '';
-                statusEl.setAttribute('data-state', 'run');
-            }
+            btn.innerHTML = '<span class="dashicons dashicons-update bcn-spin"></span> Sending…';
+            setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', 'Sending a signed heartbeat to Bynefit…');
 
+            const t0 = (window.performance && performance.now) ? performance.now() : Date.now();
             const fd = new FormData();
             fd.append('action', 'bynli_connect_heartbeat');
             fd.append('_wpnonce', cfg.nonce);
 
             let body;
             try {
-                const res = await fetch(cfg.ajaxUrl, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    body: fd,
-                });
+                const res = await fetch(cfg.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: fd });
                 body = await res.json();
             } catch (err) {
-                body = { success: false, data: { message: 'Network error.' } };
+                body = { success: false, data: { message: 'Network error — could not reach WordPress.' } };
             }
+            const t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+            const rtt = Math.max(0, Math.round(t1 - t0));
 
             btn.removeAttribute('aria-busy');
             btn.disabled = false;
             btn.innerHTML = origLabel;
 
+            const data = (body && body.data) || {};
             if (body && body.success) {
-                if (statusEl) {
-                    statusEl.textContent = body.data && body.data.message
-                        ? body.data.message
-                        : 'Heartbeat OK.';
-                    statusEl.setAttribute('data-state', 'ok');
-                }
-                if (body.data && body.data.last_at_human) {
-                    const lastVal = document.querySelector('[data-bcn="last-report"]');
-                    if (lastVal) {
-                        lastVal.textContent = body.data.last_at_human;
-                        lastVal.setAttribute('data-state', 'ok');
-                    }
-                }
-                const pill = document.querySelector('[data-bcn="status-pill"]');
+                const code = data.status ? ' · ' + data.status : '';
+                setNote(statusEl, 'is-ok', 'dashicons-yes-alt',
+                    (data.message || 'Heartbeat OK. Bynefit received the ping.') + code + ' · ' + rtt + 'ms round-trip');
+                // Reflect the now-verified state in the topbar + any last-report readout.
+                const pill = document.querySelector('[data-bcn="signal"]');
                 if (pill) {
                     pill.setAttribute('data-state', 'on');
-                    const lbl = pill.querySelector('.bcn-status-label');
+                    const lbl = pill.querySelector('.bcn-signal-label');
                     if (lbl) lbl.textContent = 'Connected';
                 }
             } else {
-                if (statusEl) {
-                    statusEl.textContent = (body && body.data && body.data.message)
-                        ? body.data.message
-                        : 'Heartbeat failed.';
-                    statusEl.setAttribute('data-state', 'err');
-                }
+                setNote(statusEl, 'is-err', 'dashicons-warning',
+                    (data.message || 'Heartbeat failed.') + ' · ' + rtt + 'ms');
             }
         });
     }
@@ -316,6 +308,182 @@
         });
     }
 
+    // ── Relay console (#29): client-side panel switching + theme toggle ──
+
+    function showPanel(section) {
+        const panels = document.querySelectorAll('.bcn-panel');
+        if (!panels.length) return false;
+        let matched = false;
+        panels.forEach((p) => {
+            const on = (p.getAttribute('data-panel') === section);
+            p.classList.toggle('active', on);
+            if (on) { p.removeAttribute('hidden'); matched = true; }
+            else    { p.setAttribute('hidden', ''); }
+        });
+        if (!matched) return false;
+        document.querySelectorAll('.bcn-nav-item').forEach((a) => {
+            const on = (a.getAttribute('data-go') === section);
+            a.classList.toggle('active', on);
+            if (on) a.setAttribute('aria-current', 'page');
+            else    a.removeAttribute('aria-current');
+        });
+        // A sparkline in a display:none panel measures 0px wide; render it now
+        // that its panel is visible.
+        try { wireSparklines(); } catch (e) { /* ignore */ }
+        return true;
+    }
+
+    function wirePanels() {
+        const rail = document.querySelector('.bcn-rail');
+        if (!rail) return;
+        // Enhance the deep-link anchors: switch client-side, keep the URL in
+        // sync (so refresh/share lands on the same section), no reload. The
+        // server already rendered every panel + the ?section= fallback works
+        // with JS off, so this is pure progressive enhancement.
+        document.querySelectorAll('.bcn-nav-item[data-go]').forEach((a) => {
+            a.addEventListener('click', (ev) => {
+                // Server-rendered surfaces (tickets: remote API call) must do a
+                // real navigation so the server renders fresh content.
+                if (a.hasAttribute('data-server')) return;
+                const section = a.getAttribute('data-go');
+                if (!section) return;
+                if (!showPanel(section)) return; // fall back to navigation
+                ev.preventDefault();
+                try {
+                    const url = new URL(a.href, window.location.origin);
+                    window.history.pushState({ bcnSection: section }, '', url);
+                } catch (e) { /* history unsupported — leave URL as is */ }
+            });
+        });
+        window.addEventListener('popstate', () => {
+            try {
+                const s = new URL(window.location.href).searchParams.get('section');
+                if (s) showPanel(s);
+            } catch (e) { /* ignore */ }
+        });
+    }
+
+    function effectiveTheme(wrap) {
+        const forced = wrap.getAttribute('data-theme');
+        if (forced === 'light' || forced === 'dark') return forced;
+        return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+
+    function wireTheme() {
+        const btn  = document.getElementById('bcn-theme-toggle');
+        const wrap = document.querySelector('.bcn-wrap');
+        if (!btn || !wrap) return;
+        // Reflect the effective theme on the button so its state is exposed to
+        // assistive tech (the themed UI is the sighted feedback).
+        const reflect = () => {
+            const dark = effectiveTheme(wrap) === 'dark';
+            btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+            btn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+        };
+        reflect();
+        btn.addEventListener('click', () => {
+            const next = (effectiveTheme(wrap) === 'dark') ? 'light' : 'dark';
+            wrap.setAttribute('data-theme', next);
+            btn.setAttribute('data-theme', next);
+            reflect();
+            if (!cfg || !cfg.ajaxUrl || !cfg.themeNonce) return; // applied for this view only
+            const body = new URLSearchParams();
+            body.set('action', cfg.themeAction || 'bynli_connect_theme');
+            body.set('_wpnonce', cfg.themeNonce);
+            body.set('theme', next);
+            fetch(cfg.ajaxUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            }).catch((e) => {
+                try { console && console.warn && console.warn('[BynliConnect.theme]', e && e.message); } catch (_) {}
+            });
+        });
+    }
+
+    // ── 7-day heartbeat sparkline (deterministic, drawn from report history) ──
+
+    const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+
+    function buildSpark(el) {
+        let series;
+        try { series = JSON.parse(el.getAttribute('data-series') || '[]'); } catch (e) { series = []; }
+        if (!Array.isArray(series)) series = [];
+
+        const rect = el.getBoundingClientRect();
+        const W = Math.round(rect.width);
+        const H = Math.round(rect.height) || 52;
+        if (W < 4) return; // panel hidden — re-rendered when it becomes visible
+
+        const NS  = 'http://www.w3.org/2000/svg';
+        const pad = 4;
+        const svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+
+        el.textContent = '';
+
+        if (series.length < 2) {
+            // Not enough history yet — flat baseline instead of a fake line.
+            const base = document.createElementNS(NS, 'line');
+            base.setAttribute('x1', 0); base.setAttribute('y1', (H / 2).toFixed(1));
+            base.setAttribute('x2', W); base.setAttribute('y2', (H / 2).toFixed(1));
+            base.setAttribute('class', 'bcn-spark-base');
+            svg.appendChild(base);
+            el.appendChild(svg);
+            return;
+        }
+
+        const n = series.length;
+        const stepX = W / (n - 1);
+        const yOf = (v) => H - pad - clamp01(v) * (H - pad * 2);
+        const coords = series.map((v, i) => [ +(i * stepX).toFixed(2), +yOf(v).toFixed(2) ]);
+
+        const linePath = coords.map((c, i) => (i ? 'L' : 'M') + c[0] + ' ' + c[1]).join(' ');
+        const areaPath = 'M0 ' + H + ' L' + coords.map((c) => c[0] + ' ' + c[1]).join(' L') + ' L' + W + ' ' + H + ' Z';
+
+        const area = document.createElementNS(NS, 'path');
+        area.setAttribute('d', areaPath); area.setAttribute('class', 'bcn-spark-area');
+        const line = document.createElementNS(NS, 'path');
+        line.setAttribute('d', linePath); line.setAttribute('class', 'bcn-spark-line');
+        line.setAttribute('vector-effect', 'non-scaling-stroke');
+        svg.appendChild(area); svg.appendChild(line);
+
+        const last = coords[coords.length - 1];
+        const dot = document.createElementNS(NS, 'circle');
+        dot.setAttribute('cx', last[0]); dot.setAttribute('cy', last[1]); dot.setAttribute('r', 2.6);
+        dot.setAttribute('class', 'bcn-spark-dot' + (el.getAttribute('data-ok') === '0' ? ' down' : ''));
+        svg.appendChild(dot);
+
+        el.appendChild(svg);
+    }
+
+    function wireSparklines() {
+        document.querySelectorAll('.bcn-spark[data-series]').forEach(buildSpark);
+    }
+
+    // ── Shortcode previewer: swap the detail panel for the picked shortcode ──
+    function wireShortcodePicker() {
+        const items = document.querySelectorAll('.bcn-sc-item[data-sc]');
+        if (!items.length) return;
+        items.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const tag = btn.getAttribute('data-sc');
+                document.querySelectorAll('.bcn-sc-item').forEach((b) => {
+                    const on = (b === btn);
+                    b.classList.toggle('active', on);
+                    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                });
+                document.querySelectorAll('.bcn-sc-detail').forEach((d) => {
+                    const on = (d.getAttribute('data-sc-detail') === tag);
+                    d.classList.toggle('active', on);
+                    if (on) d.removeAttribute('hidden');
+                    else    d.setAttribute('hidden', '');
+                });
+            });
+        });
+    }
+
     ready(() => {
         wireRevealToggles();
         wireCopyButtons();
@@ -323,5 +491,14 @@
         wireHeartbeat();
         wireDisconnect();
         wireAjaxForms();
+        wirePanels();
+        wireTheme();
+        wireSparklines();
+        wireShortcodePicker();
+        let rt;
+        window.addEventListener('resize', () => {
+            clearTimeout(rt);
+            rt = setTimeout(wireSparklines, 150);
+        });
     });
 })();
