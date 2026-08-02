@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.9.0
+Stable tag:        0.9.1
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,12 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.9.1 =
+* **New:** Site visibility modes — set your site to Live, Coming soon, or Members-only from the Connection panel, with a branded holding page and a `[bynli-gate]` shortcode for gating individual content.
+* **New:** Client mode — give a client a locked-down WordPress admin with a branded Bynefit portal, so they see their site status and support without the full dashboard.
+* **New:** Shortcode form picker — on the Shortcodes panel, click "Load my forms" and insert a real form by clicking it, instead of copying an id from Bynefit.
+* **Changed:** The admin is now light-only. The dark theme and per-user toggle from 0.9.0 were removed for a cleaner, more consistent WordPress-admin look.
 
 = 0.9.0 =
 * **Redesigned:** The whole admin is now a single **Bynefit Connect** console — Overview, Connection, Shortcodes, Tickets, Activity, and Updates under one page with a left nav rail.
