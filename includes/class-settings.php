@@ -66,9 +66,19 @@ class Bynli_Connect_Settings {
     }
 
     public static function key(): string {
+        // Auto-provisioned managed sites are installed as an mu-plugin with the
+        // key baked into a loader constant (no DB write needed) — that wins over
+        // any saved option so the site is connected out of the box and can't be
+        // disconnected by clearing the setting.
+        if (defined('BYNLI_CONNECT_KEY') && BYNLI_CONNECT_KEY) {
+            return (string) BYNLI_CONNECT_KEY;
+        }
         return (string)get_option(self::OPTION_KEY, '');
     }
     public static function api_base(): string {
+        if (defined('BYNLI_CONNECT_API_BASE') && BYNLI_CONNECT_API_BASE) {
+            return (string) BYNLI_CONNECT_API_BASE;
+        }
         $v = (string)get_option(self::OPTION_BASE, '');
         return $v !== '' ? $v : BYNLI_CONNECT_DEFAULT_API_BASE;
     }
