@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.9.1
+Stable tag:        0.9.2
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,12 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.9.2 =
+* **New:** Client mode lets you add clients right from the console — assign an existing user or invite the site owner by email (no more digging through Users → Edit). The site owner gets a locked account and an email to set their password.
+* **New:** The client Portal is a real home base — Pages, Posts, and Media with drafts and counts, plus a **Contact Bynefit** card to reach support without leaving the portal.
+* **New:** WooCommerce stores — when WooCommerce is active, a client can manage Orders and Products from the Portal, while the technical store settings stay with the site manager.
+* **New:** WooCommerce payments — accept payments through your connected Bynefit account. Add "Pay with Bynefit" under WooCommerce → Settings → Payments; buyers pay on a secure Bynefit-hosted page and no card data ever touches your site.
 
 = 0.9.1 =
 * **New:** Site visibility modes — set your site to Live, Coming soon, or Members-only from the Connection panel, with a branded holding page and a `[bynli-gate]` shortcode for gating individual content.
