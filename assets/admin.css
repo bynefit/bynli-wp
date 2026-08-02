@@ -621,3 +621,17 @@
     .bcn-spin { animation: none; }
     .bcn-wrap *, .bcn-wrap *::before, .bcn-wrap *::after { transition: none !important; }
 }
+
+/* ── Client mode: roster manager ── */
+.bcn-client-manager { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--bcn-rule); }
+.bcn-client-title { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--bcn-ink); }
+.bcn-client-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bcn-client-item { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 8px 12px; background: var(--bcn-panel-2); border: 1px solid var(--bcn-rule); border-radius: var(--bcn-r-md); }
+.bcn-client-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.bcn-client-name { font-weight: 600; font-size: 13px; color: var(--bcn-ink); }
+.bcn-client-email { font-size: 12px; color: var(--bcn-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bcn-client-empty { font-size: 13px; color: var(--bcn-muted); padding: 6px 2px; }
+.bcn-client-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.bcn-client-row .bcn-input { flex: 1 1 160px; min-width: 0; }
+.bcn-client-row .bcn-btn { flex: 0 0 auto; }

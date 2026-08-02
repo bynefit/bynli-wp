@@ -469,7 +469,7 @@
         const statusEl = document.querySelector('[data-role="client-status"]');
         const HINTS = {
             '0': 'Off — no role or lockdown is applied.',
-            '1': 'On — users with the Client role see only the Portal (pages, posts, media); the rest of wp-admin is hidden. Administrators are unaffected.',
+            '1': 'On — the site owner (Client) sees only the Portal (pages, posts, media); the rest of wp-admin is hidden. Your admin account is unaffected.',
         };
         sel.addEventListener('change', async () => {
             const on = sel.value;
@@ -489,11 +489,130 @@
                 data = await res.json();
             } catch (e) { data = { success: false, data: { message: 'Network error.' } }; }
             if (data && data.success) {
+                const mgr = document.querySelector('[data-bcn-clients]');
+                if (mgr) mgr.hidden = (on !== '1');
                 setNote(statusEl, 'is-ok', 'dashicons-yes-alt',
-                    on === '1' ? 'Client mode on. Assign the Client role to editors (Users → Edit).' : 'Client mode off.');
+                    on === '1' ? 'Client mode on. Add or invite clients below.' : 'Client mode off.');
             } else {
                 setNote(statusEl, 'is-err', 'dashicons-warning', (data && data.data && data.data.message) || 'Could not save.');
             }
+        });
+    }
+
+    // ── Client roster: assign / invite / remove via AJAX ──
+    function wireClientManage() {
+        const box = document.querySelector('[data-bcn-clients]');
+        if (!box || !cfg || !cfg.ajaxUrl) return;
+        const nonce    = box.getAttribute('data-nonce') || '';
+        const listEl   = box.querySelector('[data-role="client-list"]');
+        const userSel  = box.querySelector('[data-role="client-user"]');
+        const nameEl   = box.querySelector('[data-role="client-name"]');
+        const emailEl  = box.querySelector('[data-role="client-email"]');
+        const statusEl = box.querySelector('[data-role="client-manage-status"]');
+
+        function renderClients(rows) {
+            if (!listEl) return;
+            listEl.textContent = '';
+            if (!rows || !rows.length) {
+                const li = document.createElement('li');
+                li.className = 'bcn-client-empty';
+                li.setAttribute('data-role', 'client-empty');
+                li.textContent = 'No clients yet — add or invite one below.';
+                listEl.appendChild(li);
+                return;
+            }
+            rows.forEach((c) => {
+                const li = document.createElement('li');
+                li.className = 'bcn-client-item';
+                li.setAttribute('data-uid', String(c.id));
+                const meta = document.createElement('span');
+                meta.className = 'bcn-client-meta';
+                const nm = document.createElement('span');
+                nm.className = 'bcn-client-name'; nm.textContent = c.name || '(no name)';
+                const em = document.createElement('span');
+                em.className = 'bcn-client-email'; em.textContent = c.email || '';
+                meta.appendChild(nm); meta.appendChild(em);
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'bcn-btn danger sm';
+                btn.setAttribute('data-role', 'client-remove');
+                btn.setAttribute('data-uid', String(c.id));
+                btn.textContent = 'Remove';
+                li.appendChild(meta); li.appendChild(btn);
+                listEl.appendChild(li);
+            });
+        }
+
+        function renderAssignable(rows) {
+            if (!userSel) return;
+            userSel.textContent = '';
+            const first = document.createElement('option');
+            if (!rows || !rows.length) {
+                first.value = ''; first.textContent = 'No eligible users';
+                userSel.appendChild(first);
+                return;
+            }
+            first.value = ''; first.textContent = 'Choose a user…';
+            userSel.appendChild(first);
+            rows.forEach((a) => {
+                const o = document.createElement('option');
+                o.value = String(a.id);
+                o.textContent = (a.name || '(no name)') + ' — ' + (a.email || '');
+                userSel.appendChild(o);
+            });
+        }
+
+        async function post(params, runningMsg) {
+            setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', runningMsg);
+            const body = new URLSearchParams();
+            body.set('_wpnonce', nonce);
+            Object.keys(params).forEach((k) => body.set(k, params[k]));
+            let data;
+            try {
+                const res = await fetch(cfg.ajaxUrl, {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString(),
+                });
+                data = await res.json();
+            } catch (e) { data = { success: false, data: { message: 'Network error.' } }; }
+            if (data && data.success) {
+                renderClients(data.data && data.data.clients);
+                renderAssignable(data.data && data.data.assignable);
+                return true;
+            }
+            setNote(statusEl, 'is-err', 'dashicons-warning', (data && data.data && data.data.message) || 'Request failed.');
+            return false;
+        }
+
+        const addBtn = box.querySelector('[data-role="client-add"]');
+        if (addBtn) addBtn.addEventListener('click', async () => {
+            const uid = userSel && userSel.value;
+            if (!uid) { setNote(statusEl, 'is-err', 'dashicons-warning', 'Choose a user first.'); return; }
+            const ok = await post({ action: 'bynli_connect_client_assign', user_id: uid }, 'Assigning…');
+            if (ok) setNote(statusEl, 'is-ok', 'dashicons-yes-alt', 'Client added.');
+        });
+
+        const inviteBtn = box.querySelector('[data-role="client-invite"]');
+        if (inviteBtn) inviteBtn.addEventListener('click', async () => {
+            const email = (emailEl && emailEl.value || '').trim();
+            const name  = (nameEl && nameEl.value || '').trim();
+            if (!email) { setNote(statusEl, 'is-err', 'dashicons-warning', 'Enter an email to invite.'); return; }
+            const ok = await post({ action: 'bynli_connect_client_assign', email: email, name: name }, 'Inviting…');
+            if (ok) {
+                if (emailEl) emailEl.value = '';
+                if (nameEl) nameEl.value = '';
+                setNote(statusEl, 'is-ok', 'dashicons-yes-alt', 'Invite sent — they’ll get an email to set a password.');
+            }
+        });
+
+        if (listEl) listEl.addEventListener('click', async (ev) => {
+            const btn = ev.target.closest('[data-role="client-remove"]');
+            if (!btn) return;
+            const uid = btn.getAttribute('data-uid');
+            if (!uid) return;
+            const ok = await post({ action: 'bynli_connect_client_revoke', user_id: uid }, 'Removing…');
+            if (ok) setNote(statusEl, 'is-ok', 'dashicons-yes-alt', 'Client removed.');
         });
     }
 
@@ -619,6 +738,7 @@
         wireFormPicker();
         wireVisibility();
         wireClientMode();
+        wireClientManage();
         let rt;
         window.addEventListener('resize', () => {
             clearTimeout(rt);
