@@ -79,21 +79,29 @@
         const re = /^bynli_sh_[0-9a-f]{32}$/;
         const validate = () => {
             const v = (input.value || '').trim();
-            if (v === '') {
-                out.textContent = '';
-                out.removeAttribute('data-state');
-                return;
-            }
+            out.classList.remove('ok', 'err');
+            if (v === '') { out.textContent = ''; return; }
             if (re.test(v)) {
                 out.textContent = 'Format looks valid';
-                out.setAttribute('data-state', 'ok');
+                out.classList.add('ok');
             } else {
                 out.textContent = 'Expected: bynli_sh_ + 32 hex characters';
-                out.setAttribute('data-state', 'err');
+                out.classList.add('err');
             }
         };
         input.addEventListener('input', validate);
         validate();
+    }
+
+    function setNote(el, state, ico, msg) {
+        if (!el) return;
+        el.hidden = false;
+        el.className = 'bcn-note ' + state;
+        const icoEl = el.querySelector('[data-role="ico"]');
+        const msgEl = el.querySelector('[data-role="msg"]');
+        if (icoEl) icoEl.className = 'dashicons ' + ico;
+        if (msgEl) msgEl.textContent = msg;
+        else el.textContent = msg;
     }
 
     function wireHeartbeat() {
@@ -108,59 +116,49 @@
 
             btn.setAttribute('aria-busy', 'true');
             btn.disabled = true;
-            btn.innerHTML = '<span class="dashicons dashicons-update"></span> Sending…';
-            if (statusEl) {
-                statusEl.textContent = '';
-                statusEl.setAttribute('data-state', 'run');
-            }
+            btn.innerHTML = '<span class="dashicons dashicons-update bcn-spin"></span> Sending…';
+            setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', 'Sending a signed heartbeat to Bynefit…');
 
+            const t0 = (window.performance && performance.now) ? performance.now() : Date.now();
             const fd = new FormData();
             fd.append('action', 'bynli_connect_heartbeat');
             fd.append('_wpnonce', cfg.nonce);
 
             let body;
             try {
-                const res = await fetch(cfg.ajaxUrl, {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    body: fd,
-                });
+                const res = await fetch(cfg.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: fd });
                 body = await res.json();
             } catch (err) {
-                body = { success: false, data: { message: 'Network error.' } };
+                body = { success: false, data: { message: 'Network error — could not reach WordPress.' } };
             }
+            const t1 = (window.performance && performance.now) ? performance.now() : Date.now();
+            const rtt = Math.max(0, Math.round(t1 - t0));
 
             btn.removeAttribute('aria-busy');
             btn.disabled = false;
             btn.innerHTML = origLabel;
 
+            const data = (body && body.data) || {};
             if (body && body.success) {
-                if (statusEl) {
-                    statusEl.textContent = body.data && body.data.message
-                        ? body.data.message
-                        : 'Heartbeat OK.';
-                    statusEl.setAttribute('data-state', 'ok');
-                }
-                if (body.data && body.data.last_at_human) {
-                    const lastVal = document.querySelector('[data-bcn="last-report"]');
-                    if (lastVal) {
-                        lastVal.textContent = body.data.last_at_human;
-                        lastVal.setAttribute('data-state', 'ok');
-                    }
-                }
-                const pill = document.querySelector('[data-bcn="status-pill"]');
+                const code = data.status ? ' · ' + data.status : '';
+                setNote(statusEl, 'is-ok', 'dashicons-yes-alt',
+                    (data.message || 'Heartbeat OK. Bynefit received the ping.') + code + ' · ' + rtt + 'ms round-trip');
+                // Reflect the now-verified state in the topbar + any last-report readout.
+                const pill = document.querySelector('[data-bcn="signal"]');
                 if (pill) {
                     pill.setAttribute('data-state', 'on');
-                    const lbl = pill.querySelector('.bcn-status-label');
+                    const lbl = pill.querySelector('.bcn-signal-label');
                     if (lbl) lbl.textContent = 'Connected';
                 }
-            } else {
-                if (statusEl) {
-                    statusEl.textContent = (body && body.data && body.data.message)
-                        ? body.data.message
-                        : 'Heartbeat failed.';
-                    statusEl.setAttribute('data-state', 'err');
+                if (data.last_at_human) {
+                    document.querySelectorAll('[data-bcn="last-report"]').forEach((el) => {
+                        el.textContent = data.last_at_human;
+                        el.setAttribute('data-state', 'ok');
+                    });
                 }
+            } else {
+                setNote(statusEl, 'is-err', 'dashicons-warning',
+                    (data.message || 'Heartbeat failed.') + ' · ' + rtt + 'ms');
             }
         });
     }

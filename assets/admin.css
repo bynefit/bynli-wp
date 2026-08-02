@@ -1247,6 +1247,19 @@
 .bcn-note.is-ok .dashicons { color: var(--bcn-ok); }
 .bcn-note.is-err { background: var(--bcn-down-soft); border-color: var(--bcn-down-line); color: var(--bcn-down); }
 .bcn-note.is-err .dashicons { color: var(--bcn-down); }
+.bcn-note.is-run { background: var(--bcn-panel-2); border-color: var(--bcn-rule); color: var(--bcn-muted); }
+.bcn-note.is-run .dashicons { color: var(--bcn-accent); }
+
+/* ─ Connection: masked signature readout + spinner (#29, phase 4) ─ */
+.bcn-readout {
+    display: grid; gap: 7px; padding: 13px 15px;
+    background: var(--bcn-sunk); border: 1px solid var(--bcn-rule); border-radius: var(--bcn-r-md);
+}
+.bcn-readout-row { display: flex; align-items: baseline; gap: 14px; font-family: var(--bcn-mono); font-size: 12.5px; }
+.bcn-readout-k { flex: 0 0 42px; color: var(--bcn-faint); text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; }
+.bcn-readout-v { color: var(--bcn-ink-2); overflow-x: auto; white-space: nowrap; }
+.bcn-spin { animation: bcn-spin 0.9s linear infinite; }
+@keyframes bcn-spin { to { transform: rotate(360deg); } }
 
 /* ─ Buttons (token variants; independent of WP .button) ─ */
 .bcn-btn {
@@ -1429,5 +1442,6 @@
 @media (prefers-reduced-motion: reduce) {
     .bcn-panel { animation: none; }
     .bcn-beacon::after { animation: none; }
+    .bcn-spin { animation: none; }
     .bcn-wrap *, .bcn-wrap *::before, .bcn-wrap *::after { transition: none !important; }
 }

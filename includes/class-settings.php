@@ -280,9 +280,9 @@ class Bynli_Connect_Settings {
                 <span class="dashicons dashicons-admin-site-alt3" aria-hidden="true"></span>
                 <?php echo esc_html($host); ?>
             </span>
-            <span class="bcn-signal-pill" data-state="<?php echo esc_attr($ctx['status_state']); ?>">
+            <span class="bcn-signal-pill" data-bcn="signal" data-state="<?php echo esc_attr($ctx['status_state']); ?>">
                 <span class="bcn-beacon" aria-hidden="true"></span>
-                <?php echo esc_html($ctx['status_label']); ?>
+                <span class="bcn-signal-label"><?php echo esc_html($ctx['status_label']); ?></span>
             </span>
             <button type="button" class="bcn-theme-toggle" id="bcn-theme-toggle"
                     data-theme="<?php echo esc_attr($theme); ?>"
@@ -490,6 +490,11 @@ class Bynli_Connect_Settings {
     private function render_connection(array $ctx): void {
         $key = $ctx['key']; $slug = $ctx['slug']; $base = $ctx['base'];
         $is_configured = $ctx['is_configured'];
+        // Masked signature readout — never render the full key. bynli_sh_ + 4
+        // leading hex, then the last 3, is enough to identify without exposing.
+        $masked = ($key !== '' && strlen($key) >= 16)
+            ? substr($key, 0, 13) . '•••' . substr($key, -3)
+            : '';
         ?>
         <section class="bcn-card">
             <div class="bcn-card-head">
@@ -562,6 +567,25 @@ class Bynli_Connect_Settings {
                 <?php endif; ?>
             </div>
 
+            <?php if ($is_configured): ?>
+                <div class="bcn-card-body">
+                    <div class="bcn-readout" aria-label="Active signature">
+                        <div class="bcn-readout-row">
+                            <span class="bcn-readout-k">key</span>
+                            <span class="bcn-readout-v"><?php echo esc_html($masked); ?></span>
+                        </div>
+                        <div class="bcn-readout-row">
+                            <span class="bcn-readout-k">sign</span>
+                            <span class="bcn-readout-v">HMAC-SHA256 · X-Bynli-Signature</span>
+                        </div>
+                        <div class="bcn-readout-row">
+                            <span class="bcn-readout-k">base</span>
+                            <span class="bcn-readout-v"><?php echo esc_html($base); ?></span>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="bcn-card-body">
                 <div class="bcn-actions">
                     <button type="button" class="bcn-btn ink" id="bcn-heartbeat-btn"
@@ -570,7 +594,10 @@ class Bynli_Connect_Settings {
                     </button>
                     <span class="bcn-action-hint">A one-off ping — verifies the signature path end-to-end. No usage row is recorded.</span>
                 </div>
-                <div class="bcn-note" id="bcn-heartbeat-status" aria-live="polite" hidden></div>
+                <div class="bcn-note" id="bcn-heartbeat-status" aria-live="polite" hidden>
+                    <span class="dashicons" data-role="ico" aria-hidden="true"></span>
+                    <span data-role="msg"></span>
+                </div>
             </div>
         </section>
         <?php
