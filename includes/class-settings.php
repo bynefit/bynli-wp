@@ -16,6 +16,10 @@ class Bynli_Connect_Settings {
     const AJAX_THEME   = 'bynli_connect_theme';
     const NONCE_THEME  = 'bynli_connect_theme';
 
+    // Live shortcode picker: signed proxy to GET /api/site-host/forms.
+    const AJAX_FORMS   = 'bynli_connect_forms';
+    const NONCE_FORMS  = 'bynli_connect_forms';
+
     // Console sections. Order = rail order. Default is the first entry.
     const SECTIONS = ['overview', 'connection', 'shortcodes', 'tickets', 'activity', 'updates'];
 
@@ -27,6 +31,44 @@ class Bynli_Connect_Settings {
         add_action('admin_post_bynli_connect_disconnect', [$this, 'handle_disconnect']);
         add_action('wp_ajax_' . self::AJAX_ACTION,        [$this, 'handle_ajax_heartbeat']);
         add_action('wp_ajax_' . self::AJAX_THEME,         [$this, 'handle_ajax_theme']);
+        add_action('wp_ajax_' . self::AJAX_FORMS,         [$this, 'handle_ajax_forms']);
+    }
+
+    /**
+     * Signed proxy to GET /api/site-host/forms for the shortcode picker — the
+     * host key lives server-side, so the browser can't call the Bynefit API
+     * directly. Cap + nonce gated; passes through id/title/slug only.
+     */
+    public function handle_ajax_forms(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Forbidden.'], 403);
+        }
+        if (!check_ajax_referer(self::NONCE_FORMS, '_wpnonce', false)) {
+            wp_send_json_error(['message' => 'Security check failed. Reload and try again.'], 400);
+        }
+        if (self::key() === '') {
+            wp_send_json_error(['message' => 'Add your site-host key in Connection first.']);
+        }
+        $res = Bynli_Connect_Api::get('/api/site-host/forms');
+        if (empty($res['ok'])) {
+            $status = (is_int($res['status'] ?? null) && $res['status'] >= 400 && $res['status'] < 600)
+                ? (int) $res['status'] : 502;
+            wp_send_json_error([
+                'message' => (string) ($res['message'] ?? 'Could not load your forms.'),
+            ], $status);
+        }
+        $forms = isset($res['data']['forms']) && is_array($res['data']['forms']) ? $res['data']['forms'] : [];
+        $out = [];
+        foreach ($forms as $f) {
+            $id = (string) ($f['id'] ?? '');
+            if (!preg_match('/^frm_[A-Za-z0-9_\-]{6,40}$/', $id)) continue; // only valid form ids
+            $out[] = [
+                'id'    => $id,
+                'title' => (string) ($f['title'] ?? '(untitled form)'),
+                'slug'  => (string) ($f['slug'] ?? ''),
+            ];
+        }
+        wp_send_json_success(['forms' => $out]);
     }
 
     public static function key(): string {
@@ -753,6 +795,16 @@ class Bynli_Connect_Settings {
             <pre class="bcn-code-block"><?php echo $this->sc_code_html($e['code']); // token spans, all values esc_html'd ?></pre>
             <button type="button" class="bcn-sc-copy" data-text="<?php echo esc_attr($e['code']); ?>">Copy</button>
         </div>
+        <?php if ($tag === 'bynli-form' && self::key() !== ''): ?>
+            <div class="bcn-sc-picker">
+                <button type="button" class="bcn-btn sm" data-bcn-load-forms
+                        data-nonce="<?php echo esc_attr(wp_create_nonce(self::NONCE_FORMS)); ?>">
+                    <span class="dashicons dashicons-download"></span> Load my forms
+                </button>
+                <span class="bcn-hint">Pick one of your Bynefit forms to drop its real id straight into the shortcode — no trip to Bynefit.</span>
+                <div class="bcn-form-list" data-role="forms-list"></div>
+            </div>
+        <?php endif; ?>
         <div class="bcn-preview-frame" data-label="Preview">
             <?php $this->sc_preview($e['preview']); ?>
         </div>
