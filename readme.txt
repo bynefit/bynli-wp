@@ -1,14 +1,14 @@
-=== Bynli Connect ===
+=== Bynefit Connect ===
 Contributors:      bynefit
-Tags:              bynli, tickets, support, shortcodes, integration
+Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.8.1
+Stable tag:        0.9.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
-Bring your Bynli team into WordPress — answer support tickets, drop in live forms, events, and donate cards, and let Bynli auto-update the plugin for you.
+Bring your Bynefit team into WordPress — answer support tickets, drop in live forms, events, and donate cards, and let Bynefit auto-update the plugin for you.
 
 == Description ==
 
@@ -131,6 +131,15 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.9.0 =
+* **Redesigned:** The whole admin is now a single **Bynefit Connect** console — Overview, Connection, Shortcodes, Tickets, Activity, and Updates under one page with a left nav rail.
+* **New:** Light and dark themes with a per-user toggle (defaults to your system preference, no reload).
+* **New:** Overview dashboard — live uplink status, a 7-day heartbeat sparkline, storage / WordPress / PHP at a glance, and health tiles.
+* **New:** Shortcodes previewer — pick a shortcode, copy it, and see a live preview alongside its full attribute list.
+* **Improved:** Tickets now live inside the console, and the status tabs show per-status counts.
+* **Improved:** Faster admin load — dropped an external font request and slimmed the stylesheet.
+* **Rebranded:** Bynli is now **Bynefit**. Your site-host key, shortcodes, and settings are unchanged.
 
 = 0.8.1 =
 * **Improved:** Submit buttons on the Tickets pages (reply, mark resolved, open new ticket) now show a spinner while sending — no more wondering whether your reply went through on a slow connection.
