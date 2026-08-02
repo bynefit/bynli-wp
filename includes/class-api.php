@@ -105,6 +105,65 @@ class Bynli_Connect_Api {
         ];
     }
 
+    /**
+     * Signed POST with an idempotency key (signer v2). Used by the WooCommerce
+     * gateway (#2164) — the key is sent as X-Bynli-Idempotency-Key AND folded
+     * into the signature preimage so a retry can't be forged. Response handling
+     * mirrors post().
+     */
+    public static function post_v2(string $path, array $body, string $idempotency_key): array {
+        $key = Bynli_Connect_Settings::key();
+        if (!$key) {
+            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynli Connect.'];
+        }
+        if ($idempotency_key === '') {
+            return ['ok' => false, 'error' => 'no_idempotency_key', 'message' => 'Missing idempotency key.'];
+        }
+
+        $url      = rtrim(Bynli_Connect_Settings::api_base(), '/') . $path;
+        $body_raw = $body ? wp_json_encode($body) : '';
+        if ($body && $body_raw === false) {
+            return ['ok' => false, 'error' => 'encode_failed', 'message' => 'Could not encode request body.'];
+        }
+
+        $ts  = time();
+        $sig = Bynli_Connect_Signer::sign_v2($key, $ts, $idempotency_key, (string)$body_raw);
+
+        $resp = wp_remote_post($url, [
+            'timeout' => 20,
+            'headers' => [
+                'Content-Type'            => 'application/json',
+                'Accept'                  => 'application/json',
+                'Authorization'           => 'Bearer ' . $key,
+                'X-Bynli-Timestamp'       => (string)$ts,
+                'X-Bynli-Idempotency-Key' => $idempotency_key,
+                'X-Bynli-Signature'       => $sig,
+                'User-Agent'              => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
+            ],
+            'body' => (string)$body_raw,
+        ]);
+
+        if (is_wp_error($resp)) {
+            return ['ok' => false, 'error' => 'transport', 'message' => $resp->get_error_message()];
+        }
+
+        $code = wp_remote_retrieve_response_code($resp);
+        $raw  = wp_remote_retrieve_body($resp);
+        $json = json_decode($raw, true);
+
+        if ($code >= 200 && $code < 300 && is_array($json) && !empty($json['ok'])) {
+            return ['ok' => true, 'status' => $code, 'data' => $json];
+        }
+
+        $err = is_array($json) ? (string)($json['error'] ?? 'http_' . $code) : 'http_' . $code;
+        return [
+            'ok'      => false,
+            'status'  => $code,
+            'error'   => $err,
+            'message' => 'Payment could not be started (' . $err . ').',
+        ];
+    }
+
     public static function get(string $path, array $query = []): array {
         $key = Bynli_Connect_Settings::key();
         if (!$key) {

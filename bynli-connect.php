@@ -32,6 +32,7 @@ require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-visibility.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-client-mode.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-updater.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-tickets.php';
+require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-woo.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-plugin.php';
 
 add_action('plugins_loaded', ['Bynli_Connect_Plugin', 'instance']);
