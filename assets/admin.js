@@ -335,6 +335,9 @@
             if (on) a.setAttribute('aria-current', 'page');
             else    a.removeAttribute('aria-current');
         });
+        // A sparkline in a display:none panel measures 0px wide; render it now
+        // that its panel is visible.
+        try { wireSparklines(); } catch (e) { /* ignore */ }
         return true;
     }
 
@@ -395,6 +398,66 @@
         });
     }
 
+    // ── 7-day heartbeat sparkline (deterministic, drawn from report history) ──
+
+    const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+
+    function buildSpark(el) {
+        let series;
+        try { series = JSON.parse(el.getAttribute('data-series') || '[]'); } catch (e) { series = []; }
+        if (!Array.isArray(series)) series = [];
+
+        const rect = el.getBoundingClientRect();
+        const W = Math.round(rect.width);
+        const H = Math.round(rect.height) || 52;
+        if (W < 4) return; // panel hidden — re-rendered when it becomes visible
+
+        const NS  = 'http://www.w3.org/2000/svg';
+        const pad = 4;
+        const svg = document.createElementNS(NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+
+        el.textContent = '';
+
+        if (series.length < 2) {
+            // Not enough history yet — flat baseline instead of a fake line.
+            const base = document.createElementNS(NS, 'line');
+            base.setAttribute('x1', 0); base.setAttribute('y1', (H / 2).toFixed(1));
+            base.setAttribute('x2', W); base.setAttribute('y2', (H / 2).toFixed(1));
+            base.setAttribute('class', 'bcn-spark-base');
+            svg.appendChild(base);
+            el.appendChild(svg);
+            return;
+        }
+
+        const n = series.length;
+        const stepX = W / (n - 1);
+        const yOf = (v) => H - pad - clamp01(v) * (H - pad * 2);
+        const coords = series.map((v, i) => [ +(i * stepX).toFixed(2), +yOf(v).toFixed(2) ]);
+
+        const linePath = coords.map((c, i) => (i ? 'L' : 'M') + c[0] + ' ' + c[1]).join(' ');
+        const areaPath = 'M0 ' + H + ' L' + coords.map((c) => c[0] + ' ' + c[1]).join(' L') + ' L' + W + ' ' + H + ' Z';
+
+        const area = document.createElementNS(NS, 'path');
+        area.setAttribute('d', areaPath); area.setAttribute('class', 'bcn-spark-area');
+        const line = document.createElementNS(NS, 'path');
+        line.setAttribute('d', linePath); line.setAttribute('class', 'bcn-spark-line');
+        line.setAttribute('vector-effect', 'non-scaling-stroke');
+        svg.appendChild(area); svg.appendChild(line);
+
+        const last = coords[coords.length - 1];
+        const dot = document.createElementNS(NS, 'circle');
+        dot.setAttribute('cx', last[0]); dot.setAttribute('cy', last[1]); dot.setAttribute('r', 2.6);
+        dot.setAttribute('class', 'bcn-spark-dot' + (el.getAttribute('data-ok') === '0' ? ' down' : ''));
+        svg.appendChild(dot);
+
+        el.appendChild(svg);
+    }
+
+    function wireSparklines() {
+        document.querySelectorAll('.bcn-spark[data-series]').forEach(buildSpark);
+    }
+
     ready(() => {
         wireRevealToggles();
         wireCopyButtons();
@@ -404,5 +467,11 @@
         wireAjaxForms();
         wirePanels();
         wireTheme();
+        wireSparklines();
+        let rt;
+        window.addEventListener('resize', () => {
+            clearTimeout(rt);
+            rt = setTimeout(wireSparklines, 150);
+        });
     });
 })();

@@ -1353,6 +1353,78 @@
     .bcn-site-chip { display: none; }
 }
 
+/* ═══ Overview (#29, phase 3) — hero instrument · sparkline · metrics · tiles ═══
+   The hero is the INVERTED surface (ground = --ink, text = --canvas), so it
+   reads as a dark slab on light and a bright slab on dark — the token spec's
+   deliberate inversion. Single radial teal wash top-right, no saturated block. */
+.bcn-hero {
+    position: relative; overflow: hidden;
+    background: var(--bcn-ink); color: var(--bcn-canvas);
+    border-radius: var(--bcn-r-xl); box-shadow: var(--bcn-shadow-2);
+    padding: 22px 24px; margin-bottom: 16px;
+}
+.bcn-hero::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 130% at 100% 0%,
+        color-mix(in srgb, var(--bcn-accent) 30%, transparent), transparent 58%);
+}
+.bcn-hero > * { position: relative; }
+.bcn-hero-body { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.bcn-hero-eyebrow {
+    font-family: var(--bcn-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em;
+    color: color-mix(in srgb, var(--bcn-canvas) 60%, transparent);
+}
+.bcn-hero-readout { display: flex; align-items: center; gap: 11px; margin-top: 8px; }
+.bcn-hero-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--bcn-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bcn-accent) 24%, transparent); }
+.bcn-hero[data-state="off"] .bcn-hero-dot { background: var(--bcn-warn); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bcn-warn) 24%, transparent); }
+.bcn-hero-status {
+    font-family: var(--bcn-mono); font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;
+    color: var(--bcn-accent); font-variant-numeric: tabular-nums;
+}
+.bcn-hero[data-state="off"] .bcn-hero-status { color: var(--bcn-warn); }
+.bcn-hero-sub { margin-top: 10px; font-size: 13px; color: color-mix(in srgb, var(--bcn-canvas) 72%, transparent); max-width: 44ch; }
+.bcn-hero-sub a { color: var(--bcn-canvas); text-decoration-color: color-mix(in srgb, var(--bcn-canvas) 40%, transparent); }
+.bcn-hero-spark { margin: 0; min-width: 190px; flex: 0 1 240px; }
+.bcn-spark { width: 100%; height: 52px; }
+.bcn-spark svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.bcn-spark-area { fill: color-mix(in srgb, var(--bcn-accent) 22%, transparent); stroke: none; }
+.bcn-spark-line { fill: none; stroke: var(--bcn-accent); stroke-width: 1.75; stroke-linejoin: round; stroke-linecap: round; }
+.bcn-spark-base { fill: none; stroke: color-mix(in srgb, var(--bcn-canvas) 22%, transparent); stroke-width: 1.25; stroke-dasharray: 3 4; }
+.bcn-spark-dot { fill: var(--bcn-accent); }
+.bcn-spark-dot.down { fill: var(--bcn-down); }
+.bcn-spark-cap { display: block; margin-top: 6px; font-family: var(--bcn-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: color-mix(in srgb, var(--bcn-canvas) 55%, transparent); }
+.bcn-metric-strip {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    margin-top: 20px; padding-top: 18px;
+    border-top: 1px solid color-mix(in srgb, var(--bcn-canvas) 16%, transparent);
+}
+.bcn-metric { display: flex; flex-direction: column; gap: 5px; }
+.bcn-metric-label { font-family: var(--bcn-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: color-mix(in srgb, var(--bcn-canvas) 55%, transparent); }
+.bcn-metric-value { font-family: var(--bcn-mono); font-size: 20px; font-weight: 600; color: var(--bcn-canvas); font-variant-numeric: tabular-nums; }
+
+.bcn-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.bcn-tile {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 14px; background: var(--bcn-panel); border: 1px solid var(--bcn-rule);
+    border-radius: var(--bcn-r-md); box-shadow: var(--bcn-shadow-1);
+}
+.bcn-tile .dashicons { font-size: 18px; width: 18px; height: 18px; color: var(--bcn-faint); margin-bottom: 4px; }
+.bcn-tile[data-state="ok"]   .dashicons { color: var(--bcn-ok); }
+.bcn-tile[data-state="warn"] .dashicons { color: var(--bcn-warn); }
+.bcn-tile[data-state="acc"]  .dashicons { color: var(--bcn-accent); }
+.bcn-tile-label { font-family: var(--bcn-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--bcn-faint); }
+.bcn-tile-value { font-family: var(--bcn-mono); font-size: 15px; font-weight: 600; color: var(--bcn-ink); font-variant-numeric: tabular-nums; }
+.bcn-quick { display: flex; gap: 10px; flex-wrap: wrap; }
+
+@media (max-width: 620px) {
+    .bcn-metric-strip { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .bcn-tiles { grid-template-columns: repeat(2, 1fr); }
+    .bcn-hero-status { font-size: 28px; }
+}
+@media (max-width: 720px) {
+    .bcn-hero-spark { display: none; }
+}
+
 /* ─ Reduced motion ─ */
 @media (prefers-reduced-motion: reduce) {
     .bcn-panel { animation: none; }

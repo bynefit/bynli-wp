@@ -363,12 +363,109 @@ class Bynli_Connect_Settings {
     // the tickets fold are built out in later phases of #29; where a surface
     // already had content it is carried here and restyled in its own phase.
 
+    /** Normalized 0..1 heartbeat series (one point per recent post, oldest→newest). */
+    private function spark_series(array $history): array {
+        $pts = [];
+        foreach ($history as $h) {
+            $pts[] = !empty($h['ok']) ? 1.0 : 0.2;
+        }
+        return $pts;
+    }
+
     private function render_overview(array $ctx): void {
         if (!$ctx['is_configured']) { $this->render_onboard(); return; }
+
+        $is_connected = $ctx['is_connected'];
+        $last         = $ctx['last'];
+        $history      = Bynli_Connect_Reporter::history();
+        $series       = $this->spark_series($history);
+        $last_ok      = empty($history) ? true : !empty($history[count($history) - 1]['ok']);
+
+        $hero_state = $is_connected ? 'on' : 'off';
+        $readout    = $is_connected ? 'CONNECTED' : 'NOT VERIFIED';
+        $sub        = $is_connected
+            ? 'Reporting to Bynefit' . (!empty($last['at']) ? ' · last ping ' . esc_html(human_time_diff((int)$last['at'])) . ' ago' : '')
+            : 'Key saved — send a test heartbeat in Connection to verify the signature path.';
+
+        $storage   = isset($last['storage_bytes']) && $last['storage_bytes'] !== null ? (int)$last['storage_bytes'] : null;
+        $next_cron = $ctx['next_cron'];
+
+        // Health tiles.
+        $update_available = $ctx['update_available'];
+        $daily_recent = !empty($last['at']) && (time() - (int)$last['at']) < 2 * DAY_IN_SECONDS;
         ?>
-        <div class="bcn-note info">
-            <span class="dashicons dashicons-chart-area" aria-hidden="true"></span>
-            <span>Overview — the live signal instrument (uplink status, 7-day heartbeat sparkline, health tiles) lands next in this build.</span>
+        <div class="bcn-hero" data-state="<?php echo esc_attr($hero_state); ?>">
+            <div class="bcn-hero-body">
+                <div class="bcn-hero-lead">
+                    <span class="bcn-hero-eyebrow">Uplink</span>
+                    <div class="bcn-hero-readout">
+                        <span class="bcn-hero-dot" aria-hidden="true"></span>
+                        <span class="bcn-hero-status"><?php echo esc_html($readout); ?></span>
+                    </div>
+                    <p class="bcn-hero-sub"><?php echo wp_kses_post($sub); ?></p>
+                </div>
+                <figure class="bcn-hero-spark">
+                    <div class="bcn-spark"
+                         data-series="<?php echo esc_attr(wp_json_encode($series)); ?>"
+                         data-ok="<?php echo $last_ok ? '1' : '0'; ?>"
+                         role="img"
+                         aria-label="<?php echo esc_attr(sprintf('Heartbeat over the last %d reports', count($series))); ?>"></div>
+                    <figcaption class="bcn-spark-cap">7-day heartbeat</figcaption>
+                </figure>
+            </div>
+            <div class="bcn-metric-strip">
+                <div class="bcn-metric">
+                    <span class="bcn-metric-label">Storage</span>
+                    <span class="bcn-metric-value"><?php echo $storage !== null ? esc_html(size_format($storage, 1)) : '—'; ?></span>
+                </div>
+                <div class="bcn-metric">
+                    <span class="bcn-metric-label">WordPress</span>
+                    <span class="bcn-metric-value"><?php echo esc_html(get_bloginfo('version')); ?></span>
+                </div>
+                <div class="bcn-metric">
+                    <span class="bcn-metric-label">PHP</span>
+                    <span class="bcn-metric-value"><?php echo esc_html(PHP_VERSION); ?></span>
+                </div>
+                <div class="bcn-metric">
+                    <span class="bcn-metric-label">Next report</span>
+                    <span class="bcn-metric-value"><?php echo $next_cron ? esc_html(human_time_diff(time(), (int)$next_cron)) : 'off'; ?></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bcn-tiles">
+            <div class="bcn-tile" data-state="<?php echo $is_connected ? 'ok' : 'warn'; ?>">
+                <span class="dashicons <?php echo $is_connected ? 'dashicons-yes-alt' : 'dashicons-warning'; ?>" aria-hidden="true"></span>
+                <span class="bcn-tile-label">Connection</span>
+                <span class="bcn-tile-value"><?php echo $is_connected ? 'Verified' : 'Unverified'; ?></span>
+            </div>
+            <div class="bcn-tile" data-state="<?php echo $daily_recent ? 'ok' : 'warn'; ?>">
+                <span class="dashicons dashicons-backup" aria-hidden="true"></span>
+                <span class="bcn-tile-label">Daily report</span>
+                <span class="bcn-tile-value"><?php echo !empty($last['at']) ? esc_html(human_time_diff((int)$last['at']) . ' ago') : 'never'; ?></span>
+            </div>
+            <div class="bcn-tile" data-state="<?php echo $update_available ? 'acc' : 'ok'; ?>">
+                <span class="dashicons dashicons-update" aria-hidden="true"></span>
+                <span class="bcn-tile-label">Plugin</span>
+                <span class="bcn-tile-value"><?php echo $update_available ? 'Update ready' : 'v' . esc_html(BYNLI_CONNECT_VERSION); ?></span>
+            </div>
+            <div class="bcn-tile" data-state="ok">
+                <span class="dashicons dashicons-lock" aria-hidden="true"></span>
+                <span class="bcn-tile-label">Signing</span>
+                <span class="bcn-tile-value">HMAC-SHA256</span>
+            </div>
+        </div>
+
+        <div class="bcn-quick">
+            <a class="bcn-btn primary sm" href="<?php echo esc_url($this->section_url('connection')); ?>">
+                <span class="dashicons dashicons-admin-network"></span> Connection
+            </a>
+            <a class="bcn-btn sm" href="<?php echo esc_url($this->section_url('shortcodes')); ?>">
+                <span class="dashicons dashicons-shortcode"></span> Shortcodes
+            </a>
+            <a class="bcn-btn sm" href="<?php echo esc_url($this->section_url('tickets')); ?>">
+                <span class="dashicons dashicons-sos"></span> Support
+            </a>
         </div>
         <?php
     }
