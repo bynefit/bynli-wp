@@ -603,6 +603,7 @@ class Bynli_Connect_Settings {
             </div>
         </section>
         <?php
+        Bynli_Connect_Visibility::render_card();
     }
 
     /**
