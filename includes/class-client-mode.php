@@ -58,6 +58,7 @@ class Bynli_Connect_Client_Mode {
         if (get_role(self::ROLE)) return;
         add_role(self::ROLE, __('Client', 'bynli-connect'), [
             'read'                  => true,
+            'read_bynefit_portal'   => true,   // bespoke cap so only clients (not every subscriber) see the Portal
             'upload_files'          => true,
             'edit_posts'            => true,
             'edit_published_posts'  => true,
@@ -85,12 +86,16 @@ class Bynli_Connect_Client_Mode {
 
     public function restrict_admin_pages(): void {
         if (!$this->is_client()) return;
-        $base = basename((string) ($_SERVER['PHP_SELF'] ?? ''));
+        // $pagenow is the WP-canonical current-admin-file signal; PHP_SELF can
+        // be shifted by PATH_INFO on some server configs.
+        global $pagenow;
+        $base = (string) $pagenow;
         $blocked = [
             'options-general.php', 'options.php', 'options-writing.php', 'options-reading.php',
             'plugins.php', 'plugin-install.php', 'plugin-editor.php',
             'themes.php', 'theme-install.php', 'theme-editor.php', 'customize.php',
             'users.php', 'user-new.php', 'user-edit.php',
+            'edit-comments.php', 'comment.php',
             'tools.php', 'import.php', 'export.php', 'site-health.php', 'update-core.php',
         ];
         if (in_array($base, $blocked, true)) {
@@ -129,7 +134,7 @@ class Bynli_Connect_Client_Mode {
         $hook = add_menu_page(
             __('Portal', 'bynli-connect'),
             __('Portal', 'bynli-connect'),
-            'read',
+            'read_bynefit_portal',   // only the Client role holds this — keeps subscribers/admins out
             self::PORTAL_SLUG,
             [$this, 'render_portal'],
             'dashicons-admin-home',
@@ -145,7 +150,7 @@ class Bynli_Connect_Client_Mode {
     }
 
     public function render_portal(): void {
-        if (!current_user_can('read')) wp_die('Forbidden.', 403);
+        if (!current_user_can('read_bynefit_portal')) wp_die('Forbidden.', 403);
 
         $user  = wp_get_current_user();
         $name  = $user->first_name ?: $user->display_name;
