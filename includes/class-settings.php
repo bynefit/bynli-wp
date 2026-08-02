@@ -44,7 +44,7 @@ class Bynli_Connect_Settings {
             wp_send_json_error(['message' => 'Forbidden.'], 403);
         }
         if (!check_ajax_referer(self::NONCE_FORMS, '_wpnonce', false)) {
-            wp_send_json_error(['message' => 'Security check failed. Reload and try again.'], 400);
+            wp_send_json_error(['message' => 'Security check failed. Reload and try again.'], 403);
         }
         if (self::key() === '') {
             wp_send_json_error(['message' => 'Add your site-host key in Connection first.']);
@@ -60,12 +60,12 @@ class Bynli_Connect_Settings {
         $forms = isset($res['data']['forms']) && is_array($res['data']['forms']) ? $res['data']['forms'] : [];
         $out = [];
         foreach ($forms as $f) {
-            $id = (string) ($f['id'] ?? '');
+            $id = is_string($f['id'] ?? null) ? $f['id'] : '';
             if (!preg_match('/^frm_[A-Za-z0-9_\-]{6,40}$/', $id)) continue; // only valid form ids
             $out[] = [
                 'id'    => $id,
-                'title' => (string) ($f['title'] ?? '(untitled form)'),
-                'slug'  => (string) ($f['slug'] ?? ''),
+                'title' => sanitize_text_field(is_string($f['title'] ?? null) ? $f['title'] : '(untitled form)'),
+                'slug'  => sanitize_text_field(is_string($f['slug'] ?? null) ? $f['slug'] : ''),
             ];
         }
         wp_send_json_success(['forms' => $out]);
