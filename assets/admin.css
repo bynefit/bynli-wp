@@ -1,68 +1,134 @@
-/* Bynli Connect — settings page
- * Scoped to .bcn-wrap. Resets WP admin spillover, locks design tokens,
- * and degrades gracefully across WP color schemes, RTL, mobile,
- * reduced-motion, and high-contrast.
+/* Bynefit Connect — "Relay" console (bynli-wp#29)
+ * Scoped to .bcn-wrap. Cool signal-teal *instrument* aesthetic; monospace is
+ * the personality (telemetry values), not a display face. Light + dark.
+ *
+ * Theming is three layers so a manual toggle wins over the OS/WP preference in
+ * BOTH directions:
+ *   1. token defaults on .bcn-wrap (light)
+ *   2. @media (prefers-color-scheme: dark) remaps tokens — but only when the
+ *      user hasn't forced light (:not([data-theme="light"]))
+ *   3. .bcn-wrap[data-theme="dark"|"light"] explicit override (highest)
+ * Style every component THROUGH tokens — never inside the media query.
+ *
+ * Semantic (ok/warn/down) is separate from --accent — teal never signals
+ * health. Token contract (bynli_sh_ / X-Bynli-* / [bynli-*]) is unchanged.
  */
 
 .bcn-wrap {
-    /* ─ Design tokens ──────────────────────────────────────────── */
-    --bcn-ink:        #12100e;   /* warm dark — primary text + ground */
-    --bcn-ink-2:      #2a241e;   /* one step lighter ink */
-    --bcn-bone:       #f5edd0;   /* bone — inversion text */
-    --bcn-bone-2:     rgba(245, 237, 224, 0.66);
-    --bcn-bone-3:     rgba(245, 237, 224, 0.32);
-    --bcn-paper:      #fdfcfa;   /* card surface */
-    --bcn-paper-2:    #f7f4ee;   /* card sub-surface (stat tile bg) */
-    --bcn-rule:       #e6e2db;   /* hairline rules + borders */
-    --bcn-rule-2:     #efece5;   /* softer rules */
-    --bcn-muted:      #6b6258;   /* secondary text */
-    --bcn-gold:       #d4933a;   /* the only accent */
-    --bcn-gold-soft:  #f3e9d3;   /* gold tint surface */
-    --bcn-ok:         #2f6f4e;
-    --bcn-ok-bg:      #eef5ef;
-    --bcn-warn:       #8a6d1b;
-    --bcn-warn-bg:    #f8efd5;
-    --bcn-err:        #8b3a3a;
-    --bcn-err-bg:     #f7ebeb;
+    /* ─ Color — light (defaults) ─────────────────────────────────── */
+    --bcn-canvas:      #eef1f5;   /* page ground (cool slate-tinted) */
+    --bcn-panel:       #ffffff;   /* card surface */
+    --bcn-panel-2:     #f5f7fa;   /* sub-surface / inputs */
+    --bcn-sunk:        #e9edf2;   /* inset: readout, code, counts */
+    --bcn-ink:         #0d1420;   /* primary text + hero ground */
+    --bcn-ink-2:       #253044;   /* secondary text */
+    --bcn-muted:       #5c6775;   /* tertiary text */
+    --bcn-faint:       #8a94a3;   /* micro-labels, placeholders */
+    --bcn-rule:        #e1e6ec;   /* borders */
+    --bcn-rule-2:      #edf0f4;   /* soft dividers */
 
-    --bcn-text-1:     #1a1f2b;   /* tickets-surface primary ink (cooler than --bcn-ink) */
-    --bcn-text-2:     #5b6473;   /* tickets-surface secondary ink */
+    --bcn-accent:      #0d9488;   /* brand / live / interactive (signal-teal) */
+    --bcn-accent-ink:  #0b7a70;   /* accent text on light */
+    --bcn-accent-soft: #dff1ef;   /* accent tint surface */
+    --bcn-accent-line: #b7e0db;   /* accent border */
+    --bcn-accent-btn-fg: #ffffff; /* text on the teal button (white is AA on light --accent) */
 
-    --bcn-pill-open-bg:        rgba(212, 147, 58, 0.16);
-    --bcn-pill-open-fg:        #8a5a16;
-    --bcn-pill-in-progress-bg: rgba(59, 130, 246, 0.14);
-    --bcn-pill-in-progress-fg: #1d4ed8;
-    --bcn-pill-resolved-bg:    rgba(34, 197, 94, 0.16);
-    --bcn-pill-resolved-fg:    #166534;
-    --bcn-pill-high-bg:        rgba(212, 147, 58, 0.18);
-    --bcn-pill-high-fg:        #8a5a16;
-    --bcn-pill-urgent-bg:      rgba(220, 38, 38, 0.14);
-    --bcn-pill-urgent-fg:      #991b1b;
+    --bcn-ok:   #1f9d57;  --bcn-ok-soft:   #e6f4ec;  --bcn-ok-line:   #bfe4cd;
+    --bcn-warn: #b5811a;  --bcn-warn-soft: #f6eed9;  --bcn-warn-line: #e7d3a3;
+    --bcn-down: #cf4444;  --bcn-down-soft: #f8e9e9;  --bcn-down-line: #eec6c6;
 
-    --bcn-r-sm: 6px;
-    --bcn-r-md: 10px;
-    --bcn-r-lg: 14px;
+    /* Ticket status/priority pills map onto the semantic + accent tokens. */
+    --bcn-pill-open-bg:        var(--bcn-accent-soft);
+    --bcn-pill-open-fg:        var(--bcn-accent-ink);
+    --bcn-pill-in-progress-bg: var(--bcn-warn-soft);
+    --bcn-pill-in-progress-fg: var(--bcn-warn);
+    --bcn-pill-resolved-bg:    var(--bcn-ok-soft);
+    --bcn-pill-resolved-fg:    var(--bcn-ok);
+    --bcn-pill-high-bg:        var(--bcn-warn-soft);
+    --bcn-pill-high-fg:        var(--bcn-warn);
+    --bcn-pill-urgent-bg:      var(--bcn-down-soft);
+    --bcn-pill-urgent-fg:      var(--bcn-down);
 
-    --bcn-shadow-1: 0 1px 2px rgba(20, 14, 8, 0.04), 0 1px 1px rgba(20, 14, 8, 0.03);
-    --bcn-shadow-2: 0 4px 14px rgba(20, 14, 8, 0.06), 0 1px 2px rgba(20, 14, 8, 0.03);
+    /* ─ Radii / shadow / motion ──────────────────────────────────── */
+    --bcn-r-sm: 7px;  --bcn-r-md: 11px;  --bcn-r-lg: 16px;  --bcn-r-xl: 22px;
+    --bcn-shadow-1:   0 1px 2px rgba(13, 20, 32, 0.06), 0 1px 1px rgba(13, 20, 32, 0.04);
+    --bcn-shadow-2:   0 6px 22px rgba(13, 20, 32, 0.10), 0 2px 6px rgba(13, 20, 32, 0.05);
+    --bcn-shadow-pop: 0 18px 50px rgba(13, 20, 32, 0.22);
+    --bcn-t:   120ms;
+    --bcn-t-2: 150ms;
 
-    --bcn-font-body:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --bcn-font-mark:  "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --bcn-font-serif: "Iowan Old Style", "Hoefler Text", Georgia, "Times New Roman", serif;
-    --bcn-font-mono:  ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    /* ─ Type — monospace-as-instrument ───────────────────────────── */
+    --bcn-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --bcn-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    /* Back-compat aliases for surfaces not yet migrated in this WIP branch. */
+    --bcn-font-body: var(--bcn-sans);
+    --bcn-font-mono: var(--bcn-mono);
 
-    max-width: 920px;
+    max-width: 1080px;
     margin: 16px 24px 40px 0;
     color: var(--bcn-ink);
-    font-family: var(--bcn-font-body);
+    font-family: var(--bcn-sans);
     font-size: 14px;
     line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
 }
+
+/* Layer 2 — OS/WP dark preference. Remaps tokens only; skipped when the user
+   has explicitly forced light via the toggle. */
 @media (prefers-color-scheme: dark) {
-    /* WP admin honors color schemes server-side, not via prefers-color-scheme,
-       so we leave the card surfaces light by design — keeps editorial feel
-       no matter which WP theme the admin user picked. */
+    .bcn-wrap:not([data-theme="light"]) {
+        --bcn-canvas:      #080c12;
+        --bcn-panel:       #111823;
+        --bcn-panel-2:     #0d141d;
+        --bcn-sunk:        #0a1017;
+        --bcn-ink:         #e9edf2;
+        --bcn-ink-2:       #c2ccd8;
+        --bcn-muted:       #8a97a6;
+        --bcn-faint:       #5e6b7b;
+        --bcn-rule:        #1d2734;
+        --bcn-rule-2:      #161f2a;
+        --bcn-accent:      #2dd4c2;
+        --bcn-accent-ink:  #56e0d1;
+        --bcn-accent-soft: #10312f;
+        --bcn-accent-line: #1c4a46;
+        --bcn-accent-btn-fg: #04201d;
+        --bcn-ok:   #37c574;  --bcn-ok-soft:   #10281b;  --bcn-ok-line:   #1d4230;
+        --bcn-warn: #e0ad4a;  --bcn-warn-soft: #2a2110;  --bcn-warn-line: #4a3a17;
+        --bcn-down: #f0736f;  --bcn-down-soft: #2c1414;  --bcn-down-line: #4c2222;
+        --bcn-shadow-1:   0 1px 2px rgba(0, 0, 0, 0.4);
+        --bcn-shadow-2:   0 6px 22px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+        --bcn-shadow-pop: 0 18px 50px rgba(0, 0, 0, 0.6);
+    }
 }
+
+/* Layer 3 — explicit manual override. Highest specificity; wins over the OS
+   preference in both directions. Dark values mirror layer 2. */
+.bcn-wrap[data-theme="dark"] {
+    --bcn-canvas:      #080c12;
+    --bcn-panel:       #111823;
+    --bcn-panel-2:     #0d141d;
+    --bcn-sunk:        #0a1017;
+    --bcn-ink:         #e9edf2;
+    --bcn-ink-2:       #c2ccd8;
+    --bcn-muted:       #8a97a6;
+    --bcn-faint:       #5e6b7b;
+    --bcn-rule:        #1d2734;
+    --bcn-rule-2:      #161f2a;
+    --bcn-accent:      #2dd4c2;
+    --bcn-accent-ink:  #56e0d1;
+    --bcn-accent-soft: #10312f;
+    --bcn-accent-line: #1c4a46;
+    --bcn-accent-btn-fg: #04201d;
+    --bcn-ok:   #37c574;  --bcn-ok-soft:   #10281b;  --bcn-ok-line:   #1d4230;
+    --bcn-warn: #e0ad4a;  --bcn-warn-soft: #2a2110;  --bcn-warn-line: #4a3a17;
+    --bcn-down: #f0736f;  --bcn-down-soft: #2c1414;  --bcn-down-line: #4c2222;
+    --bcn-shadow-1:   0 1px 2px rgba(0, 0, 0, 0.4);
+    --bcn-shadow-2:   0 6px 22px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --bcn-shadow-pop: 0 18px 50px rgba(0, 0, 0, 0.6);
+}
+/* Explicit light anchor (defaults are already light — this lets the toggle
+   force light even under a dark OS preference via layer 2's :not() guard). */
+.bcn-wrap[data-theme="light"] { color-scheme: light; }
 
 /* ─ Reset within scope (defend against WP form-table + .button bleed) ── */
 .bcn-wrap * {
