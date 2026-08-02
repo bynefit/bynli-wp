@@ -55,20 +55,29 @@ class Bynli_Connect_Client_Mode {
     }
 
     public function ensure_role(): void {
-        if (get_role(self::ROLE)) return;
-        add_role(self::ROLE, __('Client', 'bynli-connect'), [
-            'read'                  => true,
-            'read_bynefit_portal'   => true,   // bespoke cap so only clients (not every subscriber) see the Portal
-            'upload_files'          => true,
-            'edit_posts'            => true,
-            'edit_published_posts'  => true,
-            'delete_posts'          => true,
-            'publish_posts'         => true,
-            'edit_pages'            => true,
-            'edit_published_pages'  => true,
-            'delete_pages'          => true,
-            'publish_pages'         => true,
-        ]);
+        $role = get_role(self::ROLE);
+        if (!$role) {
+            add_role(self::ROLE, __('Client', 'bynli-connect'), [
+                'read'                  => true,
+                'read_bynefit_portal'   => true,   // bespoke cap so only clients (not every subscriber) see the Portal
+                'upload_files'          => true,
+                'edit_posts'            => true,
+                'edit_published_posts'  => true,
+                'delete_posts'          => true,
+                'publish_posts'         => true,
+                'edit_pages'            => true,
+                'edit_published_pages'  => true,
+                'delete_pages'          => true,
+                'publish_pages'         => true,
+            ]);
+            return;
+        }
+        // Back-fill caps added in later plugin versions — add_role() is a no-op
+        // on an existing role, so a role created by an earlier build won't get
+        // new caps otherwise.
+        if (!$role->has_cap('read_bynefit_portal')) {
+            $role->add_cap('read_bynefit_portal');
+        }
     }
 
     // ── Lockdown (clients only) ──────────────────────────────────────────
