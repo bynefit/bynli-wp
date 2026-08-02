@@ -316,6 +316,85 @@
         });
     }
 
+    // ── Relay console (#29): client-side panel switching + theme toggle ──
+
+    function showPanel(section) {
+        const panels = document.querySelectorAll('.bcn-panel');
+        if (!panels.length) return false;
+        let matched = false;
+        panels.forEach((p) => {
+            const on = (p.getAttribute('data-panel') === section);
+            p.classList.toggle('active', on);
+            if (on) { p.removeAttribute('hidden'); matched = true; }
+            else    { p.setAttribute('hidden', ''); }
+        });
+        if (!matched) return false;
+        document.querySelectorAll('.bcn-nav-item').forEach((a) => {
+            const on = (a.getAttribute('data-go') === section);
+            a.classList.toggle('active', on);
+            if (on) a.setAttribute('aria-current', 'page');
+            else    a.removeAttribute('aria-current');
+        });
+        return true;
+    }
+
+    function wirePanels() {
+        const rail = document.querySelector('.bcn-rail');
+        if (!rail) return;
+        // Enhance the deep-link anchors: switch client-side, keep the URL in
+        // sync (so refresh/share lands on the same section), no reload. The
+        // server already rendered every panel + the ?section= fallback works
+        // with JS off, so this is pure progressive enhancement.
+        document.querySelectorAll('.bcn-nav-item[data-go]').forEach((a) => {
+            a.addEventListener('click', (ev) => {
+                const section = a.getAttribute('data-go');
+                if (!section) return;
+                if (!showPanel(section)) return; // fall back to navigation
+                ev.preventDefault();
+                try {
+                    const url = new URL(a.href, window.location.origin);
+                    window.history.pushState({ bcnSection: section }, '', url);
+                } catch (e) { /* history unsupported — leave URL as is */ }
+            });
+        });
+        window.addEventListener('popstate', () => {
+            try {
+                const s = new URL(window.location.href).searchParams.get('section');
+                if (s) showPanel(s);
+            } catch (e) { /* ignore */ }
+        });
+    }
+
+    function effectiveTheme(wrap) {
+        const forced = wrap.getAttribute('data-theme');
+        if (forced === 'light' || forced === 'dark') return forced;
+        return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+
+    function wireTheme() {
+        const btn  = document.getElementById('bcn-theme-toggle');
+        const wrap = document.querySelector('.bcn-wrap');
+        if (!btn || !wrap) return;
+        btn.addEventListener('click', () => {
+            const next = (effectiveTheme(wrap) === 'dark') ? 'light' : 'dark';
+            wrap.setAttribute('data-theme', next);
+            btn.setAttribute('data-theme', next);
+            if (!cfg || !cfg.ajaxUrl || !cfg.themeNonce) return; // applied for this view only
+            const body = new URLSearchParams();
+            body.set('action', cfg.themeAction || 'bynli_connect_theme');
+            body.set('_wpnonce', cfg.themeNonce);
+            body.set('theme', next);
+            fetch(cfg.ajaxUrl, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            }).catch((e) => {
+                try { console && console.warn && console.warn('[BynliConnect.theme]', e && e.message); } catch (_) {}
+            });
+        });
+    }
+
     ready(() => {
         wireRevealToggles();
         wireCopyButtons();
@@ -323,5 +402,7 @@
         wireHeartbeat();
         wireDisconnect();
         wireAjaxForms();
+        wirePanels();
+        wireTheme();
     });
 })();
