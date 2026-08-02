@@ -11,11 +11,6 @@ class Bynli_Connect_Settings {
     const NONCE_DISC   = 'bynli_connect_disconnect';
     const AJAX_ACTION  = 'bynli_connect_heartbeat';
 
-    // Relay console (#29): per-user theme override, persisted in user_meta.
-    const THEME_META   = 'bynli_connect_theme';
-    const AJAX_THEME   = 'bynli_connect_theme';
-    const NONCE_THEME  = 'bynli_connect_theme';
-
     // Live shortcode picker: signed proxy to GET /api/site-host/forms.
     const AJAX_FORMS   = 'bynli_connect_forms';
     const NONCE_FORMS  = 'bynli_connect_forms';
@@ -30,7 +25,6 @@ class Bynli_Connect_Settings {
         add_action('admin_post_bynli_connect_test',       [$this, 'handle_test']);
         add_action('admin_post_bynli_connect_disconnect', [$this, 'handle_disconnect']);
         add_action('wp_ajax_' . self::AJAX_ACTION,        [$this, 'handle_ajax_heartbeat']);
-        add_action('wp_ajax_' . self::AJAX_THEME,         [$this, 'handle_ajax_theme']);
         add_action('wp_ajax_' . self::AJAX_FORMS,         [$this, 'handle_ajax_forms']);
     }
 
@@ -82,16 +76,6 @@ class Bynli_Connect_Settings {
         return (string)get_option(self::OPTION_SLUG, '');
     }
 
-    /**
-     * Per-user theme preference: 'light' | 'dark' | 'auto' (default 'auto',
-     * i.e. follow the OS/WP prefers-color-scheme). Stamped onto .bcn-wrap
-     * server-side so there is no flash on load.
-     */
-    public static function current_theme(): string {
-        $v = (string)get_user_meta(get_current_user_id(), self::THEME_META, true);
-        return in_array($v, ['light', 'dark', 'auto'], true) ? $v : 'auto';
-    }
-
     /** Active console section from ?section=, whitelisted, default 'overview'. */
     private function current_section(): string {
         $s = isset($_GET['section']) ? sanitize_key((string)$_GET['section']) : '';
@@ -113,11 +97,8 @@ class Bynli_Connect_Settings {
         wp_enqueue_style('bynli-connect-admin', $base . 'admin.css', ['dashicons'], BYNLI_CONNECT_VERSION);
         wp_enqueue_script('bynli-connect-admin', $base . 'admin.js', [], BYNLI_CONNECT_VERSION, true);
         wp_localize_script('bynli-connect-admin', 'BynliConnect', [
-            'ajaxUrl'     => admin_url('admin-ajax.php'),
-            'nonce'       => wp_create_nonce(self::AJAX_ACTION),
-            'themeNonce'  => wp_create_nonce(self::NONCE_THEME),
-            'themeAction' => self::AJAX_THEME,
-            'theme'       => self::current_theme(),
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce(self::AJAX_ACTION),
         ]);
     }
 
@@ -203,25 +184,6 @@ class Bynli_Connect_Settings {
         ]);
     }
 
-    /**
-     * Persist the per-user theme override. Nonce + capability gated; value
-     * whitelisted to light|dark|auto. Returns the stored value.
-     */
-    public function handle_ajax_theme(): void {
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => 'Forbidden.'], 403);
-        }
-        if (!check_ajax_referer(self::NONCE_THEME, '_wpnonce', false)) {
-            wp_send_json_error(['message' => 'Security check failed.'], 400);
-        }
-        $theme = isset($_POST['theme']) ? sanitize_key((string)$_POST['theme']) : 'auto';
-        if (!in_array($theme, ['light', 'dark', 'auto'], true)) {
-            $theme = 'auto';
-        }
-        update_user_meta(get_current_user_id(), self::THEME_META, $theme);
-        wp_send_json_success(['theme' => $theme]);
-    }
-
     public function handle_disconnect(): void {
         if (!current_user_can('manage_options')) wp_die('Forbidden.', 403);
         check_admin_referer(self::NONCE_DISC);
@@ -247,12 +209,10 @@ class Bynli_Connect_Settings {
         if (!current_user_can('manage_options')) wp_die('Forbidden.', 403);
 
         $ctx     = $this->build_context();
-        $section  = $this->current_section();
-        $theme    = self::current_theme();
-        $theme_at = ($theme === 'light' || $theme === 'dark') ? ' data-theme="' . esc_attr($theme) . '"' : '';
+        $section = $this->current_section();
         ?>
-        <div class="wrap bcn-wrap"<?php echo $theme_at; ?> dir="<?php echo is_rtl() ? 'rtl' : 'ltr'; ?>">
-            <?php $this->render_topbar($ctx, $theme); ?>
+        <div class="wrap bcn-wrap" dir="<?php echo is_rtl() ? 'rtl' : 'ltr'; ?>">
+            <?php $this->render_topbar($ctx); ?>
             <?php settings_errors(); ?>
             <?php $this->render_flashes($ctx); ?>
 
@@ -303,7 +263,7 @@ class Bynli_Connect_Settings {
         ];
     }
 
-    private function render_topbar(array $ctx, string $theme): void {
+    private function render_topbar(array $ctx): void {
         $host = wp_parse_url(home_url(), PHP_URL_HOST) ?: home_url();
         ?>
         <header class="bcn-topbar">
@@ -327,11 +287,6 @@ class Bynli_Connect_Settings {
                 <span class="bcn-beacon" aria-hidden="true"></span>
                 <span class="bcn-signal-label"><?php echo esc_html($ctx['status_label']); ?></span>
             </span>
-            <button type="button" class="bcn-theme-toggle" id="bcn-theme-toggle"
-                    data-theme="<?php echo esc_attr($theme); ?>"
-                    aria-label="Toggle light or dark theme" title="Toggle theme">
-                <span class="dashicons dashicons-visibility bcn-theme-ico" aria-hidden="true"></span>
-            </button>
         </header>
         <?php
     }
