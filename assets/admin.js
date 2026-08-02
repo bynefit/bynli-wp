@@ -348,6 +348,9 @@
         // with JS off, so this is pure progressive enhancement.
         document.querySelectorAll('.bcn-nav-item[data-go]').forEach((a) => {
             a.addEventListener('click', (ev) => {
+                // Server-rendered surfaces (tickets: remote API call) must do a
+                // real navigation so the server renders fresh content.
+                if (a.hasAttribute('data-server')) return;
                 const section = a.getAttribute('data-go');
                 if (!section) return;
                 if (!showPanel(section)) return; // fall back to navigation

@@ -191,10 +191,9 @@ class Bynli_Connect_Tickets {
         }
 
         $ref = (string)($res['data']['ticket_ref'] ?? '');
-        $list_base = admin_url('options-general.php?page=' . self::MENU_SLUG);
         $detail_url = $ref !== '' && preg_match('/^[A-Za-z0-9_-]{3,64}$/', $ref)
-            ? add_query_arg(['ticket_ref' => $ref, 'result' => 'opened'], $list_base)
-            : add_query_arg(['result' => 'opened'], $list_base);
+            ? self::console_url(['ticket_ref' => $ref, 'result' => 'opened'])
+            : self::console_url(['result' => 'opened']);
 
         wp_send_json_success([
             'ticket_ref' => $ref,
@@ -202,44 +201,61 @@ class Bynli_Connect_Tickets {
         ]);
     }
 
-    /** Top-level renderer — routes to list or detail based on ?ticket_ref=. */
+    /**
+     * Standalone submenu — the Tickets surface now lives inside the Bynefit
+     * Connect console (Settings → Bynefit Connect → Tickets). Keep the submenu
+     * as a thin redirect so bookmarks + the post-open detail links resolve.
+     */
     public function render(): void {
         if (!current_user_can('manage_options')) wp_die('Forbidden.', 403);
-
-        $key_configured = Bynli_Connect_Settings::key() !== '';
-        if (!$key_configured) {
-            $this->render_unconfigured();
-            return;
+        $args = [];
+        foreach (['ticket_ref', 'status', 'result'] as $k) {
+            if (isset($_GET[$k])) $args[$k] = sanitize_text_field((string)$_GET[$k]);
         }
+        if (isset($_GET['new'])) $args['new'] = '1';
+        wp_safe_redirect(self::console_url($args));
+        exit;
+    }
 
+    /** URL of the console Tickets section, with optional query args. */
+    public static function console_url(array $args = []): string {
+        return add_query_arg(
+            array_merge(['page' => Bynli_Connect_Settings::MENU_SLUG, 'section' => 'tickets'], $args),
+            admin_url('options-general.php')
+        );
+    }
+
+    /**
+     * Rendered inside the console 'tickets' panel by Bynli_Connect_Settings.
+     * Routes to detail or list on ?ticket_ref=. Makes a remote API call, so
+     * the console only invokes this when tickets is the active section.
+     */
+    public static function render_panel(): void {
+        if (Bynli_Connect_Settings::key() === '') { self::render_unconfigured(); return; }
         $ref = isset($_GET['ticket_ref']) ? sanitize_text_field((string)$_GET['ticket_ref']) : '';
         if ($ref !== '' && preg_match('/^[A-Za-z0-9_-]{3,64}$/', $ref)) {
-            $this->render_detail($ref);
+            self::render_detail($ref);
             return;
         }
-
-        $this->render_list();
+        self::render_list();
     }
 
     // ── States ─────────────────────────────────────────────────────
 
-    private function render_unconfigured(): void {
+    private static function render_unconfigured(): void {
+        $conn = add_query_arg(
+            ['page' => Bynli_Connect_Settings::MENU_SLUG, 'section' => 'connection'],
+            admin_url('options-general.php')
+        );
         ?>
-        <div class="wrap bcn-wrap">
-            <h1>Bynli Support Tickets</h1>
-            <div class="bcn-notice bcn-notice-warn bcn-pad-top">
-                <span class="dashicons dashicons-warning"></span>
-                <span>
-                    No Bynli site-host key configured yet —
-                    <a href="<?php echo esc_url(admin_url('options-general.php?page=' . Bynli_Connect_Settings::MENU_SLUG)); ?>">finish setup</a>
-                    first so this site can read your team's tickets.
-                </span>
-            </div>
+        <div class="bcn-note warn">
+            <span class="dashicons dashicons-warning" aria-hidden="true"></span>
+            <span>No Bynefit site-host key yet — <a href="<?php echo esc_url($conn); ?>">finish setup in Connection</a> so this site can read your team’s tickets.</span>
         </div>
         <?php
     }
 
-    private function render_list(): void {
+    private static function render_list(): void {
         $status = isset($_GET['status']) ? sanitize_text_field((string)$_GET['status']) : 'open';
         if (!in_array($status, ['open', 'resolved', 'in_progress', 'all'], true)) $status = 'open';
 
@@ -247,192 +263,140 @@ class Bynli_Connect_Tickets {
 
         $flash_result = isset($_GET['result']) ? sanitize_text_field((string)$_GET['result']) : '';
         $form_open    = isset($_GET['new']) && $_GET['new'] === '1';
-
+        // #20 — per-tab counts, when the server sends them. Absent → no chips.
+        $counts = (!empty($res['ok']) && isset($res['data']['counts']) && is_array($res['data']['counts']))
+            ? $res['data']['counts'] : [];
         ?>
-        <div class="wrap bcn-wrap bcn-tickets">
-            <header class="bcn-header">
-                <div class="bcn-brand">
-                    <span class="bcn-wordmark">Bynli<span class="bcn-wordmark-dot">.</span></span>
-                    <span class="bcn-divider-v" aria-hidden="true"></span>
-                    <span class="bcn-product">Support tickets</span>
+        <div class="bcn-tk">
+            <div class="bcn-tk-head">
+                <div>
+                    <h2 class="bcn-tk-title">Support tickets</h2>
+                    <p class="bcn-tk-sub">Your team’s Bynefit support threads, from this site.</p>
                 </div>
-                <a class="bcn-btn" href="<?php echo esc_url(add_query_arg(['new' => '1'], menu_page_url(self::MENU_SLUG, false))); ?>#bcn-new-ticket">
-                    <span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span>
-                    <?php esc_html_e('Open new ticket', 'bynli-connect'); ?>
+                <a class="bcn-btn primary sm" href="<?php echo esc_url(self::console_url(['new' => '1'])); ?>#bcn-new-ticket">
+                    <span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span> Open new ticket
                 </a>
-            </header>
+            </div>
 
-            <?php
-            // Only 'opened' lands here as a flash — errors no longer
-            // redirect (Bynli AJAX standard); JS shows them inline on
-            // the form below.
-            if ($flash_result === 'opened'):
-            ?>
-                <div class="bcn-notice bcn-notice-ok">
-                    <span class="dashicons dashicons-yes-alt"></span>
-                    <span><?php esc_html_e('Ticket opened. Bynli support will be notified.', 'bynli-connect'); ?></span>
-                </div>
+            <?php if ($flash_result === 'opened'): ?>
+                <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-yes-alt"></span>
+                    <span>Ticket opened. Bynefit support will be notified.</span></div>
             <?php endif; ?>
 
             <details id="bcn-new-ticket" class="bcn-new-ticket"<?php echo $form_open ? ' open' : ''; ?>>
-                <summary><?php esc_html_e('Open a new ticket from this site', 'bynli-connect'); ?></summary>
-                <form class="bcn-new-ticket-form bcn-ajax-form"
-                      data-bcn-action="bynli_connect_ticket_new"
-                      novalidate>
+                <summary>Open a new ticket from this site</summary>
+                <form class="bcn-new-ticket-form bcn-ajax-form" data-bcn-action="bynli_connect_ticket_new" novalidate>
                     <input type="hidden" name="_ajax_nonce" value="<?php echo esc_attr(wp_create_nonce(self::NONCE_NEW)); ?>" />
-
                     <div class="bcn-form-feedback" data-role="feedback" hidden></div>
 
-                    <p class="bcn-field">
-                        <label for="bcn-new-subject"><?php esc_html_e('Subject', 'bynli-connect'); ?></label>
-                        <input type="text" id="bcn-new-subject" name="ticket_subject"
-                               maxlength="200" minlength="3" required
-                               placeholder="<?php esc_attr_e('Short summary of the problem', 'bynli-connect'); ?>" />
-                    </p>
-
-                    <p class="bcn-field">
-                        <label for="bcn-new-category"><?php esc_html_e('Category', 'bynli-connect'); ?></label>
-                        <select id="bcn-new-category" name="ticket_category">
-                            <?php
-                            $cats = [
-                                'technical' => __('Technical — something on the site is broken', 'bynli-connect'),
-                                'billing'   => __('Billing — questions about an invoice or charge', 'bynli-connect'),
-                                'account'   => __('Account — access, roles, or settings', 'bynli-connect'),
-                                'general'   => __('General — anything else', 'bynli-connect'),
-                            ];
-                            foreach ($cats as $key => $label):
-                            ?>
-                                <option value="<?php echo esc_attr($key); ?>"<?php selected('general', $key); ?>>
-                                    <?php echo esc_html($label); ?>
-                                </option>
-                            <?php endforeach; ?>
+                    <div class="bcn-field">
+                        <label class="bcn-label" for="bcn-new-subject">Subject</label>
+                        <input class="bcn-input sans" type="text" id="bcn-new-subject" name="ticket_subject"
+                               maxlength="200" minlength="3" required placeholder="Short summary of the problem" />
+                    </div>
+                    <div class="bcn-field">
+                        <label class="bcn-label" for="bcn-new-category">Category</label>
+                        <select class="bcn-input sans" id="bcn-new-category" name="ticket_category">
+                            <option value="technical">Technical — something on the site is broken</option>
+                            <option value="billing">Billing — questions about an invoice or charge</option>
+                            <option value="account">Account — access, roles, or settings</option>
+                            <option value="general" selected>General — anything else</option>
                         </select>
-                    </p>
-
-                    <p class="bcn-field">
-                        <label for="bcn-new-body"><?php esc_html_e('Message', 'bynli-connect'); ?></label>
-                        <textarea id="bcn-new-body" name="ticket_body" rows="6" maxlength="5000" required
-                                  placeholder="<?php esc_attr_e('Describe what you need help with. Bynli staff will see this immediately.', 'bynli-connect'); ?>"></textarea>
-                        <span class="bcn-field-hint">
-                            <?php
+                    </div>
+                    <div class="bcn-field">
+                        <label class="bcn-label" for="bcn-new-body">Message</label>
+                        <textarea class="bcn-input sans" id="bcn-new-body" name="ticket_body" rows="6" maxlength="5000" required
+                                  placeholder="Describe what you need help with. Bynefit staff will see this immediately."></textarea>
+                        <span class="bcn-hint"><?php
                             $wp_user = wp_get_current_user();
                             if ($wp_user && $wp_user->exists() && !empty($wp_user->user_email)) {
                                 printf(
-                                    esc_html__('Posting as %1$s (%2$s). Bynli staff will email this address with any reply.', 'bynli-connect'),
+                                    esc_html__('Posting as %1$s (%2$s). Bynefit staff will email this address with any reply.', 'bynli-connect'),
                                     esc_html($wp_user->display_name ?: $wp_user->user_login),
                                     esc_html($wp_user->user_email)
                                 );
-                            } else {
-                                esc_html_e('Bynli staff will reply to this WordPress site.', 'bynli-connect');
-                            }
-                            ?>
-                        </span>
-                    </p>
-
-                    <p class="bcn-actions">
-                        <button type="submit" class="bcn-btn bcn-btn-primary" data-role="submit">
-                            <?php esc_html_e('Send to Bynli support', 'bynli-connect'); ?>
-                        </button>
-                    </p>
+                            } else { esc_html_e('Bynefit staff will reply to this WordPress site.', 'bynli-connect'); }
+                        ?></span>
+                    </div>
+                    <div class="bcn-actions">
+                        <button type="submit" class="bcn-btn primary" data-role="submit">Send to Bynefit support</button>
+                    </div>
                 </form>
             </details>
 
             <nav class="bcn-tabs" aria-label="Ticket status filter">
                 <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'all' => 'All'] as $k => $label):
-                    $url = add_query_arg(['status' => $k], menu_page_url(self::MENU_SLUG, false));
-                ?>
-                    <a class="bcn-tab<?php echo $status === $k ? ' is-active' : ''; ?>"
-                       href="<?php echo esc_url($url); ?>"
-                       <?php echo $status === $k ? 'aria-current="page"' : ''; ?>>
+                    $on  = ($status === $k);
+                    $cnt = isset($counts[$k]) ? (int)$counts[$k] : null; ?>
+                    <a class="bcn-tab<?php echo $on ? ' is-active' : ''; ?>"
+                       href="<?php echo esc_url(self::console_url(['status' => $k])); ?>"
+                       <?php echo $on ? 'aria-current="page"' : ''; ?>>
                         <?php echo esc_html($label); ?>
+                        <?php if ($cnt !== null && $cnt > 0): ?><span class="bcn-tab-count"><?php echo esc_html((string)$cnt); ?></span><?php endif; ?>
                     </a>
                 <?php endforeach; ?>
             </nav>
 
             <?php if (!$res['ok']): ?>
-                <div class="bcn-notice bcn-notice-err">
-                    <span class="dashicons dashicons-warning"></span>
-                    <span><?php echo esc_html($res['message'] ?? 'Could not fetch tickets.'); ?></span>
-                </div>
-            <?php else:
-                $tickets = $res['data']['tickets'] ?? [];
-            ?>
+                <div class="bcn-notice bcn-notice-err"><span class="dashicons dashicons-warning"></span>
+                    <span><?php echo esc_html($res['message'] ?? 'Could not fetch tickets.'); ?></span></div>
+            <?php else: $tickets = $res['data']['tickets'] ?? []; ?>
                 <?php if (empty($tickets)): ?>
                     <div class="bcn-empty" role="status">
                         <span class="dashicons dashicons-tickets-alt bcn-empty-icon" aria-hidden="true"></span>
-                        <p class="bcn-empty-title">
-                            <?php
-                            echo $status === 'open'
-                                ? esc_html__('No open tickets right now.', 'bynli-connect')
-                                : esc_html__('No tickets matching this filter.', 'bynli-connect');
-                            ?>
-                        </p>
-                        <p class="bcn-empty-cta">
-                            <a href="<?php echo esc_url(add_query_arg(['new' => '1'], menu_page_url(self::MENU_SLUG, false))); ?>#bcn-new-ticket">
-                                <?php esc_html_e('Open a new one from this site', 'bynli-connect'); ?>
-                            </a>
-                        </p>
+                        <p class="bcn-empty-title"><?php echo $status === 'open' ? 'No open tickets right now.' : 'No tickets matching this filter.'; ?></p>
+                        <p class="bcn-empty-cta"><a href="<?php echo esc_url(self::console_url(['new' => '1'])); ?>#bcn-new-ticket">Open a new one from this site</a></p>
                     </div>
                 <?php else: ?>
-                    <table class="bcn-ticket-table">
-                        <thead>
-                            <tr>
-                                <th><?php esc_html_e('Subject', 'bynli-connect'); ?></th>
-                                <th><?php esc_html_e('Status', 'bynli-connect'); ?></th>
-                                <th><?php esc_html_e('Priority', 'bynli-connect'); ?></th>
-                                <th><?php esc_html_e('Last update', 'bynli-connect'); ?></th>
-                                <th><?php esc_html_e('Replies', 'bynli-connect'); ?></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        <?php foreach ($tickets as $t):
-                            $ref         = (string)($t['ticket_ref'] ?? '');
-                            $subject     = (string)($t['subject']    ?? '(no subject)');
-                            $st          = (string)($t['status']     ?? 'open');
-                            $pri         = (string)($t['priority']   ?? 'normal');
-                            $reply_count = (int)($t['reply_count']   ?? 0);
-                            $upd_at      = (string)($t['updated_at'] ?? '');
-                            $preview     = (string)($t['last_reply_preview'] ?? '');
-                            $detail_url  = add_query_arg(['ticket_ref' => $ref], menu_page_url(self::MENU_SLUG, false));
-                        ?>
-                            <tr>
-                                <td class="bcn-ticket-subj">
-                                    <a href="<?php echo esc_url($detail_url); ?>"><?php echo esc_html($subject); ?></a>
-                                    <code class="bcn-ticket-ref"><?php echo esc_html($ref); ?></code>
-                                    <?php if ($preview !== ''): ?>
-                                        <p class="bcn-ticket-preview"><?php echo esc_html($preview); ?></p>
-                                    <?php endif; ?>
-                                </td>
-                                <td><span class="bcn-pill bcn-pill-<?php echo esc_attr($st); ?>"><?php echo esc_html(ucfirst(str_replace('_', ' ', $st))); ?></span></td>
-                                <td><span class="bcn-pill bcn-pill-pri-<?php echo esc_attr($pri); ?>"><?php echo esc_html(ucfirst($pri)); ?></span></td>
-                                <td><?php echo esc_html($upd_at !== '' ? self::human_when($upd_at) : '—'); ?></td>
-                                <td><?php echo esc_html((string)$reply_count); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                    <div class="bcn-tk-table-wrap">
+                        <table class="bcn-tk-table">
+                            <thead><tr><th>Subject</th><th>Status</th><th>Priority</th><th>Last update</th><th>Replies</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($tickets as $t):
+                                $ref         = (string)($t['ticket_ref'] ?? '');
+                                $subject     = (string)($t['subject']    ?? '(no subject)');
+                                $st          = (string)($t['status']     ?? 'open');
+                                $pri         = (string)($t['priority']   ?? 'normal');
+                                $reply_count = (int)($t['reply_count']   ?? 0);
+                                $upd_at      = (string)($t['updated_at'] ?? '');
+                                $preview     = (string)($t['last_reply_preview'] ?? ''); ?>
+                                <tr>
+                                    <td class="bcn-tk-subj">
+                                        <a href="<?php echo esc_url(self::console_url(['ticket_ref' => $ref])); ?>"><?php echo esc_html($subject); ?></a>
+                                        <code class="bcn-ticket-ref"><?php echo esc_html($ref); ?></code>
+                                        <?php if ($preview !== ''): ?><p class="bcn-ticket-preview"><?php echo esc_html($preview); ?></p><?php endif; ?>
+                                    </td>
+                                    <td><span class="bcn-pill bcn-pill-<?php echo esc_attr($st); ?>"><?php echo esc_html(ucfirst(str_replace('_', ' ', $st))); ?></span></td>
+                                    <td><span class="bcn-pill bcn-pill-pri-<?php echo esc_attr($pri); ?>"><?php echo esc_html(ucfirst($pri)); ?></span></td>
+                                    <td><?php echo esc_html($upd_at !== '' ? self::human_when($upd_at) : '—'); ?></td>
+                                    <td><?php echo esc_html((string)$reply_count); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php endif; ?>
             <?php endif; ?>
         </div>
         <?php
     }
 
-    private function render_detail(string $ref): void {
+    private static function render_detail(string $ref): void {
         $res = Bynli_Connect_Api::get('/api/site-host/tickets/' . rawurlencode($ref));
-        $list_url = menu_page_url(self::MENU_SLUG, false);
+        $list_url = self::console_url();
 
         $flash_result = isset($_GET['result']) ? sanitize_text_field((string)$_GET['result']) : '';
 
         ?>
-        <div class="wrap bcn-wrap bcn-tickets bcn-ticket-detail">
-            <p>
+        <div class="bcn-tk bcn-tk-detail">
+            <p class="bcn-tk-back">
                 <a href="<?php echo esc_url($list_url); ?>">&larr; <?php esc_html_e('All tickets', 'bynli-connect'); ?></a>
             </p>
 
             <?php if ($flash_result === 'opened'): ?>
                 <div class="bcn-notice bcn-notice-ok">
                     <span class="dashicons dashicons-yes-alt"></span>
-                    <span><?php esc_html_e('Ticket opened. Bynli support will be notified.', 'bynli-connect'); ?></span>
+                    <span>Ticket opened. Bynefit support will be notified.</span>
                 </div>
             <?php endif; ?>
 
@@ -461,7 +425,7 @@ class Bynli_Connect_Tickets {
                 $resolved = (string)($ticket['resolved_at'] ?? '');
                 $submitter = isset($ticket['submitter']['name']) ? (string)$ticket['submitter']['name'] : '';
             ?>
-                <header class="bcn-header">
+                <header class="bcn-tk-detail-head">
                     <div>
                         <h1 class="bcn-ticket-title"><?php echo esc_html($subj); ?></h1>
                         <p class="bcn-ticket-meta">
@@ -542,11 +506,11 @@ class Bynli_Connect_Tickets {
                         </p>
 
                         <div class="bcn-reply-actions">
-                            <button type="submit" class="bcn-btn bcn-btn-primary" data-role="submit">
+                            <button type="submit" class="bcn-btn primary" data-role="submit">
                                 <?php esc_html_e('Send reply', 'bynli-connect'); ?>
                             </button>
                             <a class="bcn-btn" href="<?php echo esc_url('https://bynli.com/dash/support/center'); ?>" target="_blank" rel="noopener">
-                                <?php esc_html_e('Open on Bynli', 'bynli-connect'); ?>
+                                <?php esc_html_e('Open on Bynefit', 'bynli-connect'); ?>
                                 <span class="dashicons dashicons-external"></span>
                             </a>
                         </div>
@@ -623,13 +587,13 @@ class Bynli_Connect_Tickets {
         ?>
         <p class="bcn-thread-resolved"><?php
             printf(
-                esc_html__('Resolved %s — thread closed. Open on Bynli to reopen if needed.', 'bynli-connect'),
+                esc_html__('Resolved %s — thread closed. Open on Bynefit to reopen if needed.', 'bynli-connect'),
                 esc_html($resolved_iso !== '' ? self::human_when($resolved_iso) : '')
             );
         ?></p>
         <p>
             <a class="bcn-btn" href="<?php echo esc_url('https://bynli.com/dash/support/center'); ?>" target="_blank" rel="noopener">
-                <?php esc_html_e('Open on Bynli', 'bynli-connect'); ?>
+                <?php esc_html_e('Open on Bynefit', 'bynli-connect'); ?>
                 <span class="dashicons dashicons-external"></span>
             </a>
         </p>

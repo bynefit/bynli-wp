@@ -224,7 +224,7 @@ class Bynli_Connect_Settings {
                                  data-panel="<?php echo esc_attr($p); ?>"
                                  role="tabpanel"
                                  <?php echo $is_active ? '' : 'hidden'; ?>>
-                            <?php $this->render_section($p, $ctx); ?>
+                            <?php $this->render_section($p, $ctx, $is_active); ?>
                         </section>
                     <?php endforeach; ?>
                 </main>
@@ -328,6 +328,7 @@ class Bynli_Connect_Settings {
                 <a class="bcn-nav-item<?php echo $is ? ' active' : ''; ?>"
                    href="<?php echo esc_url($this->section_url($key)); ?>"
                    data-go="<?php echo esc_attr($key); ?>"
+                   <?php echo $key === 'tickets' ? 'data-server="1"' : ''; ?>
                    <?php echo $is ? 'aria-current="page"' : ''; ?>>
                     <span class="dashicons <?php echo esc_attr($icon); ?>" aria-hidden="true"></span>
                     <span class="bcn-rail-label"><?php echo esc_html($label); ?></span>
@@ -346,14 +347,14 @@ class Bynli_Connect_Settings {
     }
 
     /** Dispatch to a per-section renderer (whitelisted section names). */
-    private function render_section(string $section, array $ctx): void {
+    private function render_section(string $section, array $ctx, bool $active = false): void {
         switch ($section) {
-            case 'overview':   $this->render_overview($ctx);   break;
-            case 'connection': $this->render_connection($ctx); break;
-            case 'shortcodes': $this->render_shortcodes($ctx); break;
-            case 'tickets':    $this->render_tickets($ctx);    break;
-            case 'activity':   $this->render_activity($ctx);   break;
-            case 'updates':    $this->render_updates($ctx);    break;
+            case 'overview':   $this->render_overview($ctx);        break;
+            case 'connection': $this->render_connection($ctx);      break;
+            case 'shortcodes': $this->render_shortcodes($ctx);      break;
+            case 'tickets':    $this->render_tickets($ctx, $active); break;
+            case 'activity':   $this->render_activity($ctx);        break;
+            case 'updates':    $this->render_updates($ctx);         break;
         }
     }
 
@@ -806,17 +807,22 @@ class Bynli_Connect_Settings {
         <?php
     }
 
-    private function render_tickets(array $ctx): void {
-        // Tickets fold into the console shell in a later phase of #29 (render
-        // the list/detail here via Bynli_Connect_Tickets). For now, deep-link
-        // to the existing Tickets page so nothing regresses mid-build.
-        $tickets_url = add_query_arg(['page' => Bynli_Connect_Tickets::MENU_SLUG], admin_url('options-general.php'));
-        ?>
-        <div class="bcn-note info">
-            <span class="dashicons dashicons-sos" aria-hidden="true"></span>
-            <span>Support tickets — <a href="<?php echo esc_url($tickets_url); ?>">open the Tickets surface</a>. It folds into this console (with per-tab count badges) later in this redesign.</span>
-        </div>
-        <?php
+    private function render_tickets(array $ctx, bool $active): void {
+        // Tickets is a SERVER-rendered surface — render_panel() makes a remote
+        // API call, so we only invoke it when tickets is the active section.
+        // Its rail item carries data-server so clicking it does a full
+        // navigation (reload) rather than a client-side panel swap, which is
+        // what makes the server render the fetched tickets.
+        if (!$active) {
+            ?>
+            <div class="bcn-note info">
+                <span class="dashicons dashicons-sos" aria-hidden="true"></span>
+                <span><a href="<?php echo esc_url(Bynli_Connect_Tickets::console_url()); ?>">Open the Tickets section</a> to load your team’s support threads.</span>
+            </div>
+            <?php
+            return;
+        }
+        Bynli_Connect_Tickets::render_panel();
     }
 
     private function render_activity(array $ctx): void {
