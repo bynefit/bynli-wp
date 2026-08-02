@@ -26,9 +26,10 @@ class Bynli_Connect_Visibility {
     const MODES  = ['live', 'coming_soon', 'members_only'];
 
     public function __construct() {
-        add_action('template_redirect',        [$this, 'gate'], 1);
-        add_action('wp_ajax_' . self::AJAX,     [$this, 'handle_ajax']);
-        add_shortcode('bynli-gate',             [$this, 'shortcode_gate']);
+        add_action('template_redirect',          [$this, 'gate'], 1);
+        add_filter('rest_authentication_errors', [$this, 'gate_rest']);
+        add_action('wp_ajax_' . self::AJAX,       [$this, 'handle_ajax']);
+        add_shortcode('bynli-gate',               [$this, 'shortcode_gate']);
     }
 
     /** Current site mode, whitelisted. */
@@ -51,22 +52,44 @@ class Bynli_Connect_Visibility {
         if (is_admin())                return;               // wp-admin has its own auth
         if (defined('DOING_AJAX')  && DOING_AJAX)  return;
         if (defined('DOING_CRON')  && DOING_CRON)  return;
+        // REST is gated separately by gate_rest() (a rest_authentication_errors
+        // filter) so logged-out reads get a proper 401 JSON instead of the
+        // holding-page HTML landing inside /wp-json. Bail here for REST.
         if (defined('REST_REQUEST') && REST_REQUEST) return;
+        // Belt-and-suspenders: template_redirect doesn't fire on wp-login.php
+        // (separate entry point), so this guard is effectively unreachable —
+        // kept so a future refactor can't accidentally gate the login page.
         global $pagenow;
-        if ($pagenow === 'wp-login.php') return;             // never lock out the login
+        if ($pagenow === 'wp-login.php') return;
 
         if ($mode === 'members_only') {
+            nocache_headers();
             wp_safe_redirect(wp_login_url($this->current_url()));
             exit;
         }
 
-        // coming_soon — branded holding page + 503 so crawlers come back.
+        // coming_soon — branded holding page + 503 so crawlers come back later.
+        nocache_headers();
         if (!headers_sent()) {
             status_header(503);
             header('Retry-After: 3600');
         }
         $this->render_holding_page();
         exit;
+    }
+
+    /**
+     * REST gate — when the site is coming_soon/members_only, a logged-out
+     * caller must not read content through /wp-json (the default wp/v2 routes
+     * are anonymous-readable and would otherwise bypass the front gate).
+     * Runs as a rest_authentication_errors filter; leaves an existing decision
+     * untouched.
+     */
+    public function gate_rest($result) {
+        if (!empty($result))            return $result;   // another handler already decided
+        if (self::mode() === 'live')    return $result;
+        if (is_user_logged_in())        return $result;
+        return new WP_Error('bynli_gate_rest', 'Authentication required.', ['status' => 401]);
     }
 
     private function current_url(): string {
@@ -194,6 +217,10 @@ HTML;
                         <?php endforeach; ?>
                     </select>
                     <p class="bcn-hint" data-role="vis-hint"><?php echo esc_html($opts[$mode][1]); ?></p>
+                    <div class="bcn-note warn" data-role="vis-warn"<?php echo $mode === 'live' ? ' hidden' : ''; ?>>
+                        <span class="dashicons dashicons-warning" aria-hidden="true"></span>
+                        <span>While gated, logged-out visitors and search engines see the site as offline (503) or are sent to sign in. Switch back to <strong>Live</strong> before launch.</span>
+                    </div>
                     <div class="bcn-note" data-role="vis-status" aria-live="polite" hidden>
                         <span class="dashicons" data-role="ico" aria-hidden="true"></span>
                         <span data-role="msg"></span>

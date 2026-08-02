@@ -473,9 +473,11 @@
             coming_soon:  'Logged-out visitors see a branded holding page (503).',
             members_only: 'Logged-out visitors are sent to sign in first.',
         };
+        const warnEl = document.querySelector('[data-role="vis-warn"]');
         sel.addEventListener('change', async () => {
             const mode = sel.value;
             if (hintEl && HINTS[mode]) hintEl.textContent = HINTS[mode];
+            if (warnEl) warnEl.hidden = (mode === 'live');
             setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', 'Saving…');
             const body = new URLSearchParams();
             body.set('action', 'bynli_connect_visibility');
