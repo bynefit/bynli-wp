@@ -363,45 +363,6 @@
         });
     }
 
-    function effectiveTheme(wrap) {
-        const forced = wrap.getAttribute('data-theme');
-        if (forced === 'light' || forced === 'dark') return forced;
-        return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-    }
-
-    function wireTheme() {
-        const btn  = document.getElementById('bcn-theme-toggle');
-        const wrap = document.querySelector('.bcn-wrap');
-        if (!btn || !wrap) return;
-        // Reflect the effective theme on the button so its state is exposed to
-        // assistive tech (the themed UI is the sighted feedback).
-        const reflect = () => {
-            const dark = effectiveTheme(wrap) === 'dark';
-            btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
-            btn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
-        };
-        reflect();
-        btn.addEventListener('click', () => {
-            const next = (effectiveTheme(wrap) === 'dark') ? 'light' : 'dark';
-            wrap.setAttribute('data-theme', next);
-            btn.setAttribute('data-theme', next);
-            reflect();
-            if (!cfg || !cfg.ajaxUrl || !cfg.themeNonce) return; // applied for this view only
-            const body = new URLSearchParams();
-            body.set('action', cfg.themeAction || 'bynli_connect_theme');
-            body.set('_wpnonce', cfg.themeNonce);
-            body.set('theme', next);
-            fetch(cfg.ajaxUrl, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString(),
-            }).catch((e) => {
-                try { console && console.warn && console.warn('[BynliConnect.theme]', e && e.message); } catch (_) {}
-            });
-        });
-    }
-
     // ── 7-day heartbeat sparkline (deterministic, drawn from report history) ──
 
     const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
@@ -566,7 +527,6 @@
         wireDisconnect();
         wireAjaxForms();
         wirePanels();
-        wireTheme();
         wireSparklines();
         wireShortcodePicker();
         wireVisibility();
