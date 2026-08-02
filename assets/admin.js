@@ -616,6 +616,49 @@
         });
     }
 
+    // ── Portal: contact-Bynefit support form → ticket via AJAX ──
+    function wirePortalSupport() {
+        const box = document.querySelector('[data-bcn-support]');
+        if (!box || !cfg || !cfg.ajaxUrl) return;
+        const nonce     = box.getAttribute('data-nonce') || '';
+        const subjectEl = box.querySelector('[data-role="sup-subject"]');
+        const catEl     = box.querySelector('[data-role="sup-cat"]');
+        const bodyEl    = box.querySelector('[data-role="sup-body"]');
+        const statusEl  = box.querySelector('[data-role="sup-status"]');
+        const sendBtn   = box.querySelector('[data-role="sup-send"]');
+        if (!sendBtn) return;
+        sendBtn.addEventListener('click', async () => {
+            const subject = (subjectEl && subjectEl.value || '').trim();
+            const body    = (bodyEl && bodyEl.value || '').trim();
+            const category = (catEl && catEl.value) || 'general';
+            if (subject.length < 3) { setNote(statusEl, 'is-err', 'dashicons-warning', 'Add a short subject first.'); return; }
+            if (!body) { setNote(statusEl, 'is-err', 'dashicons-warning', 'Add a message first.'); return; }
+            setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', 'Sending…');
+            const params = new URLSearchParams();
+            params.set('action', 'bynli_connect_portal_support');
+            params.set('_wpnonce', nonce);
+            params.set('subject', subject);
+            params.set('category', category);
+            params.set('body', body);
+            let data;
+            try {
+                const res = await fetch(cfg.ajaxUrl, {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString(),
+                });
+                data = await res.json();
+            } catch (e) { data = { success: false, data: { message: 'Network error.' } }; }
+            if (data && data.success) {
+                if (subjectEl) subjectEl.value = '';
+                if (bodyEl) bodyEl.value = '';
+                setNote(statusEl, 'is-ok', 'dashicons-yes-alt', (data.data && data.data.message) || 'Sent.');
+            } else {
+                setNote(statusEl, 'is-err', 'dashicons-warning', (data && data.data && data.data.message) || 'Could not send.');
+            }
+        });
+    }
+
     // ── Live form picker: load the team's real forms, click to insert the id ──
 
     function bcnCodeNodes(code) {
@@ -739,6 +782,7 @@
         wireVisibility();
         wireClientMode();
         wireClientManage();
+        wirePortalSupport();
         let rt;
         window.addEventListener('resize', () => {
             clearTimeout(rt);
