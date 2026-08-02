@@ -72,7 +72,7 @@ class Bynli_Connect_Client_Mode {
     public function ensure_role(): void {
         $role = get_role(self::ROLE);
         if (!$role) {
-            add_role(self::ROLE, __('Client', 'bynli-connect'), [
+            $role = add_role(self::ROLE, __('Client', 'bynli-connect'), [
                 'read'                  => true,
                 'read_bynefit_portal'   => true,   // bespoke cap so only clients (not every subscriber) see the Portal
                 'upload_files'          => true,
@@ -85,14 +85,49 @@ class Bynli_Connect_Client_Mode {
                 'delete_pages'          => true,
                 'publish_pages'         => true,
             ]);
-            return;
         }
+        if (!$role) return;   // add_role returns null on a race where the role already exists — bail safely
         // Back-fill caps added in later plugin versions — add_role() is a no-op
         // on an existing role, so a role created by an earlier build won't get
         // new caps otherwise.
         if (!$role->has_cap('read_bynefit_portal')) {
             $role->add_cap('read_bynefit_portal');
         }
+        self::sync_woo_caps($role);
+    }
+
+    public static function woo_active(): bool {
+        return class_exists('WooCommerce');
+    }
+
+    /**
+     * When WooCommerce is active, grant the Client the same core store
+     * capabilities WooCommerce gives its shop_manager role (orders, products,
+     * coupons, reports) so a client can actually run the store from the Portal.
+     * Uses WC's own capability map so the cap names track WooCommerce exactly.
+     * No-op without WooCommerce; the has_cap guard means it only writes when a
+     * cap is genuinely missing, so repeated init calls don't thrash the option.
+     */
+    private static function sync_woo_caps(\WP_Role $role): void {
+        if (!self::woo_active() || !function_exists('wc_get_core_capabilities')) return;
+        foreach (wc_get_core_capabilities() as $group_caps) {
+            foreach ((array) $group_caps as $cap) {
+                if (!$role->has_cap($cap)) $role->add_cap($cap);
+            }
+        }
+    }
+
+    /**
+     * Orders admin URL — WooCommerce moved orders to a dedicated page under
+     * High-Performance Order Storage; fall back to the legacy CPT list when
+     * HPOS is off.
+     */
+    private static function orders_admin_url(): string {
+        if (class_exists('\Automattic\WooCommerce\Utilities\OrderUtil')
+            && \Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled()) {
+            return admin_url('admin.php?page=wc-orders');
+        }
+        return admin_url('edit.php?post_type=shop_order');
     }
 
     // ── Lockdown (clients only) ──────────────────────────────────────────
@@ -105,6 +140,13 @@ class Bynli_Connect_Client_Mode {
                   'users.php', 'tools.php', 'options-general.php',
                   'separator1', 'separator2', 'separator-last'] as $slug) {
             remove_menu_page($slug);
+        }
+        // Keep the store usable but simple: leave Orders + Products, hide the
+        // technical WooCommerce config (settings, system status, marketplace).
+        if (self::woo_active()) {
+            foreach (['wc-settings', 'wc-status', 'wc-addons'] as $sub) {
+                remove_submenu_page('woocommerce', $sub);
+            }
         }
     }
 
@@ -123,6 +165,14 @@ class Bynli_Connect_Client_Mode {
             'tools.php', 'import.php', 'export.php', 'site-health.php', 'update-core.php',
         ];
         if (in_array($base, $blocked, true)) {
+            wp_safe_redirect(admin_url('admin.php?page=' . self::PORTAL_SLUG));
+            exit;
+        }
+        // WooCommerce config screens live under admin.php?page=… — block the
+        // technical ones by page slug (Orders/Products stay reachable).
+        if (self::woo_active() && $base === 'admin.php'
+            && isset($_GET['page'])
+            && in_array((string) $_GET['page'], ['wc-settings', 'wc-status', 'wc-addons'], true)) {
             wp_safe_redirect(admin_url('admin.php?page=' . self::PORTAL_SLUG));
             exit;
         }
@@ -288,6 +338,30 @@ class Bynli_Connect_Client_Mode {
                         </div>
                     </div>
                 </section>
+
+                <?php if (self::woo_active()):
+                    $u_orders   = self::orders_admin_url();
+                    $u_products = admin_url('edit.php?post_type=product');
+                    $u_new_prod = admin_url('post-new.php?post_type=product');
+                    $prod_pub   = (int) (wp_count_posts('product')->publish ?? 0);
+                    $to_fulfill = function_exists('wc_orders_count')
+                        ? (int) wc_orders_count('processing') + (int) wc_orders_count('on-hold')
+                        : 0;
+                ?>
+                <section class="bcn-card">
+                    <div class="bcn-card-head">
+                        <h2>Store</h2>
+                        <span class="bcn-card-sub"><?php echo esc_html($prod_pub . ' product' . ($prod_pub === 1 ? '' : 's') . ' · ' . $to_fulfill . ' to fulfill'); ?></span>
+                    </div>
+                    <div class="bcn-card-body">
+                        <div class="bcn-portal-links">
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_orders); ?>">Orders</a>
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_products); ?>">Products</a>
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_new_prod); ?>">Add product</a>
+                        </div>
+                    </div>
+                </section>
+                <?php endif; ?>
 
                 <section class="bcn-card bcn-portal-support-card">
                     <div class="bcn-card-head">
