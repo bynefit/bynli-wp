@@ -500,6 +500,42 @@
         });
     }
 
+    // ── Client-mode toggle → save via AJAX ──
+    function wireClientMode() {
+        const sel = document.querySelector('[data-bcn-client-mode]');
+        if (!sel || !cfg || !cfg.ajaxUrl) return;
+        const hintEl   = document.querySelector('[data-role="client-hint"]');
+        const statusEl = document.querySelector('[data-role="client-status"]');
+        const HINTS = {
+            '0': 'Off — no role or lockdown is applied.',
+            '1': 'On — users with the Client role see only the Portal (pages, posts, media); the rest of wp-admin is hidden. Administrators are unaffected.',
+        };
+        sel.addEventListener('change', async () => {
+            const on = sel.value;
+            if (hintEl && HINTS[on]) hintEl.textContent = HINTS[on];
+            setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', 'Saving…');
+            const body = new URLSearchParams();
+            body.set('action', 'bynli_connect_client_mode');
+            body.set('_wpnonce', sel.getAttribute('data-nonce') || '');
+            body.set('enabled', on);
+            let data;
+            try {
+                const res = await fetch(cfg.ajaxUrl, {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString(),
+                });
+                data = await res.json();
+            } catch (e) { data = { success: false, data: { message: 'Network error.' } }; }
+            if (data && data.success) {
+                setNote(statusEl, 'is-ok', 'dashicons-yes-alt',
+                    on === '1' ? 'Client mode on. Assign the Client role to editors (Users → Edit).' : 'Client mode off.');
+            } else {
+                setNote(statusEl, 'is-err', 'dashicons-warning', (data && data.data && data.data.message) || 'Could not save.');
+            }
+        });
+    }
+
     // ── Shortcode previewer: swap the detail panel for the picked shortcode ──
     function wireShortcodePicker() {
         const items = document.querySelectorAll('.bcn-sc-item[data-sc]');
@@ -534,6 +570,7 @@
         wireSparklines();
         wireShortcodePicker();
         wireVisibility();
+        wireClientMode();
         let rt;
         window.addEventListener('resize', () => {
             clearTimeout(rt);

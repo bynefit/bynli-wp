@@ -604,6 +604,7 @@ class Bynli_Connect_Settings {
         </section>
         <?php
         Bynli_Connect_Visibility::render_card();
+        Bynli_Connect_Client_Mode::render_card();
     }
 
     /**
