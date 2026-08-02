@@ -150,12 +150,6 @@
                     const lbl = pill.querySelector('.bcn-signal-label');
                     if (lbl) lbl.textContent = 'Connected';
                 }
-                if (data.last_at_human) {
-                    document.querySelectorAll('[data-bcn="last-report"]').forEach((el) => {
-                        el.textContent = data.last_at_human;
-                        el.setAttribute('data-state', 'ok');
-                    });
-                }
             } else {
                 setNote(statusEl, 'is-err', 'dashicons-warning',
                     (data.message || 'Heartbeat failed.') + ' · ' + rtt + 'ms');
@@ -379,10 +373,19 @@
         const btn  = document.getElementById('bcn-theme-toggle');
         const wrap = document.querySelector('.bcn-wrap');
         if (!btn || !wrap) return;
+        // Reflect the effective theme on the button so its state is exposed to
+        // assistive tech (the themed UI is the sighted feedback).
+        const reflect = () => {
+            const dark = effectiveTheme(wrap) === 'dark';
+            btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+            btn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+        };
+        reflect();
         btn.addEventListener('click', () => {
             const next = (effectiveTheme(wrap) === 'dark') ? 'light' : 'dark';
             wrap.setAttribute('data-theme', next);
             btn.setAttribute('data-theme', next);
+            reflect();
             if (!cfg || !cfg.ajaxUrl || !cfg.themeNonce) return; // applied for this view only
             const body = new URLSearchParams();
             body.set('action', cfg.themeAction || 'bynli_connect_theme');
@@ -469,7 +472,7 @@
                 document.querySelectorAll('.bcn-sc-item').forEach((b) => {
                     const on = (b === btn);
                     b.classList.toggle('active', on);
-                    b.setAttribute('aria-selected', on ? 'true' : 'false');
+                    b.setAttribute('aria-pressed', on ? 'true' : 'false');
                 });
                 document.querySelectorAll('.bcn-sc-detail').forEach((d) => {
                     const on = (d.getAttribute('data-sc-detail') === tag);

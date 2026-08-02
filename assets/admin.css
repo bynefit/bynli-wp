@@ -28,10 +28,16 @@
     --bcn-rule-2:      #edf0f4;   /* soft dividers */
 
     --bcn-accent:      #0d9488;   /* brand / live / interactive (signal-teal) */
-    --bcn-accent-ink:  #0b7a70;   /* accent text on light */
+    --bcn-accent-ink:  #0a7168;   /* accent text on light (AA on accent-soft chips) */
     --bcn-accent-soft: #dff1ef;   /* accent tint surface */
     --bcn-accent-line: #b7e0db;   /* accent border */
-    --bcn-accent-btn-fg: #ffffff; /* text on the teal button (white is AA on light --accent) */
+    --bcn-accent-btn-bg: #0b7a70; /* primary-button ground (darker teal → white text hits AA on light) */
+    --bcn-accent-btn-fg: #ffffff; /* text on the primary button */
+    /* On the INVERTED hero (ground = --ink, which flips per theme) accent/warn
+       must flip OPPOSITE the page: bright on the light-theme dark slab, dark on
+       the dark-theme light slab — otherwise the headline readout goes illegible. */
+    --bcn-accent-on-ink: #2dd4c2;
+    --bcn-warn-on-ink:   #e0ad4a;
 
     --bcn-ok:   #1f9d57;  --bcn-ok-soft:   #e6f4ec;  --bcn-ok-line:   #bfe4cd;
     --bcn-warn: #b5811a;  --bcn-warn-soft: #f6eed9;  --bcn-warn-line: #e7d3a3;
@@ -88,7 +94,10 @@
         --bcn-accent-ink:  #56e0d1;
         --bcn-accent-soft: #10312f;
         --bcn-accent-line: #1c4a46;
+        --bcn-accent-btn-bg: #2dd4c2;
         --bcn-accent-btn-fg: #04201d;
+        --bcn-accent-on-ink: #0b7a70;
+        --bcn-warn-on-ink:   #b5811a;
         --bcn-ok:   #37c574;  --bcn-ok-soft:   #10281b;  --bcn-ok-line:   #1d4230;
         --bcn-warn: #e0ad4a;  --bcn-warn-soft: #2a2110;  --bcn-warn-line: #4a3a17;
         --bcn-down: #f0736f;  --bcn-down-soft: #2c1414;  --bcn-down-line: #4c2222;
@@ -115,7 +124,10 @@
     --bcn-accent-ink:  #56e0d1;
     --bcn-accent-soft: #10312f;
     --bcn-accent-line: #1c4a46;
+    --bcn-accent-btn-bg: #2dd4c2;
     --bcn-accent-btn-fg: #04201d;
+    --bcn-accent-on-ink: #0b7a70;
+    --bcn-warn-on-ink:   #b5811a;
     --bcn-ok:   #37c574;  --bcn-ok-soft:   #10281b;  --bcn-ok-line:   #1d4230;
     --bcn-warn: #e0ad4a;  --bcn-warn-soft: #2a2110;  --bcn-warn-line: #4a3a17;
     --bcn-down: #f0736f;  --bcn-down-soft: #2c1414;  --bcn-down-line: #4c2222;
@@ -216,7 +228,9 @@
 }
 .bcn-signal-pill[data-state="on"]   { color: var(--bcn-ok);   background: var(--bcn-ok-soft);   border-color: var(--bcn-ok-line); }
 .bcn-signal-pill[data-state="off"]  { color: var(--bcn-warn); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
-.bcn-signal-pill[data-state="warn"] { color: var(--bcn-down); background: var(--bcn-down-soft); border-color: var(--bcn-down-line); }
+/* Fresh/unconfigured install — neutral, not an error. Red is reserved for
+   actual failures; a brand-new site reading "Not connected" in red over-alarms. */
+.bcn-signal-pill[data-state="warn"] { color: var(--bcn-muted); background: var(--bcn-sunk); border-color: var(--bcn-rule); }
 .bcn-beacon { position: relative; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .bcn-beacon::after {
     content: ""; position: absolute; inset: -3px; border-radius: 50%;
@@ -226,7 +240,7 @@
 @keyframes bcn-ping { 0% { transform: scale(0.6); opacity: 0.7; } 100% { transform: scale(1.9); opacity: 0; } }
 .bcn-theme-toggle {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px; padding: 0; cursor: pointer;
+    width: 40px; height: 40px; padding: 0; cursor: pointer;
     background: var(--bcn-panel-2); border: 1px solid var(--bcn-rule);
     border-radius: var(--bcn-r-sm); color: var(--bcn-ink-2);
     transition: background var(--bcn-t) ease, color var(--bcn-t) ease;
@@ -379,7 +393,7 @@
 .bcn-pv-amt.is-on { border-color: var(--bcn-accent); color: var(--bcn-accent-ink); background: var(--bcn-accent-soft); }
 .bcn-pv-toast { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--bcn-ok); background: var(--bcn-ok-soft); border: 1px solid var(--bcn-ok-line); border-radius: 999px; padding: 6px 12px; }
 .bcn-pv-toast .dashicons { font-size: 14px; width: 14px; height: 14px; }
-.bcn-pv-bubble { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--bcn-accent); color: var(--bcn-accent-btn-fg); box-shadow: var(--bcn-shadow-2); }
+.bcn-pv-bubble { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--bcn-accent-btn-bg); color: var(--bcn-accent-btn-fg); box-shadow: var(--bcn-shadow-2); }
 
 .bcn-attr-wrap { overflow-x: auto; }
 .bcn-attr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -406,7 +420,7 @@
 .bcn-tab:hover { color: var(--bcn-ink); text-decoration: none; }
 .bcn-tab.is-active { background: var(--bcn-panel); color: var(--bcn-ink); box-shadow: var(--bcn-shadow-1); }
 .bcn-tab-count { font-family: var(--bcn-mono); font-size: 10px; line-height: 1; padding: 2px 6px; border-radius: 999px; background: var(--bcn-accent-soft); color: var(--bcn-accent-ink); }
-.bcn-tab.is-active .bcn-tab-count { background: var(--bcn-accent); color: var(--bcn-accent-btn-fg); }
+.bcn-tab.is-active .bcn-tab-count { background: var(--bcn-accent-btn-bg); color: var(--bcn-accent-btn-fg); }
 
 .bcn-tk-table-wrap { overflow-x: auto; border: 1px solid var(--bcn-rule); border-radius: var(--bcn-r-md); }
 .bcn-tk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -505,8 +519,8 @@
 }
 .bcn-btn:hover { background: var(--bcn-sunk); text-decoration: none; }
 .bcn-btn .dashicons { font-size: 16px; width: 16px; height: 16px; }
-.bcn-btn.primary { background: var(--bcn-accent); border-color: var(--bcn-accent); color: var(--bcn-accent-btn-fg); }
-.bcn-btn.primary:hover { background: var(--bcn-accent-ink); border-color: var(--bcn-accent-ink); }
+.bcn-btn.primary { background: var(--bcn-accent-btn-bg); border-color: var(--bcn-accent-btn-bg); color: var(--bcn-accent-btn-fg); }
+.bcn-btn.primary:hover { background: var(--bcn-accent-btn-bg); filter: brightness(0.93); }
 .bcn-btn.ink { background: var(--bcn-ink); border-color: var(--bcn-ink); color: #fff; }
 .bcn-btn.ink:hover { opacity: 0.92; }
 .bcn-btn.danger { background: transparent; color: var(--bcn-down); border-color: var(--bcn-down-line); }
@@ -531,7 +545,7 @@
 .bcn-input-wrap .bcn-input { flex: 1 1 auto; }
 .bcn-icon-btn {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; cursor: pointer; color: var(--bcn-muted);
+    width: 40px; height: 40px; cursor: pointer; color: var(--bcn-muted);
     background: var(--bcn-panel-2); border: 1px solid var(--bcn-rule); border-radius: var(--bcn-r-sm);
 }
 .bcn-icon-btn:hover { color: var(--bcn-accent-ink); border-color: var(--bcn-accent-line); }
@@ -622,13 +636,13 @@
     color: color-mix(in srgb, var(--bcn-canvas) 60%, transparent);
 }
 .bcn-hero-readout { display: flex; align-items: center; gap: 11px; margin-top: 8px; }
-.bcn-hero-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--bcn-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bcn-accent) 24%, transparent); }
-.bcn-hero[data-state="off"] .bcn-hero-dot { background: var(--bcn-warn); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bcn-warn) 24%, transparent); }
+.bcn-hero-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--bcn-accent-on-ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bcn-accent-on-ink) 24%, transparent); }
+.bcn-hero[data-state="off"] .bcn-hero-dot { background: var(--bcn-warn-on-ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bcn-warn-on-ink) 24%, transparent); }
 .bcn-hero-status {
     font-family: var(--bcn-mono); font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1;
-    color: var(--bcn-accent); font-variant-numeric: tabular-nums;
+    color: var(--bcn-accent-on-ink); font-variant-numeric: tabular-nums;
 }
-.bcn-hero[data-state="off"] .bcn-hero-status { color: var(--bcn-warn); }
+.bcn-hero[data-state="off"] .bcn-hero-status { color: var(--bcn-warn-on-ink); }
 .bcn-hero-sub { margin-top: 10px; font-size: 13px; color: color-mix(in srgb, var(--bcn-canvas) 72%, transparent); max-width: 44ch; }
 .bcn-hero-sub a { color: var(--bcn-canvas); text-decoration-color: color-mix(in srgb, var(--bcn-canvas) 40%, transparent); }
 .bcn-hero-spark { margin: 0; min-width: 190px; flex: 0 1 240px; }

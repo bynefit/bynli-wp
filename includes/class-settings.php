@@ -222,7 +222,7 @@ class Bynli_Connect_Settings {
                         <section class="bcn-panel<?php echo $is_active ? ' active' : ''; ?>"
                                  id="panel-<?php echo esc_attr($p); ?>"
                                  data-panel="<?php echo esc_attr($p); ?>"
-                                 role="tabpanel"
+                                 aria-label="<?php echo esc_attr(ucfirst($p)); ?>"
                                  <?php echo $is_active ? '' : 'hidden'; ?>>
                             <?php $this->render_section($p, $ctx, $is_active); ?>
                         </section>
@@ -245,6 +245,7 @@ class Bynli_Connect_Settings {
         return [
             'last'             => $last,
             'upd'              => $upd,
+            'history'          => Bynli_Connect_Reporter::history(), // read once; used by overview + activity
             'key'              => $key,
             'slug'             => self::site_slug(),
             'base'             => self::api_base(),
@@ -378,7 +379,7 @@ class Bynli_Connect_Settings {
 
         $is_connected = $ctx['is_connected'];
         $last         = $ctx['last'];
-        $history      = Bynli_Connect_Reporter::history();
+        $history      = $ctx['history'];
         $series       = $this->spark_series($history);
         $last_ok      = empty($history) ? true : !empty($history[count($history) - 1]['ok']);
 
@@ -782,11 +783,11 @@ class Bynli_Connect_Settings {
             </div>
             <div class="bcn-card-body">
                 <div class="bcn-sc-layout">
-                    <div class="bcn-sc-list" role="tablist" aria-label="Shortcodes">
+                    <div class="bcn-sc-list" role="group" aria-label="Shortcodes">
                         <?php foreach ($cat as $tag => $e): $on = ($tag === $first); ?>
                             <button type="button" class="bcn-sc-item<?php echo $on ? ' active' : ''; ?>"
                                     data-sc="<?php echo esc_attr($tag); ?>"
-                                    role="tab" aria-selected="<?php echo $on ? 'true' : 'false'; ?>">
+                                    aria-pressed="<?php echo $on ? 'true' : 'false'; ?>">
                                 <span class="bcn-sc-item-name"><?php echo esc_html($e['label']); ?></span>
                                 <code class="bcn-sc-item-tag">[<?php echo esc_html($tag); ?>]</code>
                             </button>
@@ -826,7 +827,7 @@ class Bynli_Connect_Settings {
     }
 
     private function render_activity(array $ctx): void {
-        $history = array_reverse(Bynli_Connect_Reporter::history()); // newest first
+        $history = array_reverse($ctx['history']); // newest first
         $upd     = $ctx['upd'];
         $next    = $ctx['next_cron'];
 
