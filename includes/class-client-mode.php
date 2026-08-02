@@ -28,12 +28,19 @@ class Bynli_Connect_Client_Mode {
     const AJAX_REVOKE  = 'bynli_connect_client_revoke';
     const NONCE_MANAGE = 'bynli_connect_client_manage';
 
+    // Portal support form — available to the client (read_bynefit_portal).
+    const AJAX_SUPPORT  = 'bynli_connect_portal_support';
+    const NONCE_SUPPORT = 'bynli_connect_portal_support';
+
     public function __construct() {
         // The save handler must exist regardless of state so an admin can toggle.
         add_action('wp_ajax_' . self::AJAX, [$this, 'handle_ajax']);
         // Roster management must also work regardless of state (admin-only).
         add_action('wp_ajax_' . self::AJAX_ASSIGN, [$this, 'handle_assign']);
         add_action('wp_ajax_' . self::AJAX_REVOKE, [$this, 'handle_revoke']);
+        // Portal support submit — registered regardless of state so a client
+        // (read_bynefit_portal) can reach it whenever the portal is shown.
+        add_action('wp_ajax_' . self::AJAX_SUPPORT, [$this, 'handle_portal_support']);
 
         if (!self::enabled()) return;   // dormant unless an admin turned it on
 
@@ -164,6 +171,13 @@ class Bynli_Connect_Client_Mode {
         $base = plugins_url('assets/', BYNLI_CONNECT_PLUGIN_FILE);
         wp_enqueue_style('dashicons');
         wp_enqueue_style('bynli-connect-admin', $base . 'admin.css', ['dashicons'], BYNLI_CONNECT_VERSION);
+        // The portal's support form posts via AJAX — load the shared admin JS
+        // and give it the ajax endpoint. Every wire function early-returns when
+        // its element is absent, so loading the full file here is inert.
+        wp_enqueue_script('bynli-connect-admin', $base . 'admin.js', [], BYNLI_CONNECT_VERSION, true);
+        wp_localize_script('bynli-connect-admin', 'BynliConnect', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+        ]);
     }
 
     public function render_portal(): void {
@@ -176,13 +190,24 @@ class Bynli_Connect_Client_Mode {
         $connected = !empty($last) && !empty($last['ok']);
 
         $pages = wp_count_posts('page');
-        $pubp  = isset($pages->publish) ? (int) $pages->publish : 0;
-        $draft = isset($pages->draft)   ? (int) $pages->draft   : 0;
+        $posts = wp_count_posts('post');
+        $page_pub   = isset($pages->publish) ? (int) $pages->publish : 0;
+        $page_draft = isset($pages->draft)   ? (int) $pages->draft   : 0;
+        $post_pub   = isset($posts->publish) ? (int) $posts->publish : 0;
+        $post_draft = isset($posts->draft)   ? (int) $posts->draft   : 0;
+        $draft = $page_draft + $post_draft;
         $media = (int) (wp_count_posts('attachment')->inherit ?? 0);
 
-        $new_page = admin_url('post-new.php?post_type=page');
-        $upload   = admin_url('media-new.php');
-        $pages_url= admin_url('edit.php?post_type=page');
+        $u_new_page    = admin_url('post-new.php?post_type=page');
+        $u_new_post    = admin_url('post-new.php');
+        $u_upload      = admin_url('media-new.php');
+        $u_pages       = admin_url('edit.php?post_type=page');
+        $u_posts       = admin_url('edit.php');
+        $u_media       = admin_url('upload.php');
+        $u_page_drafts = admin_url('edit.php?post_type=page&post_status=draft');
+        $u_post_drafts = admin_url('edit.php?post_status=draft');
+
+        $has_key = get_option('bynli_connect_api_key', '') !== '';
         ?>
         <div class="wrap bcn-wrap" dir="<?php echo is_rtl() ? 'rtl' : 'ltr'; ?>">
             <header class="bcn-topbar">
@@ -211,22 +236,107 @@ class Bynli_Connect_Client_Mode {
                         <div class="bcn-hero-readout">
                             <span class="bcn-hero-status bcn-hero-name"><?php echo esc_html($name ?: 'there'); ?></span>
                         </div>
-                        <p class="bcn-hero-sub">Manage your site's pages and media from here. Everything else is handled for you.</p>
+                        <p class="bcn-hero-sub">Manage your site's content and reach the Bynefit team from here. Everything technical is handled for you.</p>
                     </div>
                 </div>
             </div>
 
             <div class="bcn-quick bcn-portal-quick">
-                <a class="bcn-btn primary" href="<?php echo esc_url($new_page); ?>"><span class="dashicons dashicons-plus-alt2"></span> New page</a>
-                <a class="bcn-btn" href="<?php echo esc_url($upload); ?>"><span class="dashicons dashicons-upload"></span> Upload media</a>
-                <a class="bcn-btn" href="<?php echo esc_url($pages_url); ?>"><span class="dashicons dashicons-admin-page"></span> All pages</a>
+                <a class="bcn-btn primary" href="<?php echo esc_url($u_new_page); ?>"><span class="dashicons dashicons-plus-alt2"></span> New page</a>
+                <a class="bcn-btn" href="<?php echo esc_url($u_new_post); ?>"><span class="dashicons dashicons-edit"></span> New post</a>
+                <a class="bcn-btn" href="<?php echo esc_url($u_upload); ?>"><span class="dashicons dashicons-upload"></span> Upload media</a>
+            </div>
+
+            <div class="bcn-portal-grid">
+                <section class="bcn-card">
+                    <div class="bcn-card-head">
+                        <h2>Pages</h2>
+                        <span class="bcn-card-sub"><?php echo esc_html($page_pub . ' published · ' . $page_draft . ' draft' . ($page_draft === 1 ? '' : 's')); ?></span>
+                    </div>
+                    <div class="bcn-card-body">
+                        <div class="bcn-portal-links">
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_pages); ?>">All pages</a>
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_page_drafts); ?>">Drafts</a>
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_new_page); ?>">Add new</a>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bcn-card">
+                    <div class="bcn-card-head">
+                        <h2>Posts</h2>
+                        <span class="bcn-card-sub"><?php echo esc_html($post_pub . ' published · ' . $post_draft . ' draft' . ($post_draft === 1 ? '' : 's')); ?></span>
+                    </div>
+                    <div class="bcn-card-body">
+                        <div class="bcn-portal-links">
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_posts); ?>">All posts</a>
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_post_drafts); ?>">Drafts</a>
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_new_post); ?>">Add new</a>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bcn-card">
+                    <div class="bcn-card-head">
+                        <h2>Media</h2>
+                        <span class="bcn-card-sub"><?php echo esc_html($media . ' file' . ($media === 1 ? '' : 's')); ?></span>
+                    </div>
+                    <div class="bcn-card-body">
+                        <div class="bcn-portal-links">
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_media); ?>">Library</a>
+                            <a class="bcn-btn sm" href="<?php echo esc_url($u_upload); ?>">Upload</a>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bcn-card bcn-portal-support-card">
+                    <div class="bcn-card-head">
+                        <h2>Contact Bynefit</h2>
+                        <span class="bcn-card-sub">Questions, changes, or anything you're stuck on</span>
+                    </div>
+                    <div class="bcn-card-body">
+                        <?php if ($has_key): ?>
+                        <div class="bcn-portal-support" data-bcn-support data-nonce="<?php echo esc_attr(wp_create_nonce(self::NONCE_SUPPORT)); ?>">
+                            <div class="bcn-field">
+                                <label class="bcn-label" for="bcn-sup-subject">Subject</label>
+                                <input type="text" class="bcn-input sans" id="bcn-sup-subject" data-role="sup-subject" placeholder="What do you need help with?" autocomplete="off">
+                            </div>
+                            <div class="bcn-field">
+                                <label class="bcn-label" for="bcn-sup-cat">Topic</label>
+                                <select class="bcn-input sans" id="bcn-sup-cat" data-role="sup-cat">
+                                    <option value="general">General</option>
+                                    <option value="technical">Technical</option>
+                                    <option value="billing">Billing</option>
+                                    <option value="account">Account</option>
+                                </select>
+                            </div>
+                            <div class="bcn-field">
+                                <label class="bcn-label" for="bcn-sup-body">Message</label>
+                                <textarea class="bcn-input sans bcn-textarea" id="bcn-sup-body" data-role="sup-body" rows="4" placeholder="Describe it in a sentence or two…"></textarea>
+                            </div>
+                            <div class="bcn-portal-support-foot">
+                                <button type="button" class="bcn-btn primary" data-role="sup-send">Send to Bynefit</button>
+                            </div>
+                            <div class="bcn-note" data-role="sup-status" aria-live="polite" hidden>
+                                <span class="dashicons" data-role="ico" aria-hidden="true"></span>
+                                <span data-role="msg"></span>
+                            </div>
+                        </div>
+                        <?php else: ?>
+                        <div class="bcn-note warn">
+                            <span class="dashicons dashicons-info" aria-hidden="true"></span>
+                            <span>Support opens once your site is connected to Bynefit. Your site manager can finish setup.</span>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </section>
             </div>
 
             <div class="bcn-tiles">
                 <div class="bcn-tile" data-state="ok">
                     <span class="dashicons dashicons-admin-page" aria-hidden="true"></span>
                     <span class="bcn-tile-label">Published pages</span>
-                    <span class="bcn-tile-value"><?php echo esc_html((string) $pubp); ?></span>
+                    <span class="bcn-tile-value"><?php echo esc_html((string) $page_pub); ?></span>
                 </div>
                 <div class="bcn-tile" data-state="<?php echo $draft > 0 ? 'warn' : 'ok'; ?>">
                     <span class="dashicons dashicons-edit" aria-hidden="true"></span>
@@ -243,11 +353,6 @@ class Bynli_Connect_Client_Mode {
                     <span class="bcn-tile-label">Hosting</span>
                     <span class="bcn-tile-value"><?php echo $connected ? 'Managed' : '—'; ?></span>
                 </div>
-            </div>
-
-            <div class="bcn-note info">
-                <span class="dashicons dashicons-sos" aria-hidden="true"></span>
-                <span>Need help with something the portal doesn't cover? Reach out to your site manager — they handle settings, plugins, and support.</span>
             </div>
         </div>
         <?php
@@ -469,5 +574,52 @@ class Bynli_Connect_Client_Mode {
             'clients'    => self::client_rows(),
             'assignable' => self::assignable_rows(),
         ]);
+    }
+
+    // ── Portal support (client-facing) ───────────────────────────────────
+
+    /**
+     * Opens a Bynefit support ticket from the client Portal. Client-facing, so
+     * gated on read_bynefit_portal (the Client cap) rather than manage_options —
+     * this is the one write path a locked client is meant to reach. Mirrors
+     * Tickets::handle_new (same /api/site-host/tickets endpoint, same WP-user
+     * attribution) so replies route back to the client by email.
+     */
+    public function handle_portal_support(): void {
+        if (!current_user_can('read_bynefit_portal')) {
+            wp_send_json_error(['message' => 'Forbidden.'], 403);
+        }
+        if (!check_ajax_referer(self::NONCE_SUPPORT, '_wpnonce', false)) {
+            wp_send_json_error(['message' => 'Security check failed. Reload and try again.'], 400);
+        }
+        $subject  = isset($_POST['subject']) ? trim(wp_unslash((string) $_POST['subject'])) : '';
+        $body     = isset($_POST['body'])    ? trim(wp_unslash((string) $_POST['body']))    : '';
+        $category = isset($_POST['category']) ? sanitize_text_field((string) $_POST['category']) : 'general';
+        if (!in_array($category, ['technical', 'billing', 'general', 'account'], true)) {
+            $category = 'general';
+        }
+        if (mb_strlen($subject) < 3) {
+            wp_send_json_error(['message' => 'Add a short subject (at least 3 characters).'], 400);
+        }
+        if ($body === '') {
+            wp_send_json_error(['message' => 'Tell us what you need help with.'], 400);
+        }
+
+        $payload = ['subject' => $subject, 'body' => $body, 'category' => $category];
+        $u = wp_get_current_user();
+        if ($u && $u->exists()) {
+            if (!empty($u->user_email))   $payload['wp_user_email'] = (string) $u->user_email;
+            if (!empty($u->display_name)) $payload['wp_user_name']  = (string) $u->display_name;
+        }
+
+        $res = Bynli_Connect_Api::post('/api/site-host/tickets', $payload);
+        if (empty($res['ok'])) {
+            $status = (is_int($res['status'] ?? null) && $res['status'] >= 400 && $res['status'] < 600)
+                ? (int) $res['status'] : 502;
+            wp_send_json_error([
+                'message' => (string) ($res['message'] ?? 'Could not send your message. Please try again.'),
+            ], $status);
+        }
+        wp_send_json_success(['message' => 'Sent — the Bynefit team will get back to you by email.']);
     }
 }

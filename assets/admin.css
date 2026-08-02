@@ -605,6 +605,13 @@
 .bcn-portal-quick { margin-bottom: 16px; }
 .bcn-hero-name { font-size: 26px; }
 
+/* ── Client Portal: content sections + support ── */
+.bcn-portal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); gap: 14px; margin: 16px 0; }
+.bcn-portal-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.bcn-portal-support-card { grid-column: 1 / -1; }
+.bcn-portal-support .bcn-field { margin-bottom: 12px; }
+.bcn-portal-support-foot { display: flex; justify-content: flex-end; }
+
 @media (max-width: 620px) {
     .bcn-metric-strip { grid-template-columns: repeat(2, 1fr); gap: 14px; }
     .bcn-tiles { grid-template-columns: repeat(2, 1fr); }
