@@ -462,6 +462,42 @@
         document.querySelectorAll('.bcn-spark[data-series]').forEach(buildSpark);
     }
 
+    // ── Site visibility select → save via AJAX (mirrors the theme toggle) ──
+    function wireVisibility() {
+        const sel = document.querySelector('[data-bcn-visibility]');
+        if (!sel || !cfg || !cfg.ajaxUrl) return;
+        const hintEl   = document.querySelector('[data-role="vis-hint"]');
+        const statusEl = document.querySelector('[data-role="vis-status"]');
+        const HINTS = {
+            live:         'Your site is public — normal behavior.',
+            coming_soon:  'Logged-out visitors see a branded holding page (503).',
+            members_only: 'Logged-out visitors are sent to sign in first.',
+        };
+        sel.addEventListener('change', async () => {
+            const mode = sel.value;
+            if (hintEl && HINTS[mode]) hintEl.textContent = HINTS[mode];
+            setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', 'Saving…');
+            const body = new URLSearchParams();
+            body.set('action', 'bynli_connect_visibility');
+            body.set('_wpnonce', sel.getAttribute('data-nonce') || '');
+            body.set('mode', mode);
+            let data;
+            try {
+                const res = await fetch(cfg.ajaxUrl, {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString(),
+                });
+                data = await res.json();
+            } catch (e) { data = { success: false, data: { message: 'Network error.' } }; }
+            if (data && data.success) {
+                setNote(statusEl, 'is-ok', 'dashicons-yes-alt', 'Visibility saved.');
+            } else {
+                setNote(statusEl, 'is-err', 'dashicons-warning', (data && data.data && data.data.message) || 'Could not save.');
+            }
+        });
+    }
+
     // ── Shortcode previewer: swap the detail panel for the picked shortcode ──
     function wireShortcodePicker() {
         const items = document.querySelectorAll('.bcn-sc-item[data-sc]');
@@ -495,6 +531,7 @@
         wireTheme();
         wireSparklines();
         wireShortcodePicker();
+        wireVisibility();
         let rt;
         window.addEventListener('resize', () => {
             clearTimeout(rt);
