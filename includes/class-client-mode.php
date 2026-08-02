@@ -176,7 +176,7 @@ class Bynli_Connect_Client_Mode {
         $upload   = admin_url('media-new.php');
         $pages_url= admin_url('edit.php?post_type=page');
         ?>
-        <div class="wrap bcn-wrap"<?php echo Bynli_Connect_Settings::current_theme() === 'dark' ? ' data-theme="dark"' : ''; ?> dir="<?php echo is_rtl() ? 'rtl' : 'ltr'; ?>">
+        <div class="wrap bcn-wrap" dir="<?php echo is_rtl() ? 'rtl' : 'ltr'; ?>">
             <header class="bcn-topbar">
                 <div class="bcn-brand">
                     <span class="bcn-logo" aria-hidden="true">

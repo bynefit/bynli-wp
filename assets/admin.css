@@ -1,17 +1,12 @@
 /* Bynefit Connect — "Relay" console (bynli-wp#29)
  * Scoped to .bcn-wrap. Cool signal-teal *instrument* aesthetic; monospace is
- * the personality (telemetry values), not a display face. Light + dark.
+ * the personality (telemetry values), not a display face. Light theme only.
  *
- * Theming is three layers so a manual toggle wins over the OS/WP preference in
- * BOTH directions:
- *   1. token defaults on .bcn-wrap (light)
- *   2. @media (prefers-color-scheme: dark) remaps tokens — but only when the
- *      user hasn't forced light (:not([data-theme="light"]))
- *   3. .bcn-wrap[data-theme="dark"|"light"] explicit override (highest)
- * Style every component THROUGH tokens — never inside the media query.
- *
+ * All colors flow through the tokens below — style components THROUGH tokens.
  * Semantic (ok/warn/down) is separate from --accent — teal never signals
- * health. Token contract (bynli_sh_ / X-Bynli-* / [bynli-*]) is unchanged.
+ * health. The hero is a fixed dark "ink" slab; --bcn-accent-on-ink /
+ * --bcn-warn-on-ink are the readout colors that sit on it. Token contract
+ * (bynli_sh_ / X-Bynli-* / [bynli-*]) is unchanged.
  */
 
 .bcn-wrap {
@@ -33,9 +28,8 @@
     --bcn-accent-line: #b7e0db;   /* accent border */
     --bcn-accent-btn-bg: #0b7a70; /* primary-button ground (darker teal → white text hits AA on light) */
     --bcn-accent-btn-fg: #ffffff; /* text on the primary button */
-    /* On the INVERTED hero (ground = --ink, which flips per theme) accent/warn
-       must flip OPPOSITE the page: bright on the light-theme dark slab, dark on
-       the dark-theme light slab — otherwise the headline readout goes illegible. */
+    /* The hero ground is the fixed dark --ink slab; these are the bright readout
+       colors that sit on it (teal ~9.9:1, amber ~9:1 on #0d1420). */
     --bcn-accent-on-ink: #2dd4c2;
     --bcn-warn-on-ink:   #e0ad4a;
 
@@ -73,71 +67,10 @@
     font-family: var(--bcn-sans);
     font-size: 14px;
     line-height: 1.5;
+    color-scheme: light;
     -webkit-font-smoothing: antialiased;
 }
 
-/* Layer 2 — OS/WP dark preference. Remaps tokens only; skipped when the user
-   has explicitly forced light via the toggle. */
-@media (prefers-color-scheme: dark) {
-    .bcn-wrap:not([data-theme="light"]) {
-        --bcn-canvas:      #080c12;
-        --bcn-panel:       #111823;
-        --bcn-panel-2:     #0d141d;
-        --bcn-sunk:        #0a1017;
-        --bcn-ink:         #e9edf2;
-        --bcn-ink-2:       #c2ccd8;
-        --bcn-muted:       #8a97a6;
-        --bcn-faint:       #5e6b7b;
-        --bcn-rule:        #1d2734;
-        --bcn-rule-2:      #161f2a;
-        --bcn-accent:      #2dd4c2;
-        --bcn-accent-ink:  #56e0d1;
-        --bcn-accent-soft: #10312f;
-        --bcn-accent-line: #1c4a46;
-        --bcn-accent-btn-bg: #2dd4c2;
-        --bcn-accent-btn-fg: #04201d;
-        --bcn-accent-on-ink: #0b7a70;
-        --bcn-warn-on-ink:   #9a6c0e;
-        --bcn-ok:   #37c574;  --bcn-ok-soft:   #10281b;  --bcn-ok-line:   #1d4230;
-        --bcn-warn: #e0ad4a;  --bcn-warn-soft: #2a2110;  --bcn-warn-line: #4a3a17;
-        --bcn-down: #f0736f;  --bcn-down-soft: #2c1414;  --bcn-down-line: #4c2222;
-        --bcn-shadow-1:   0 1px 2px rgba(0, 0, 0, 0.4);
-        --bcn-shadow-2:   0 6px 22px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-        --bcn-shadow-pop: 0 18px 50px rgba(0, 0, 0, 0.6);
-    }
-}
-
-/* Layer 3 — explicit manual override. Highest specificity; wins over the OS
-   preference in both directions. Dark values mirror layer 2. */
-.bcn-wrap[data-theme="dark"] {
-    --bcn-canvas:      #080c12;
-    --bcn-panel:       #111823;
-    --bcn-panel-2:     #0d141d;
-    --bcn-sunk:        #0a1017;
-    --bcn-ink:         #e9edf2;
-    --bcn-ink-2:       #c2ccd8;
-    --bcn-muted:       #8a97a6;
-    --bcn-faint:       #5e6b7b;
-    --bcn-rule:        #1d2734;
-    --bcn-rule-2:      #161f2a;
-    --bcn-accent:      #2dd4c2;
-    --bcn-accent-ink:  #56e0d1;
-    --bcn-accent-soft: #10312f;
-    --bcn-accent-line: #1c4a46;
-    --bcn-accent-btn-bg: #2dd4c2;
-    --bcn-accent-btn-fg: #04201d;
-    --bcn-accent-on-ink: #0b7a70;
-    --bcn-warn-on-ink:   #9a6c0e;
-    --bcn-ok:   #37c574;  --bcn-ok-soft:   #10281b;  --bcn-ok-line:   #1d4230;
-    --bcn-warn: #e0ad4a;  --bcn-warn-soft: #2a2110;  --bcn-warn-line: #4a3a17;
-    --bcn-down: #f0736f;  --bcn-down-soft: #2c1414;  --bcn-down-line: #4c2222;
-    --bcn-shadow-1:   0 1px 2px rgba(0, 0, 0, 0.4);
-    --bcn-shadow-2:   0 6px 22px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-    --bcn-shadow-pop: 0 18px 50px rgba(0, 0, 0, 0.6);
-}
-/* Explicit light anchor (defaults are already light — this lets the toggle
-   force light even under a dark OS preference via layer 2's :not() guard). */
-.bcn-wrap[data-theme="light"] { color-scheme: light; }
 
 /* ─ Reset within scope (defend against WP form-table + .button bleed) ── */
 .bcn-wrap * {
@@ -238,15 +171,6 @@
 }
 .bcn-signal-pill[data-state="on"] .bcn-beacon::after { opacity: 1; }
 @keyframes bcn-ping { 0% { transform: scale(0.6); opacity: 0.7; } 100% { transform: scale(1.9); opacity: 0; } }
-.bcn-theme-toggle {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 40px; height: 40px; padding: 0; cursor: pointer;
-    background: var(--bcn-panel-2); border: 1px solid var(--bcn-rule);
-    border-radius: var(--bcn-r-sm); color: var(--bcn-ink-2);
-    transition: background var(--bcn-t) ease, color var(--bcn-t) ease;
-}
-.bcn-theme-toggle:hover { color: var(--bcn-accent-ink); border-color: var(--bcn-accent-line); }
-.bcn-theme-toggle .dashicons { font-size: 18px; width: 18px; height: 18px; }
 
 /* ─ Shell grid + rail ─ */
 .bcn-shell { display: grid; grid-template-columns: 232px 1fr; gap: 16px; align-items: start; }
@@ -268,14 +192,6 @@
 .bcn-rail-label { font-family: var(--bcn-mono); font-size: 11.5px; letter-spacing: 0.02em; flex: 1 1 auto; }
 .bcn-nav-item.active { background: var(--bcn-ink); color: #fff; }
 .bcn-nav-item.active .dashicons { color: rgba(255,255,255,0.9); }
-.bcn-wrap[data-theme="dark"] .bcn-nav-item.active,
-.bcn-nav-item.active { }
-@media (prefers-color-scheme: dark) {
-    .bcn-wrap:not([data-theme="light"]) .bcn-nav-item.active { background: var(--bcn-accent); color: #04201d; }
-    .bcn-wrap:not([data-theme="light"]) .bcn-nav-item.active .dashicons { color: rgba(4,32,29,0.75); }
-}
-.bcn-wrap[data-theme="dark"] .bcn-nav-item.active { background: var(--bcn-accent); color: #04201d; }
-.bcn-wrap[data-theme="dark"] .bcn-nav-item.active .dashicons { color: rgba(4,32,29,0.75); }
 .bcn-nav-count {
     font-family: var(--bcn-mono); font-size: 10px; line-height: 1;
     padding: 3px 6px; border-radius: 999px;
