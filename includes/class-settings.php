@@ -826,39 +826,63 @@ class Bynli_Connect_Settings {
     }
 
     private function render_activity(array $ctx): void {
-        $last = $ctx['last']; $next_cron = $ctx['next_cron']; $is_connected = $ctx['is_connected'];
+        $history = array_reverse(Bynli_Connect_Reporter::history()); // newest first
+        $upd     = $ctx['upd'];
+        $next    = $ctx['next_cron'];
+
+        // Update-check event as the newest log entry (it has no per-check
+        // timestamp; last_updated is the release date, shown when present).
+        $update_event = null;
+        if (!empty($upd['has'])) {
+            if (!empty($upd['error'])) {
+                $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
+            } elseif ($ctx['update_available']) {
+                $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
+            } else {
+                $update_event = ['state' => 'ok', 'ico' => 'dashicons-yes-alt', 'title' => 'Up to date', 'detail' => 'v' . BYNLI_CONNECT_VERSION];
+            }
+        }
         ?>
         <section class="bcn-card">
             <div class="bcn-card-head">
                 <h2>Activity</h2>
-                <span class="bcn-card-sub">Reports &amp; the next scheduled run</span>
+                <span class="bcn-card-sub">Recent uplink signals &amp; checks<?php echo $next ? ' · next report in ' . esc_html(human_time_diff(time(), (int)$next)) : ''; ?></span>
             </div>
             <div class="bcn-card-body">
-                <div class="bcn-stats">
-                    <div class="bcn-stat">
-                        <span class="bcn-stat-label">Last report</span>
-                        <span class="bcn-stat-value" data-bcn="last-report"
-                              <?php if (!empty($last['at'])): ?>data-state="<?php echo $is_connected ? 'ok' : 'err'; ?>"<?php endif; ?>>
-                            <?php echo !empty($last['at']) ? esc_html(human_time_diff((int)$last['at']) . ' ago') : '<span class="bcn-stat-value-em">never</span>'; ?>
-                        </span>
+                <?php if (empty($history) && $update_event === null): ?>
+                    <div class="bcn-empty" role="status">
+                        <span class="dashicons dashicons-backup bcn-empty-icon" aria-hidden="true"></span>
+                        <p class="bcn-empty-title">No activity yet.</p>
+                        <p class="bcn-empty-cta">The first daily report lands within 24 hours — or send a test heartbeat in Connection.</p>
                     </div>
-                    <div class="bcn-stat">
-                        <span class="bcn-stat-label">Kind</span>
-                        <span class="bcn-stat-value"><?php echo !empty($last['kind']) ? esc_html($last['kind']) : '<span class="bcn-stat-value-em">—</span>'; ?></span>
-                    </div>
-                    <div class="bcn-stat">
-                        <span class="bcn-stat-label">HTTP</span>
-                        <span class="bcn-stat-value"><?php echo !empty($last['status']) ? esc_html((string)$last['status']) : '<span class="bcn-stat-value-em">—</span>'; ?></span>
-                    </div>
-                    <div class="bcn-stat">
-                        <span class="bcn-stat-label">Next daily run</span>
-                        <span class="bcn-stat-value">
-                            <?php echo $next_cron ? 'in ' . esc_html(human_time_diff(time(), (int)$next_cron)) : '<span class="bcn-stat-value-em">not scheduled</span>'; ?>
-                        </span>
-                    </div>
-                </div>
-                <?php if (!empty($last['message'])): ?>
-                    <p class="bcn-hint bcn-pad-top"><strong>Last message:</strong> <code><?php echo esc_html((string)$last['message']); ?></code></p>
+                <?php else: ?>
+                    <ul class="bcn-log">
+                        <?php if ($update_event !== null): ?>
+                            <li class="bcn-log-item">
+                                <span class="bcn-log-ico <?php echo esc_attr($update_event['state']); ?>" aria-hidden="true"><span class="dashicons <?php echo esc_attr($update_event['ico']); ?>"></span></span>
+                                <div class="bcn-log-main">
+                                    <span class="bcn-log-title"><?php echo esc_html($update_event['title']); ?></span>
+                                    <span class="bcn-log-detail"><?php echo esc_html($update_event['detail']); ?></span>
+                                </div>
+                                <span class="bcn-log-time">update check</span>
+                            </li>
+                        <?php endif; ?>
+                        <?php foreach ($history as $h):
+                            $ok     = !empty($h['ok']);
+                            $kind   = (string)($h['kind'] ?? 'report');
+                            $at     = (int)($h['at'] ?? 0);
+                            $status = (int)($h['status'] ?? 0);
+                            $title  = ($kind === 'heartbeat' ? 'Heartbeat' : 'Daily report') . ($ok ? ' delivered' : ' failed'); ?>
+                            <li class="bcn-log-item">
+                                <span class="bcn-log-ico <?php echo $ok ? 'ok' : 'down'; ?>" aria-hidden="true"><span class="dashicons <?php echo $ok ? 'dashicons-yes' : 'dashicons-no-alt'; ?>"></span></span>
+                                <div class="bcn-log-main">
+                                    <span class="bcn-log-title"><?php echo esc_html($title); ?></span>
+                                    <span class="bcn-log-detail"><code><?php echo esc_html($kind); ?></code> · HTTP <?php echo esc_html($status ? (string)$status : '—'); ?></span>
+                                </div>
+                                <span class="bcn-log-time"><?php echo $at ? esc_html(human_time_diff($at) . ' ago') : ''; ?></span>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
                 <?php endif; ?>
             </div>
         </section>
@@ -874,15 +898,15 @@ class Bynli_Connect_Settings {
                 <span class="bcn-card-sub">Released directly from Bynefit</span>
             </div>
             <div class="bcn-card-body">
-                <div class="bcn-update-row">
-                    <span class="bcn-update-label">Installed</span>
-                    <span class="bcn-update-value"><code><?php echo esc_html(BYNLI_CONNECT_VERSION); ?></code></span>
+                <div class="bcn-up-row">
+                    <span class="bcn-up-label">Installed</span>
+                    <span class="bcn-up-value"><code>v<?php echo esc_html(BYNLI_CONNECT_VERSION); ?></code></span>
                 </div>
-                <div class="bcn-update-row">
-                    <span class="bcn-update-label">Latest</span>
-                    <span class="bcn-update-value">
+                <div class="bcn-up-row">
+                    <span class="bcn-up-label">Latest</span>
+                    <span class="bcn-up-value">
                         <?php if (!empty($upd['version'])): ?>
-                            <code><?php echo esc_html($upd['version']); ?></code>
+                            <code>v<?php echo esc_html($upd['version']); ?></code>
                             <?php if ($update_available): ?>
                                 <span class="bcn-chip acc">Update available</span>
                             <?php else: ?>
@@ -893,10 +917,16 @@ class Bynli_Connect_Settings {
                         <?php endif; ?>
                     </span>
                 </div>
+                <?php if (!empty($upd['last_updated'])): ?>
+                    <div class="bcn-up-row">
+                        <span class="bcn-up-label">Released</span>
+                        <span class="bcn-up-value"><?php echo esc_html($upd['last_updated']); ?></span>
+                    </div>
+                <?php endif; ?>
                 <?php if (!empty($upd['error'])): ?>
-                    <div class="bcn-update-row">
-                        <span class="bcn-update-label">Last error</span>
-                        <span class="bcn-update-value"><code><?php echo esc_html($upd['error']); ?></code></span>
+                    <div class="bcn-up-row">
+                        <span class="bcn-up-label">Last error</span>
+                        <span class="bcn-up-value"><code><?php echo esc_html($upd['error']); ?></code></span>
                     </div>
                 <?php endif; ?>
 
@@ -913,6 +943,13 @@ class Bynli_Connect_Settings {
                     </form>
                     <span class="bcn-action-hint">WordPress polls Bynefit every 12 hours.</span>
                 </div>
+
+                <?php if (!empty($upd['changelog'])): ?>
+                    <div class="bcn-changelog">
+                        <h3 class="bcn-changelog-title">Changelog</h3>
+                        <div class="bcn-cl-body"><?php echo wp_kses_post($upd['changelog']); ?></div>
+                    </div>
+                <?php endif; ?>
             </div>
         </section>
         <?php

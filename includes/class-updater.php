@@ -186,6 +186,8 @@ class Bynli_Connect_Updater {
             'download_url' => (string)($cached['download_url'] ?? ''),
             'error'        => (string)($cached['error']        ?? ''),
             'last_updated' => (string)($cached['last_updated'] ?? ''),
+            'changelog'    => (string)($cached['changelog']    ?? ''),
+            'description'  => (string)($cached['description']  ?? ''),
         ];
     }
 }
