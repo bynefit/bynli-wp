@@ -676,6 +676,8 @@
 .bcn-tile-label { font-family: var(--bcn-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--bcn-faint); }
 .bcn-tile-value { font-family: var(--bcn-mono); font-size: 15px; font-weight: 600; color: var(--bcn-ink); font-variant-numeric: tabular-nums; }
 .bcn-quick { display: flex; gap: 10px; flex-wrap: wrap; }
+.bcn-portal-quick { margin-bottom: 16px; }
+.bcn-hero-name { font-size: 26px; }
 
 @media (max-width: 620px) {
     .bcn-metric-strip { grid-template-columns: repeat(2, 1fr); gap: 14px; }

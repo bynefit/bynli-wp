@@ -14,6 +14,7 @@ class Bynli_Connect_Plugin {
         new Bynli_Connect_Updater();
         new Bynli_Connect_Tickets();
         new Bynli_Connect_Visibility();
+        new Bynli_Connect_Client_Mode();
 
         add_action('bynli_connect_daily_report', [Bynli_Connect_Reporter::class, 'send_daily']);
 
