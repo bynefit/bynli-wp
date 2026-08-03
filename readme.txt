@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.9.3
+Stable tag:        0.9.4
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.9.4 =
+* **Improved:** Client mode is now a real "site owner" role — the client can manage their own appearance (Customizer: logo, colors, menus, widgets), moderate comments, and add/manage their own non-admin team members, on top of pages, posts, and media. Plugins, themes, core settings, updates, and security stay with your site manager.
 
 = 0.9.3 =
 * **Changed:** The plugin now talks to **bynefit.com** (the new primary domain) instead of bynli.com.
