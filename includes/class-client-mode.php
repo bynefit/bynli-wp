@@ -32,6 +32,12 @@ class Bynli_Connect_Client_Mode {
     const AJAX_SUPPORT  = 'bynli_connect_portal_support';
     const NONCE_SUPPORT = 'bynli_connect_portal_support';
 
+    // Portal "Site settings" — curated, safe wp_options the owner can set from
+    // the Portal without manage_options (WordPress gates the Settings screens on
+    // that cap; we whitelist a handful and update them server-side).
+    const AJAX_SETTINGS  = 'bynli_connect_portal_settings';
+    const NONCE_SETTINGS = 'bynli_connect_portal_settings';
+
     // The Client is a locked "site owner": full control of their own content,
     // comments, appearance (Customizer / menus / widgets via edit_theme_options),
     // and their own NON-admin team (guarded). Deliberately NO manage_options,
@@ -73,6 +79,7 @@ class Bynli_Connect_Client_Mode {
         // Portal support submit — registered regardless of state so a client
         // (read_bynefit_portal) can reach it whenever the portal is shown.
         add_action('wp_ajax_' . self::AJAX_SUPPORT, [$this, 'handle_portal_support']);
+        add_action('wp_ajax_' . self::AJAX_SETTINGS, [$this, 'handle_portal_settings']);
 
         if (!self::enabled()) return;   // dormant unless an admin turned it on
 
@@ -465,6 +472,60 @@ class Bynli_Connect_Client_Mode {
                         <?php endif; ?>
                     </div>
                 </section>
+
+                <section class="bcn-card bcn-portal-settings-card">
+                    <div class="bcn-card-head">
+                        <h2>Site settings</h2>
+                        <span class="bcn-card-sub">Your site's name, homepage, and search visibility</span>
+                    </div>
+                    <div class="bcn-card-body">
+                        <div class="bcn-portal-settings" data-bcn-settings data-nonce="<?php echo esc_attr(wp_create_nonce(self::NONCE_SETTINGS)); ?>">
+                            <div class="bcn-field">
+                                <label class="bcn-label" for="bcn-set-title">Site title</label>
+                                <input type="text" class="bcn-input sans" id="bcn-set-title" data-role="set-title" value="<?php echo esc_attr((string) get_option('blogname', '')); ?>">
+                            </div>
+                            <div class="bcn-field">
+                                <label class="bcn-label" for="bcn-set-tagline">Tagline</label>
+                                <input type="text" class="bcn-input sans" id="bcn-set-tagline" data-role="set-tagline" value="<?php echo esc_attr((string) get_option('blogdescription', '')); ?>">
+                            </div>
+                            <div class="bcn-field">
+                                <label class="bcn-label" for="bcn-set-tz">Timezone</label>
+                                <select class="bcn-input sans" id="bcn-set-tz" data-role="set-tz">
+                                    <?php echo wp_timezone_choice((string) get_option('timezone_string', '')); ?>
+                                </select>
+                            </div>
+                            <div class="bcn-field">
+                                <label class="bcn-label" for="bcn-set-home">Homepage shows</label>
+                                <select class="bcn-input sans" id="bcn-set-home" data-role="set-home">
+                                    <option value="posts" <?php selected((string) get_option('show_on_front'), 'posts'); ?>>Your latest posts</option>
+                                    <option value="page" <?php selected((string) get_option('show_on_front'), 'page'); ?>>A static page</option>
+                                </select>
+                            </div>
+                            <div class="bcn-field" data-role="set-home-page-wrap"<?php echo get_option('show_on_front') === 'page' ? '' : ' hidden'; ?>>
+                                <label class="bcn-label" for="bcn-set-page">Homepage page</label>
+                                <select class="bcn-input sans" id="bcn-set-page" data-role="set-page">
+                                    <option value="0">— Select a page —</option>
+                                    <?php foreach (get_pages() as $pg): ?>
+                                        <option value="<?php echo (int) $pg->ID; ?>" <?php selected((int) get_option('page_on_front'), (int) $pg->ID); ?>><?php echo esc_html($pg->post_title); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="bcn-field bcn-check-field">
+                                <label class="bcn-label" for="bcn-set-public">
+                                    <input type="checkbox" id="bcn-set-public" data-role="set-public" <?php checked((string) get_option('blog_public', '1'), '1'); ?>>
+                                    Allow search engines to index this site
+                                </label>
+                            </div>
+                            <div class="bcn-portal-support-foot">
+                                <button type="button" class="bcn-btn primary" data-role="set-save">Save settings</button>
+                            </div>
+                            <div class="bcn-note" data-role="set-status" aria-live="polite" hidden>
+                                <span class="dashicons" data-role="ico" aria-hidden="true"></span>
+                                <span data-role="msg"></span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <div class="bcn-tiles">
@@ -756,5 +817,48 @@ class Bynli_Connect_Client_Mode {
             ], $status);
         }
         wp_send_json_success(['message' => 'Sent — the Bynefit team will get back to you by email.']);
+    }
+
+    /**
+     * Save the curated "Site settings" from the Portal. Client-facing, so gated
+     * on read_bynefit_portal — WordPress hard-gates the Settings screens on
+     * manage_options, but update_option() itself is capability-free, so we
+     * whitelist a safe handful and set them here for the site owner.
+     */
+    public function handle_portal_settings(): void {
+        if (!current_user_can('read_bynefit_portal')) {
+            wp_send_json_error(['message' => 'Forbidden.'], 403);
+        }
+        if (!check_ajax_referer(self::NONCE_SETTINGS, '_wpnonce', false)) {
+            wp_send_json_error(['message' => 'Security check failed. Reload and try again.'], 400);
+        }
+
+        if (isset($_POST['blogname'])) {
+            update_option('blogname', sanitize_text_field(wp_unslash($_POST['blogname'])));
+        }
+        if (isset($_POST['blogdescription'])) {
+            update_option('blogdescription', sanitize_text_field(wp_unslash($_POST['blogdescription'])));
+        }
+        if (isset($_POST['timezone_string'])) {
+            $tz = sanitize_text_field(wp_unslash($_POST['timezone_string']));
+            // Only accept a real timezone identifier (or empty to clear).
+            if ($tz === '' || in_array($tz, timezone_identifiers_list(), true)) {
+                update_option('timezone_string', $tz);
+            }
+        }
+        // Search-engine visibility: 1 = allow indexing, 0 = discourage.
+        update_option('blog_public', (isset($_POST['blog_public']) && $_POST['blog_public'] === '1') ? '1' : '0');
+
+        $front = (isset($_POST['show_on_front']) && $_POST['show_on_front'] === 'page') ? 'page' : 'posts';
+        update_option('show_on_front', $front);
+        if ($front === 'page') {
+            $pid = isset($_POST['page_on_front']) ? absint($_POST['page_on_front']) : 0;
+            // Only a real published page of THIS site.
+            if ($pid > 0 && get_post_status($pid) === 'publish' && get_post_type($pid) === 'page') {
+                update_option('page_on_front', $pid);
+            }
+        }
+
+        wp_send_json_success(['message' => 'Settings saved.']);
     }
 }
