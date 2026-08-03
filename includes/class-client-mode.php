@@ -32,6 +32,38 @@ class Bynli_Connect_Client_Mode {
     const AJAX_SUPPORT  = 'bynli_connect_portal_support';
     const NONCE_SUPPORT = 'bynli_connect_portal_support';
 
+    // The Client is a locked "site owner": full control of their own content,
+    // comments, appearance (Customizer / menus / widgets via edit_theme_options),
+    // and their own NON-admin team (guarded). Deliberately NO manage_options,
+    // plugin install/activate, theme install/switch/file-edit, core settings, or
+    // updates — those stay with Bynefit (the managed-hosting value + the things a
+    // non-technical owner breaks). Context-aware so owners stop pinging support.
+    const OWNER_CAPS = [
+        'read'                   => true,
+        'read_bynefit_portal'    => true,   // bespoke — only clients see the Portal
+        'upload_files'           => true,
+        'edit_posts'             => true,
+        'edit_others_posts'      => true,
+        'edit_published_posts'   => true,
+        'delete_posts'           => true,
+        'delete_published_posts' => true,
+        'publish_posts'          => true,
+        'edit_pages'             => true,
+        'edit_others_pages'      => true,
+        'edit_published_pages'   => true,
+        'delete_pages'           => true,
+        'delete_published_pages' => true,
+        'publish_pages'          => true,
+        'manage_categories'      => true,
+        'moderate_comments'      => true,   // approve / reply / spam their own comments
+        'edit_theme_options'     => true,   // Customizer, menus, widgets (NOT install/switch/edit)
+        'list_users'             => true,   // own-team management — guarded to non-admins below
+        'create_users'           => true,
+        'edit_users'             => true,
+        'delete_users'           => true,
+        'promote_users'          => true,
+    ];
+
     public function __construct() {
         // The save handler must exist regardless of state so an admin can toggle.
         add_action('wp_ajax_' . self::AJAX, [$this, 'handle_ajax']);
@@ -51,6 +83,11 @@ class Bynli_Connect_Client_Mode {
         add_action('admin_bar_menu',       [$this, 'trim_admin_bar'], 999);
         add_action('current_screen',       [$this, 'redirect_dashboard']);
         add_filter('login_redirect',       [$this, 'login_redirect'], 10, 3);
+        // Escalation guards for the owner's user-management: a Client can manage
+        // their own non-admin team but can NEVER assign the admin role or
+        // edit/delete/promote an administrator (i.e. the Bynefit account).
+        add_filter('editable_roles',       [$this, 'filter_editable_roles']);
+        add_filter('map_meta_cap',         [$this, 'guard_user_caps'], 10, 4);
     }
 
     public static function enabled(): bool {
@@ -72,26 +109,14 @@ class Bynli_Connect_Client_Mode {
     public function ensure_role(): void {
         $role = get_role(self::ROLE);
         if (!$role) {
-            $role = add_role(self::ROLE, __('Client', 'bynli-connect'), [
-                'read'                  => true,
-                'read_bynefit_portal'   => true,   // bespoke cap so only clients (not every subscriber) see the Portal
-                'upload_files'          => true,
-                'edit_posts'            => true,
-                'edit_published_posts'  => true,
-                'delete_posts'          => true,
-                'publish_posts'         => true,
-                'edit_pages'            => true,
-                'edit_published_pages'  => true,
-                'delete_pages'          => true,
-                'publish_pages'         => true,
-            ]);
+            $role = add_role(self::ROLE, __('Client', 'bynli-connect'), self::OWNER_CAPS);
         }
         if (!$role) return;   // add_role returns null on a race where the role already exists — bail safely
         // Back-fill caps added in later plugin versions — add_role() is a no-op
         // on an existing role, so a role created by an earlier build won't get
-        // new caps otherwise.
-        if (!$role->has_cap('read_bynefit_portal')) {
-            $role->add_cap('read_bynefit_portal');
+        // the newer owner caps otherwise.
+        foreach (self::OWNER_CAPS as $cap => $on) {
+            if ($on && !$role->has_cap($cap)) { $role->add_cap($cap); }
         }
         self::sync_woo_caps($role);
     }
@@ -134,10 +159,10 @@ class Bynli_Connect_Client_Mode {
 
     public function lockdown_menus(): void {
         if (!$this->is_client()) return;
-        // Strip everything a content client shouldn't touch; keep Pages, Posts,
-        // Media, and the Portal.
-        foreach (['index.php', 'edit-comments.php', 'themes.php', 'plugins.php',
-                  'users.php', 'tools.php', 'options-general.php',
+        // Keep the owner-appropriate menus (Posts, Pages, Media, Comments,
+        // Appearance, Users, Portal). Strip only the platform-level ones:
+        // Dashboard, Plugins, Tools, Settings.
+        foreach (['index.php', 'plugins.php', 'tools.php', 'options-general.php',
                   'separator1', 'separator2', 'separator-last'] as $slug) {
             remove_menu_page($slug);
         }
@@ -157,11 +182,15 @@ class Bynli_Connect_Client_Mode {
         global $pagenow;
         $base = (string) $pagenow;
         $blocked = [
+            // Core settings — gated on manage_options (would BE full admin); Bynefit-managed.
             'options-general.php', 'options.php', 'options-writing.php', 'options-reading.php',
+            'options-discussion.php', 'options-permalink.php', 'options-media.php',
+            // Plugins — Bynefit-managed.
             'plugins.php', 'plugin-install.php', 'plugin-editor.php',
-            'themes.php', 'theme-install.php', 'theme-editor.php', 'customize.php',
-            'users.php', 'user-new.php', 'user-edit.php',
-            'edit-comments.php', 'comment.php',
+            // Theme install / switch / file editor stay locked — but the Customizer,
+            // Menus and Widgets (edit_theme_options) are intentionally open.
+            'theme-install.php', 'theme-editor.php',
+            // Tools / core updates — Bynefit-managed.
             'tools.php', 'import.php', 'export.php', 'site-health.php', 'update-core.php',
         ];
         if (in_array($base, $blocked, true)) {
@@ -180,9 +209,41 @@ class Bynli_Connect_Client_Mode {
 
     public function trim_admin_bar($bar): void {
         if (!$this->is_client() || !is_object($bar)) return;
-        foreach (['wp-logo', 'comments', 'new-content', 'updates', 'themes', 'customize'] as $id) {
+        // Owner keeps Comments, +New, Customize, Themes in the toolbar — only
+        // strip the WordPress logo menu and the updates nudge (Bynefit-managed).
+        foreach (['wp-logo', 'updates'] as $id) {
             $bar->remove_node($id);
         }
+    }
+
+    /**
+     * A Client can only ever assign non-admin roles — strip 'administrator' from
+     * the role pickers (Add User, bulk role change, profile). Enforced on save
+     * too: core's add-user/edit-user validate the submitted role against
+     * get_editable_roles(), so this closes the assignment path, not just the UI.
+     */
+    public function filter_editable_roles(array $roles): array {
+        if ($this->is_client()) {
+            unset($roles['administrator']);
+        }
+        return $roles;
+    }
+
+    /**
+     * A Client can never edit / delete / promote an administrator (i.e. the
+     * Bynefit account) — deny those meta-caps when the target user is an admin.
+     * This is what stops a client from demoting Bynefit or escalating via an
+     * existing admin. Own-team (non-admin) users are unaffected.
+     */
+    public function guard_user_caps(array $caps, string $cap, int $user_id, array $args): array {
+        if (!$this->is_client()) return $caps;
+        if (in_array($cap, ['edit_user', 'delete_user', 'promote_user', 'remove_user'], true)) {
+            $target = isset($args[0]) ? (int) $args[0] : 0;
+            if ($target > 0 && user_can($target, 'manage_options')) {
+                return ['do_not_allow'];
+            }
+        }
+        return $caps;
     }
 
     public function redirect_dashboard($screen): void {
