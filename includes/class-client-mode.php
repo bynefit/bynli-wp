@@ -105,12 +105,26 @@ class Bynli_Connect_Client_Mode {
      * True only for a genuine locked client — has the role and is NOT an
      * administrator. The manage_options exclusion is the load-bearing guard
      * that keeps admins out of every lockdown path.
+     *
+     * CRITICAL: read the resolved capability map directly instead of
+     * user_can()/current_user_can(). is_client() runs inside the map_meta_cap
+     * filter (guard_user_caps), and user_can() re-enters map_meta_cap — that
+     * was an infinite recursion / stack-overflow fatal on every wp-admin
+     * request. $user->allcaps is the pre-resolved cap array and does NOT fire
+     * map_meta_cap, so it's safe to read from within the filter.
      */
     private function is_client(): bool {
         $u = wp_get_current_user();
         return $u && $u->exists()
             && in_array(self::ROLE, (array) $u->roles, true)
-            && !user_can($u, 'manage_options');
+            && empty($u->allcaps['manage_options']);
+    }
+
+    /** Admin test that never triggers map_meta_cap (see is_client). */
+    private function user_is_admin_by_id(int $user_id): bool {
+        if ($user_id <= 0) return false;
+        $u = get_userdata($user_id);
+        return $u && !empty($u->allcaps['manage_options']);
     }
 
     public function ensure_role(): void {
@@ -243,14 +257,25 @@ class Bynli_Connect_Client_Mode {
      * existing admin. Own-team (non-admin) users are unaffected.
      */
     public function guard_user_caps(array $caps, string $cap, int $user_id, array $args): array {
-        if (!$this->is_client()) return $caps;
-        if (in_array($cap, ['edit_user', 'delete_user', 'promote_user', 'remove_user'], true)) {
+        // Re-entrancy guard: this runs on map_meta_cap; any capability check we
+        // make inside could re-enter the filter. Bail on re-entry as insurance
+        // (the allcaps reads below are already non-recursive).
+        static $in_guard = false;
+        if ($in_guard) return $caps;
+        if (!in_array($cap, ['edit_user', 'delete_user', 'promote_user', 'remove_user'], true)) {
+            return $caps;
+        }
+        $in_guard = true;
+        try {
+            if (!$this->is_client()) return $caps;
             $target = isset($args[0]) ? (int) $args[0] : 0;
-            if ($target > 0 && user_can($target, 'manage_options')) {
+            if ($this->user_is_admin_by_id($target)) {
                 return ['do_not_allow'];
             }
+            return $caps;
+        } finally {
+            $in_guard = false;
         }
-        return $caps;
     }
 
     public function redirect_dashboard($screen): void {

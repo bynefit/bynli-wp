@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.9.5
+Stable tag:        0.9.6
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.9.6 =
+* **Fixed:** Critical — sites using the site-owner (Client) role could hit a fatal error on wp-admin after 0.9.4. The owner-protection capability check re-entered WordPress' permission resolver in a loop; it now reads the resolved capability map directly. Sites on 0.9.4/0.9.5 with client mode enabled should update immediately.
 
 = 0.9.5 =
 * **New:** Site owners get a **Site settings** card in the Bynefit portal — set the site title, tagline, timezone, homepage, and search-engine visibility without touching WordPress' full Settings screens.
