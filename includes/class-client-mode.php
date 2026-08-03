@@ -3,17 +3,19 @@ if (!defined('ABSPATH')) { exit; }
 
 /**
  * Client mode (consolidation epic — retires the legacy "dms" white-label
- * portal + role lockdown, rebuilt native in the Relay aesthetic, no UIkit CDN).
+ * portal, rebuilt native in the Relay aesthetic, no UIkit CDN).
  *
- * When an admin enables it, a limited `bynefit_client` role can manage the
- * site's content (pages, posts, media) from a branded Portal, with the rest of
- * wp-admin locked down. Off by default — dormant until turned on.
+ * When an admin enables it, invited site owners get the `bynefit_client` role,
+ * a branded Bynefit Portal, and roster tooling (assign / invite / revoke).
+ * As of 0.9.7 the client is a FULL administrator of their own site — plugins,
+ * themes, appearance, settings, users, and the whole WooCommerce store — because
+ * it's their site (Terry 2026-08-03). Off by default — dormant until turned on.
  *
- * SECURITY: every lockdown path is gated on is_client(), which requires the
- * bynefit_client role AND the absence of manage_options — so an administrator
- * is NEVER treated as a locked client and can never be locked out. The role's
- * capability set contains only content caps (no plugins/themes/users/settings),
- * so the lockdown is defense-in-depth, not the sole protection.
+ * The lockdown methods below (menu/page restriction, admin-account escalation
+ * guards) are all gated on is_client() = has the role AND lacks manage_options.
+ * Since the role now grants manage_options, is_client() returns false and every
+ * lockdown path no-ops. They're retained (dormant) so the restriction can be
+ * reinstated by narrowing the role's caps, without a code change to the guards.
  */
 class Bynli_Connect_Client_Mode {
 
@@ -128,18 +130,29 @@ class Bynli_Connect_Client_Mode {
     }
 
     public function ensure_role(): void {
+        // It's the client's OWN site — they are a full administrator: plugins,
+        // themes, appearance, settings, users, and the whole store, plus the
+        // Bynefit Portal (Terry 2026-08-03: "its their site"). We mirror the
+        // live administrator capability set every load, so any caps a plugin
+        // adds later (WooCommerce, etc.) propagate automatically.
+        //
+        // Because the client now holds `manage_options`, is_client() (which
+        // requires the ROLE *and the absence of* manage_options) returns false,
+        // so every lockdown path below no-ops — there is deliberately no
+        // restriction left. OWNER_CAPS is kept only as a fallback if the
+        // administrator role somehow can't be read.
+        $admin = get_role('administrator');
+        $caps  = ($admin && !empty($admin->capabilities)) ? $admin->capabilities : self::OWNER_CAPS;
+        $caps['read_bynefit_portal'] = true;   // bespoke — surfaces the Portal menu
+
         $role = get_role(self::ROLE);
         if (!$role) {
-            $role = add_role(self::ROLE, __('Client', 'bynli-connect'), self::OWNER_CAPS);
+            $role = add_role(self::ROLE, __('Client', 'bynli-connect'), $caps);
         }
         if (!$role) return;   // add_role returns null on a race where the role already exists — bail safely
-        // Back-fill caps added in later plugin versions — add_role() is a no-op
-        // on an existing role, so a role created by an earlier build won't get
-        // the newer owner caps otherwise.
-        foreach (self::OWNER_CAPS as $cap => $on) {
+        foreach ($caps as $cap => $on) {
             if ($on && !$role->has_cap($cap)) { $role->add_cap($cap); }
         }
-        self::sync_woo_caps($role);
     }
 
     public static function woo_active(): bool {
