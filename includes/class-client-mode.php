@@ -3,17 +3,23 @@ if (!defined('ABSPATH')) { exit; }
 
 /**
  * Client mode (consolidation epic — retires the legacy "dms" white-label
- * portal + role lockdown, rebuilt native in the Relay aesthetic, no UIkit CDN).
+ * portal, rebuilt native in the Relay aesthetic, no UIkit CDN).
  *
- * When an admin enables it, a limited `bynefit_client` role can manage the
- * site's content (pages, posts, media) from a branded Portal, with the rest of
- * wp-admin locked down. Off by default — dormant until turned on.
+ * When an admin enables it, invited site owners get the `bynefit_client` role,
+ * a branded Bynefit Portal, and roster tooling (assign / invite / revoke).
+ * As of 0.9.7 the client is a FULL administrator of their own site — plugins,
+ * themes, appearance, settings, users, and the whole WooCommerce store — because
+ * it's their site (Terry 2026-08-03). Off by default — dormant until turned on.
  *
- * SECURITY: every lockdown path is gated on is_client(), which requires the
- * bynefit_client role AND the absence of manage_options — so an administrator
- * is NEVER treated as a locked client and can never be locked out. The role's
- * capability set contains only content caps (no plugins/themes/users/settings),
- * so the lockdown is defense-in-depth, not the sole protection.
+ * The old lockdown methods (menu/page restriction, admin-bar trim, dashboard
+ * redirect) are gated on is_client() = has the role AND lacks manage_options.
+ * Since the role now grants manage_options, is_client() is false and they all
+ * no-op; retained (dormant) so the lockdown can be reinstated by narrowing caps.
+ *
+ * TWO guards survive full-admin — keyed on the client ROLE, not is_client — so
+ * managed hosting always has a way back in: guard_bynefit_account (a client
+ * can't edit/delete/demote the Bynefit account) and guard_connect_active /
+ * lock_connect_actions (a client can't deactivate or delete Bynefit Connect).
  */
 class Bynli_Connect_Client_Mode {
 
@@ -90,11 +96,18 @@ class Bynli_Connect_Client_Mode {
         add_action('admin_bar_menu',       [$this, 'trim_admin_bar'], 999);
         add_action('current_screen',       [$this, 'redirect_dashboard']);
         add_filter('login_redirect',       [$this, 'login_redirect'], 10, 3);
-        // Escalation guards for the owner's user-management: a Client can manage
-        // their own non-admin team but can NEVER assign the admin role or
-        // edit/delete/promote an administrator (i.e. the Bynefit account).
-        add_filter('editable_roles',       [$this, 'filter_editable_roles']);
-        add_filter('map_meta_cap',         [$this, 'guard_user_caps'], 10, 4);
+        // The client is a full admin (see ensure_role), so the is_client-gated
+        // lockdown above is dormant. Two guards survive full-admin — keyed on the
+        // client ROLE, not is_client — so managed hosting always has a way back in:
+        //   1. the client can't edit / delete / demote the Bynefit account
+        //      (a non-client administrator), and
+        //   2. the client can't deactivate or delete the Bynefit Connect plugin.
+        add_filter('map_meta_cap',                     [$this, 'guard_bynefit_account'], 10, 4);
+        add_filter('pre_update_option_active_plugins', [$this, 'guard_connect_active'], 10, 2);
+        if (defined('BYNLI_CONNECT_PLUGIN_FILE')) {
+            add_filter('plugin_action_links_' . plugin_basename(BYNLI_CONNECT_PLUGIN_FILE),
+                                                       [$this, 'lock_connect_actions']);
+        }
     }
 
     public static function enabled(): bool {
@@ -107,11 +120,11 @@ class Bynli_Connect_Client_Mode {
      * that keeps admins out of every lockdown path.
      *
      * CRITICAL: read the resolved capability map directly instead of
-     * user_can()/current_user_can(). is_client() runs inside the map_meta_cap
-     * filter (guard_user_caps), and user_can() re-enters map_meta_cap — that
-     * was an infinite recursion / stack-overflow fatal on every wp-admin
-     * request. $user->allcaps is the pre-resolved cap array and does NOT fire
-     * map_meta_cap, so it's safe to read from within the filter.
+     * user_can()/current_user_can(). Predicates like this run inside the
+     * map_meta_cap filter (guard_bynefit_account), and user_can() re-enters
+     * map_meta_cap — that was an infinite recursion / stack-overflow fatal on
+     * every wp-admin request. $user->allcaps is the pre-resolved cap array and
+     * does NOT fire map_meta_cap, so it's safe to read from within the filter.
      */
     private function is_client(): bool {
         $u = wp_get_current_user();
@@ -128,18 +141,29 @@ class Bynli_Connect_Client_Mode {
     }
 
     public function ensure_role(): void {
+        // It's the client's OWN site — they are a full administrator: plugins,
+        // themes, appearance, settings, users, and the whole store, plus the
+        // Bynefit Portal (Terry 2026-08-03: "its their site"). We mirror the
+        // live administrator capability set every load, so any caps a plugin
+        // adds later (WooCommerce, etc.) propagate automatically.
+        //
+        // Because the client now holds `manage_options`, is_client() (which
+        // requires the ROLE *and the absence of* manage_options) returns false,
+        // so every lockdown path below no-ops — there is deliberately no
+        // restriction left. OWNER_CAPS is kept only as a fallback if the
+        // administrator role somehow can't be read.
+        $admin = get_role('administrator');
+        $caps  = ($admin && !empty($admin->capabilities)) ? $admin->capabilities : self::OWNER_CAPS;
+        $caps['read_bynefit_portal'] = true;   // bespoke — surfaces the Portal menu
+
         $role = get_role(self::ROLE);
         if (!$role) {
-            $role = add_role(self::ROLE, __('Client', 'bynli-connect'), self::OWNER_CAPS);
+            $role = add_role(self::ROLE, __('Client', 'bynli-connect'), $caps);
         }
         if (!$role) return;   // add_role returns null on a race where the role already exists — bail safely
-        // Back-fill caps added in later plugin versions — add_role() is a no-op
-        // on an existing role, so a role created by an earlier build won't get
-        // the newer owner caps otherwise.
-        foreach (self::OWNER_CAPS as $cap => $on) {
+        foreach ($caps as $cap => $on) {
             if ($on && !$role->has_cap($cap)) { $role->add_cap($cap); }
         }
-        self::sync_woo_caps($role);
     }
 
     public static function woo_active(): bool {
@@ -181,18 +205,13 @@ class Bynli_Connect_Client_Mode {
     public function lockdown_menus(): void {
         if (!$this->is_client()) return;
         // Keep the owner-appropriate menus (Posts, Pages, Media, Comments,
-        // Appearance, Users, Portal). Strip only the platform-level ones:
-        // Dashboard, Plugins, Tools, Settings.
+        // Appearance, Users, Portal, and the WHOLE WooCommerce store). Strip
+        // only the platform-level ones: Dashboard, Plugins, Tools, Settings.
+        // The client owns their store end-to-end — WooCommerce's own caps
+        // (granted via sync_woo_caps) govern it, so we do NOT trim any WC menus.
         foreach (['index.php', 'plugins.php', 'tools.php', 'options-general.php',
                   'separator1', 'separator2', 'separator-last'] as $slug) {
             remove_menu_page($slug);
-        }
-        // Keep the store usable but simple: leave Orders + Products, hide the
-        // technical WooCommerce config (settings, system status, marketplace).
-        if (self::woo_active()) {
-            foreach (['wc-settings', 'wc-status', 'wc-addons'] as $sub) {
-                remove_submenu_page('woocommerce', $sub);
-            }
         }
     }
 
@@ -218,14 +237,10 @@ class Bynli_Connect_Client_Mode {
             wp_safe_redirect(admin_url('admin.php?page=' . self::PORTAL_SLUG));
             exit;
         }
-        // WooCommerce config screens live under admin.php?page=… — block the
-        // technical ones by page slug (Orders/Products stay reachable).
-        if (self::woo_active() && $base === 'admin.php'
-            && isset($_GET['page'])
-            && in_array((string) $_GET['page'], ['wc-settings', 'wc-status', 'wc-addons'], true)) {
-            wp_safe_redirect(admin_url('admin.php?page=' . self::PORTAL_SLUG));
-            exit;
-        }
+        // WooCommerce screens (Settings, Status, Orders, Products, Analytics,
+        // Marketing, Extensions) are the client's own store — intentionally NOT
+        // blocked. WooCommerce's capability model governs them; installing
+        // extensions still requires install_plugins, which the client lacks.
     }
 
     public function trim_admin_bar($bar): void {
@@ -251,15 +266,15 @@ class Bynli_Connect_Client_Mode {
     }
 
     /**
-     * A Client can never edit / delete / promote an administrator (i.e. the
-     * Bynefit account) — deny those meta-caps when the target user is an admin.
-     * This is what stops a client from demoting Bynefit or escalating via an
-     * existing admin. Own-team (non-admin) users are unaffected.
+     * The ONE guard that survives full-admin: a client (someone holding the
+     * bynefit_client role) can never edit / delete / demote the Bynefit account
+     * — defined as an administrator who is NOT themselves a client. This keeps a
+     * Bynefit way back in even though the client otherwise has full control.
+     * Peers (other client-admins) and their own account are unaffected because
+     * they carry the client role. Reads $user->allcaps / ->roles only — never
+     * user_can — so it does NOT re-enter map_meta_cap (see is_client note).
      */
-    public function guard_user_caps(array $caps, string $cap, int $user_id, array $args): array {
-        // Re-entrancy guard: this runs on map_meta_cap; any capability check we
-        // make inside could re-enter the filter. Bail on re-entry as insurance
-        // (the allcaps reads below are already non-recursive).
+    public function guard_bynefit_account(array $caps, string $cap, int $user_id, array $args): array {
         static $in_guard = false;
         if ($in_guard) return $caps;
         if (!in_array($cap, ['edit_user', 'delete_user', 'promote_user', 'remove_user'], true)) {
@@ -267,15 +282,48 @@ class Bynli_Connect_Client_Mode {
         }
         $in_guard = true;
         try {
-            if (!$this->is_client()) return $caps;
+            $cur = wp_get_current_user();
+            if (!$cur || !in_array(self::ROLE, (array) $cur->roles, true)) return $caps;
             $target = isset($args[0]) ? (int) $args[0] : 0;
-            if ($this->user_is_admin_by_id($target)) {
+            if ($target <= 0) return $caps;
+            $tu = get_userdata($target);
+            if ($tu && !empty($tu->allcaps['manage_options'])
+                && !in_array(self::ROLE, (array) $tu->roles, true)) {
                 return ['do_not_allow'];
             }
             return $caps;
         } finally {
             $in_guard = false;
         }
+    }
+
+    /**
+     * Keep Bynefit Connect active for a client: if a client removed it from the
+     * active-plugins set, put it back. WordPress won't let you delete an active
+     * plugin, so forcing active also blocks deletion. mu-plugin installs never
+     * appear in active_plugins, so this is simply inert there (they can't be
+     * deactivated anyway). Only client-role users are constrained.
+     */
+    public function guard_connect_active($value, $old_value) {
+        $cur = wp_get_current_user();
+        if (!$cur || !in_array(self::ROLE, (array) $cur->roles, true)) return $value;
+        if (!defined('BYNLI_CONNECT_PLUGIN_FILE')) return $value;
+        $self = plugin_basename(BYNLI_CONNECT_PLUGIN_FILE);
+        $old  = (array) $old_value;
+        $new  = (array) $value;
+        if (in_array($self, $old, true) && !in_array($self, $new, true)) {
+            $new[] = $self;
+        }
+        return $new;
+    }
+
+    /** Hide the Deactivate / Delete row-actions on Bynefit Connect for clients. */
+    public function lock_connect_actions($links) {
+        $cur = wp_get_current_user();
+        if ($cur && in_array(self::ROLE, (array) $cur->roles, true)) {
+            unset($links['deactivate'], $links['delete']);
+        }
+        return $links;
     }
 
     public function redirect_dashboard($screen): void {
