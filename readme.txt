@@ -133,7 +133,7 @@ Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands 
 == Changelog ==
 
 = 0.9.7 =
-* **Changed:** Client mode now gives the site owner **full control of their own site** — plugins, themes and appearance, all settings, users, and the complete WooCommerce store (Settings, Orders, Products, Analytics, Extensions). It's their site; the earlier lockdown is removed. Bynefit still handles managed updates and support in the background.
+* **Changed:** Client mode now gives the site owner **full control of their own site** — plugins, themes and appearance, all settings, users, and the complete WooCommerce store (Settings, Orders, Products, Analytics, Extensions). It's their site; the earlier lockdown is removed. Two safeguards remain so Bynefit can keep the site managed: the owner can't remove the Bynefit account and can't deactivate Bynefit Connect. Bynefit still handles managed updates and support in the background.
 
 = 0.9.6 =
 * **Fixed:** Critical — sites using the site-owner (Client) role could hit a fatal error on wp-admin after 0.9.4. The owner-protection capability check re-entered WordPress' permission resolver in a loop; it now reads the resolved capability map directly. Sites on 0.9.4/0.9.5 with client mode enabled should update immediately.
