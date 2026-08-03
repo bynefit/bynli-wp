@@ -181,18 +181,13 @@ class Bynli_Connect_Client_Mode {
     public function lockdown_menus(): void {
         if (!$this->is_client()) return;
         // Keep the owner-appropriate menus (Posts, Pages, Media, Comments,
-        // Appearance, Users, Portal). Strip only the platform-level ones:
-        // Dashboard, Plugins, Tools, Settings.
+        // Appearance, Users, Portal, and the WHOLE WooCommerce store). Strip
+        // only the platform-level ones: Dashboard, Plugins, Tools, Settings.
+        // The client owns their store end-to-end — WooCommerce's own caps
+        // (granted via sync_woo_caps) govern it, so we do NOT trim any WC menus.
         foreach (['index.php', 'plugins.php', 'tools.php', 'options-general.php',
                   'separator1', 'separator2', 'separator-last'] as $slug) {
             remove_menu_page($slug);
-        }
-        // Keep the store usable but simple: leave Orders + Products, hide the
-        // technical WooCommerce config (settings, system status, marketplace).
-        if (self::woo_active()) {
-            foreach (['wc-settings', 'wc-status', 'wc-addons'] as $sub) {
-                remove_submenu_page('woocommerce', $sub);
-            }
         }
     }
 
@@ -218,14 +213,10 @@ class Bynli_Connect_Client_Mode {
             wp_safe_redirect(admin_url('admin.php?page=' . self::PORTAL_SLUG));
             exit;
         }
-        // WooCommerce config screens live under admin.php?page=… — block the
-        // technical ones by page slug (Orders/Products stay reachable).
-        if (self::woo_active() && $base === 'admin.php'
-            && isset($_GET['page'])
-            && in_array((string) $_GET['page'], ['wc-settings', 'wc-status', 'wc-addons'], true)) {
-            wp_safe_redirect(admin_url('admin.php?page=' . self::PORTAL_SLUG));
-            exit;
-        }
+        // WooCommerce screens (Settings, Status, Orders, Products, Analytics,
+        // Marketing, Extensions) are the client's own store — intentionally NOT
+        // blocked. WooCommerce's capability model governs them; installing
+        // extensions still requires install_plugins, which the client lacks.
     }
 
     public function trim_admin_bar($bar): void {
