@@ -659,6 +659,48 @@
         });
     }
 
+    // ── Portal: curated Site settings (owner-safe wp_options) ──
+    function wirePortalSettings() {
+        const box = document.querySelector('[data-bcn-settings]');
+        if (!box || !cfg || !cfg.ajaxUrl) return;
+        const nonce    = box.getAttribute('data-nonce') || '';
+        const q        = (r) => box.querySelector('[data-role="' + r + '"]');
+        const homeSel  = q('set-home');
+        const pageWrap = q('set-home-page-wrap');
+        const statusEl = q('set-status');
+        const saveBtn  = q('set-save');
+        if (homeSel && pageWrap) {
+            homeSel.addEventListener('change', function () { pageWrap.hidden = (homeSel.value !== 'page'); });
+        }
+        if (!saveBtn) return;
+        saveBtn.addEventListener('click', async function () {
+            setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', 'Saving…');
+            const p = new URLSearchParams();
+            p.set('action', 'bynli_connect_portal_settings');
+            p.set('_wpnonce', nonce);
+            p.set('blogname', (q('set-title') && q('set-title').value) || '');
+            p.set('blogdescription', (q('set-tagline') && q('set-tagline').value) || '');
+            p.set('timezone_string', (q('set-tz') && q('set-tz').value) || '');
+            p.set('show_on_front', (homeSel && homeSel.value) || 'posts');
+            p.set('page_on_front', (q('set-page') && q('set-page').value) || '0');
+            p.set('blog_public', (q('set-public') && q('set-public').checked) ? '1' : '0');
+            let data;
+            try {
+                const res = await fetch(cfg.ajaxUrl, {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: p.toString(),
+                });
+                data = await res.json();
+            } catch (e) { data = { success: false, data: { message: 'Network error.' } }; }
+            if (data && data.success) {
+                setNote(statusEl, 'is-ok', 'dashicons-yes-alt', (data.data && data.data.message) || 'Saved.');
+            } else {
+                setNote(statusEl, 'is-err', 'dashicons-warning', (data && data.data && data.data.message) || 'Could not save.');
+            }
+        });
+    }
+
     // ── Live form picker: load the team's real forms, click to insert the id ──
 
     function bcnCodeNodes(code) {
@@ -783,6 +825,7 @@
         wireClientMode();
         wireClientManage();
         wirePortalSupport();
+        wirePortalSettings();
         let rt;
         window.addEventListener('resize', () => {
             clearTimeout(rt);
