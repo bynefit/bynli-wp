@@ -4,7 +4,7 @@
  * Plugin URI:        https://bynefit.com/guides/wordpress
  * Description:       Connect a WordPress site to Bynefit — reports daily usage and exposes Bynefit shortcodes for forms, modals, toasts, confirms, and the floating widget.
  * Version:           0.10.0
- * Requires at least: 6.0
+ * Requires at least: 6.1
  * Requires PHP:      7.4
  * Author:            Bynefit
  * Author URI:        https://bynefit.org

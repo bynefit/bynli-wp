@@ -38,14 +38,23 @@
 .bynefit-media {
     display: block;
     margin: 0;
+    height: 100%;
     border-radius: var(--bynefit-radius, 0);
     overflow: hidden;
 }
 
+/*
+ * Fill the cell so object-fit:cover + the focal object-position are active:
+ * when a cell stretches (a taller grid sibling, or a fixed row/rowSpan) the
+ * image crops around its focal point instead of letter-boxing. The explicit
+ * width/height attributes give the intrinsic aspect-ratio (CLS-safe) and, when
+ * the cell isn't height-constrained, define the natural height. Emitter
+ * contract: bynefit/media MUST carry width+height (see bynefit-sites#3).
+ */
 .bynefit-media__el {
     display: block;
     width: 100%;
-    height: auto;
+    height: 100%;
     object-fit: cover;
     object-position: var(--bynefit-focal, 50% 50%);
 }
