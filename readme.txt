@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.0
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.9.7
+Stable tag:        0.10.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.10.0 =
+* **Added:** Bynefit Sites block substrate — the first server-rendered `bynefit/*` blocks (Section and Media) that Bynefit Sites publishes onto. Section renders a phone-first CSS grid that expands to desktop; Media emits focal-point images/clips with AVIF/WebP sources and explicit dimensions. Server-rendered so a WordPress or plugin update can never corrupt a published page.
 
 = 0.9.7 =
 * **Changed:** Client mode now gives the site owner **full control of their own site** — plugins, themes and appearance, all settings, users, and the complete WooCommerce store (Settings, Orders, Products, Analytics, Extensions). It's their site; the earlier lockdown is removed. Two safeguards remain so Bynefit can keep the site managed: the owner can't remove the Bynefit account and can't deactivate Bynefit Connect. Bynefit still handles managed updates and support in the background.

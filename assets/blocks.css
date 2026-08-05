@@ -1,0 +1,51 @@
+/*
+ * Front-end styles for the wp:bynefit/* dynamic blocks (Bynefit Sites).
+ * Instance data (grid tracks, placement, focal, radius) arrives as CSS custom
+ * properties set inline by each block's render.php; these static rules consume
+ * them. Phone-first: sm values apply by default, lg values win at >=1024px and
+ * fall back to sm when a block didn't override that breakpoint.
+ */
+
+.bynefit-section {
+    display: grid;
+    grid-template-columns: repeat(var(--bynefit-cols-sm, 4), minmax(0, 1fr));
+    grid-auto-rows: minmax(0, auto);
+    gap: var(--bynefit-gap, 1.5rem);
+    padding: var(--bynefit-pad-sm, 0);
+    background-color: var(--bynefit-bg, transparent);
+}
+
+.bynefit-cell {
+    min-width: 0;
+    grid-column: var(--bynefit-col-sm, 1) / span var(--bynefit-colspan-sm, 4);
+    grid-row: var(--bynefit-row-sm, auto) / span var(--bynefit-rowspan-sm, 1);
+    order: var(--bynefit-order-sm, 0);
+}
+
+@media (min-width: 1024px) {
+    .bynefit-section {
+        grid-template-columns: repeat(var(--bynefit-cols-lg, var(--bynefit-cols-sm, 12)), minmax(0, 1fr));
+        padding: var(--bynefit-pad-lg, var(--bynefit-pad-sm, 0));
+    }
+
+    .bynefit-cell {
+        grid-column: var(--bynefit-col-lg, var(--bynefit-col-sm, 1)) / span var(--bynefit-colspan-lg, var(--bynefit-colspan-sm, 12));
+        grid-row: var(--bynefit-row-lg, var(--bynefit-row-sm, auto)) / span var(--bynefit-rowspan-lg, var(--bynefit-rowspan-sm, 1));
+        order: var(--bynefit-order-lg, var(--bynefit-order-sm, 0));
+    }
+}
+
+.bynefit-media {
+    display: block;
+    margin: 0;
+    border-radius: var(--bynefit-radius, 0);
+    overflow: hidden;
+}
+
+.bynefit-media__el {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    object-position: var(--bynefit-focal, 50% 50%);
+}
