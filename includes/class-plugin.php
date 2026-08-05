@@ -10,6 +10,7 @@ class Bynli_Connect_Plugin {
 
     private function __construct() {
         new Bynli_Connect_Settings();
+        new Bynli_Connect_Control_Plane();
         new Bynli_Connect_Shortcodes();
         new Bynli_Connect_Updater();
         new Bynli_Connect_Tickets();
