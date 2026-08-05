@@ -27,6 +27,7 @@ class Bynli_Connect_Control_Plane {
     const NS            = 'bynli/v1';
     const CAP           = 'edit_theme_options';
     const REPLAY_WINDOW = 300;
+    const MAX_BODY      = 262144; // 256KB — a design doc is small; cap before any work.
     const SECRET_OPTION = 'bynli_connect_control_plane_secret';
 
     public function __construct() {
@@ -57,28 +58,45 @@ class Bynli_Connect_Control_Plane {
      * the REST response — never leaks which layer failed beyond a coarse code.
      */
     public function authorize(WP_REST_Request $request) {
+        // Uniform 401 for both "unprovisioned" and "bad signature" so an
+        // unauthenticated probe can't distinguish a provisioned site from an
+        // unprovisioned one. Still fail-closed either way.
+        $unauthorized = new WP_Error('unauthorized', 'Unauthorized.', ['status' => 401]);
+
         $secret = self::secret();
         if ($secret === '') {
-            return new WP_Error('control_plane_unconfigured', 'Control plane not provisioned.', ['status' => 503]);
+            self::log_reject('unconfigured');
+            return $unauthorized;
+        }
+
+        // Bound the body before any parsing/HMAC work — memory-DoS guard.
+        $body = (string) $request->get_body();
+        if (strlen($body) > self::MAX_BODY) {
+            self::log_reject('body_too_large');
+            return new WP_Error('body_too_large', 'Request body too large.', ['status' => 413]);
         }
 
         $ts  = (int) $request->get_header('x-bynli-timestamp');
         $sig = (string) $request->get_header('x-bynli-signature');
-        if ($ts <= 0 || $sig === '') {
-            return new WP_Error('signature_missing', 'Missing signature headers.', ['status' => 401]);
-        }
-        if (!Bynli_Connect_Signer::verify($secret, $ts, (string) $request->get_body(), $sig, self::REPLAY_WINDOW)) {
-            return new WP_Error('signature_invalid', 'Signature check failed.', ['status' => 401]);
+        if ($ts <= 0 || $sig === '' || !Bynli_Connect_Signer::verify($secret, $ts, $body, $sig, self::REPLAY_WINDOW)) {
+            self::log_reject('signature');
+            return $unauthorized;
         }
 
-        // Transport authN: the Application Password must have authenticated a
-        // user with theme-editing capability. Never accept an anonymous or
-        // under-privileged caller even if the HMAC is valid.
+        // Transport authN: the request must be authenticated (Application
+        // Password) as a user with theme-editing capability. Never accept an
+        // anonymous or under-privileged caller even if the HMAC is valid.
         if (!is_user_logged_in() || !current_user_can(self::CAP)) {
+            self::log_reject('capability');
             return new WP_Error('forbidden', 'Insufficient capability.', ['status' => 403]);
         }
 
         return true;
+    }
+
+    /** Record an auth rejection (coarse reason only — never ts/sig/secret). */
+    private static function log_reject(string $reason): void {
+        error_log('[Bynli Connect] control-plane auth reject: ' . $reason);
     }
 
     /**
@@ -109,10 +127,15 @@ class Bynli_Connect_Control_Plane {
             return new WP_Error('no_global_styles', 'Could not resolve the user global styles record.', ['status' => 500]);
         }
 
-        // Build a clean theme.json-shaped document. Only the two data keys are
-        // carried through; the required marker flags are set by us, never taken
-        // from the request.
-        $doc = ['version' => 3, 'isGlobalStylesUserThemeJSON' => true];
+        // Schema version tracks the running WP (v3 is WP 6.6+); never hardcode
+        // a version the site can't understand.
+        $version = defined('WP_Theme_JSON::LATEST_SCHEMA') ? WP_Theme_JSON::LATEST_SCHEMA : 2;
+
+        // Build the theme.json-shaped document. Only the two data keys are
+        // carried through; run it through WP_Theme_JSON so unknown/insecure
+        // properties are stripped to the known theme.json paths before we
+        // persist — never trust the payload shape even from the control plane.
+        $doc = ['version' => $version];
         if ($settings !== null) {
             $doc['settings'] = $settings;
         }
@@ -120,7 +143,15 @@ class Bynli_Connect_Control_Plane {
             $doc['styles'] = $styles;
         }
 
-        $encoded = wp_json_encode($doc);
+        if (!class_exists('WP_Theme_JSON')) {
+            return new WP_Error('unsupported', 'Global styles unavailable on this WordPress version.', ['status' => 501]);
+        }
+        $sanitized = ( new WP_Theme_JSON($doc, 'custom') )->get_raw_data();
+        // The marker flag is required for WP to treat this post as user global
+        // styles; set it ourselves, after sanitization, never from the request.
+        $sanitized['isGlobalStylesUserThemeJSON'] = true;
+
+        $encoded = wp_json_encode($sanitized);
         if ($encoded === false) {
             return new WP_Error('encode_failed', 'Could not encode the design document.', ['status' => 500]);
         }
