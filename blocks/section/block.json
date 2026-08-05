@@ -1,0 +1,37 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/section",
+    "version": "0.1.0",
+    "title": "Bynefit Section",
+    "category": "design",
+    "icon": "layout",
+    "description": "A grid section that renders the Bynefit Sites scene-graph place map to CSS Grid. Phone-first columns expand to desktop; rows grow with content.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true,
+        "align": ["wide", "full"]
+    },
+    "attributes": {
+        "cols": {
+            "type": "object",
+            "default": { "sm": 4, "lg": 12 }
+        },
+        "gap": {
+            "type": "string"
+        },
+        "padding": {
+            "type": "object"
+        },
+        "bg": {
+            "type": "string"
+        },
+        "places": {
+            "type": "array",
+            "default": []
+        }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}

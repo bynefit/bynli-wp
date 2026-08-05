@@ -1,0 +1,29 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/media",
+    "version": "0.1.0",
+    "title": "Bynefit Media",
+    "category": "media",
+    "icon": "format-image",
+    "description": "An image or short clip with a focal point, AVIF/WebP sources, explicit dimensions (CLS-safe), and LCP-priority control.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true
+    },
+    "attributes": {
+        "kind": { "type": "string", "default": "image" },
+        "url": { "type": "string" },
+        "alt": { "type": "string", "default": "" },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "focal": { "type": "object" },
+        "sources": { "type": "object" },
+        "poster": { "type": "string" },
+        "priority": { "type": "boolean", "default": false },
+        "radius": { "type": "string" }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}

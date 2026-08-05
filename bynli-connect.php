@@ -4,7 +4,7 @@
  * Plugin URI:        https://bynefit.com/guides/wordpress
  * Description:       Connect a WordPress site to Bynefit — reports daily usage and exposes Bynefit shortcodes for forms, modals, toasts, confirms, and the floating widget.
  * Version:           0.10.1
- * Requires at least: 6.0
+ * Requires at least: 6.1
  * Requires PHP:      7.4
  * Author:            Bynefit
  * Author URI:        https://bynefit.org
@@ -34,6 +34,7 @@ require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-client-mode.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-updater.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-tickets.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-woo.php';
+require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-blocks.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-plugin.php';
 
 add_action('plugins_loaded', ['Bynli_Connect_Plugin', 'instance']);
