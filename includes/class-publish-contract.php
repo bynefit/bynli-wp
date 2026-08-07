@@ -14,7 +14,9 @@ if (!defined('ABSPATH')) {
  */
 class Bynli_Connect_Publish_Contract {
 
-    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout'];
+    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos'];
+
+    const CONTAINER_BLOCKS = ['section', 'card'];
 
     const EMBED_PROVIDERS   = ['youtube', 'vimeo', 'map'];
     const LIST_MARKERS      = ['check', 'arrow', 'dot', 'none'];
@@ -87,15 +89,47 @@ class Bynli_Connect_Publish_Contract {
                 continue;
             }
             foreach ($blocks as $bi => $block) {
-                $bpath = "$spath.blocks[$bi]";
+                self::validate_block($block, "$spath.blocks[$bi]", $v, $vocab, $media, $bg_slug, $heading_levels, $priority_images);
+            }
+        }
+
+        $h1 = count(array_filter($heading_levels, static fn($l) => $l === 1));
+        if ($h1 === 0) {
+            $v[] = self::vio('h1_missing', 'sections', 'Page must have exactly one H1; found none.');
+        } elseif ($h1 > 1) {
+            $v[] = self::vio('h1_multiple', 'sections', "Page must have exactly one H1; found $h1.");
+        }
+        $prev = 0;
+        foreach ($heading_levels as $lvl) {
+            if ($prev !== 0 && $lvl > $prev + 1) {
+                $v[] = self::vio('heading_order', 'sections', "Heading level jumps from h$prev to h$lvl (no skipping levels).");
+            }
+            $prev = $lvl;
+        }
+
+        if ($priority_images > 1) {
+            $v[] = self::vio('lcp_multiple', 'sections', "Only one image may be priority (LCP); found $priority_images.");
+        }
+
+        return ['ok' => count($v) === 0, 'violations' => $v];
+    }
+
+    /**
+     * Validate one block in place, recursing into a card's children. Page-level
+     * accumulators (heading levels, priority-image count) are threaded by
+     * reference so a heading or LCP image nested in a card still counts toward
+     * the page's one-H1 / one-LCP rules. $bg_slug is the effective background
+     * (section, or the card's own) used for the block's contrast check.
+     */
+    private static function validate_block($block, string $bpath, array &$v, array $vocab, array $media, ?string $bg_slug, array &$heading_levels, int &$priority_images): void {
                 if (!is_array($block)) {
                     $v[] = self::vio('block_shape', $bpath, 'Block is not an object.');
-                    continue;
+                    return;
                 }
                 $type = (string) ($block['type'] ?? '');
                 if (!in_array($type, self::SUPPORTED_BLOCKS, true)) {
                     $v[] = self::vio('block_unsupported', $bpath, "Block type '$type' is not supported by the emitter yet.");
-                    continue;
+                    return;
                 }
 
                 $style = is_array($block['style'] ?? null) ? $block['style'] : [];
@@ -107,6 +141,7 @@ class Bynli_Connect_Publish_Contract {
                     'text'    => ['color' => 'color', 'typography' => 'type'],
                     'image'   => ['radius' => 'radius'],
                     'gallery' => ['radius' => 'radius'],
+                    'card'    => ['background' => 'color', 'radius' => 'radius', 'shadow' => 'shadow'],
                 ];
                 foreach (($allowed_style[$type] ?? []) as $key => $group) {
                     if (array_key_exists($key, $style)) {
@@ -171,7 +206,7 @@ class Bynli_Connect_Publish_Contract {
                         $v[] = self::vio('gallery_empty', "$bpath.items", 'Gallery has no images.');
                     } elseif (count($gitems) > self::MAX_GALLERY_ITEMS) {
                         $v[] = self::vio('gallery_too_large', "$bpath.items", 'Gallery has more than ' . self::MAX_GALLERY_ITEMS . ' images.');
-                        continue;
+                        return;
                     }
                     foreach ($gitems as $gi => $git) {
                         $gp = "$bpath.items[$gi]";
@@ -217,7 +252,7 @@ class Bynli_Connect_Publish_Contract {
                         $v[] = self::vio('accordion_empty', "$bpath.items", 'Accordion has no items.');
                     } elseif (count($aitems) > self::MAX_ACCORDION_ITEMS) {
                         $v[] = self::vio('accordion_too_large', "$bpath.items", 'Accordion has more than ' . self::MAX_ACCORDION_ITEMS . ' items.');
-                        continue;
+                        return;
                     }
                     foreach ($aitems as $ai => $ait) {
                         if (!is_array($ait) || trim((string) ($ait['q'] ?? '')) === '' || trim((string) ($ait['a'] ?? '')) === '') {
@@ -251,7 +286,7 @@ class Bynli_Connect_Publish_Contract {
                         $v[] = self::vio('list_empty', "$bpath.items", 'List has no items.');
                     } elseif (count($litems) > self::MAX_LIST_ITEMS) {
                         $v[] = self::vio('list_too_large', "$bpath.items", 'List has more than ' . self::MAX_LIST_ITEMS . ' items.');
-                        continue;
+                        return;
                     }
                     foreach ($litems as $li => $lit) {
                         $ltext = is_array($lit) ? (string) ($lit['text'] ?? '') : (string) $lit;
@@ -295,29 +330,52 @@ class Bynli_Connect_Publish_Contract {
                     if (trim((string) ($block['title'] ?? '')) === '' && trim((string) ($block['text'] ?? '')) === '') {
                         $v[] = self::vio('callout_empty', $bpath, 'Callout needs a title or text.');
                     }
+                } elseif ($type === 'card') {
+                    self::check_token_ref($v, "$bpath.padding", $block['padding'] ?? null, 'space', $vocab, false);
+                    $card_bg = Bynli_Connect_Emitter::resolve_token('color', self::deep($block, ['style', 'background'])) ?? $bg_slug;
+                    $cblocks = is_array($block['blocks'] ?? null) ? $block['blocks'] : [];
+                    if (count($cblocks) === 0) {
+                        $v[] = self::vio('card_empty', "$bpath.blocks", 'Card has no content.');
+                    } elseif (count($cblocks) > self::MAX_BLOCKS_SECTION) {
+                        $v[] = self::vio('card_too_large', "$bpath.blocks", 'Card has more than ' . self::MAX_BLOCKS_SECTION . ' blocks.');
+                    } else {
+                        foreach ($cblocks as $ci => $cb) {
+                            $ctype = is_array($cb) ? (string) ($cb['type'] ?? '') : '';
+                            if (in_array($ctype, self::CONTAINER_BLOCKS, true)) {
+                                $v[] = self::vio('card_nesting', "$bpath.blocks[$ci]", 'A card can hold content blocks, not sections or other cards.');
+                                continue;
+                            }
+                            self::validate_block($cb, "$bpath.blocks[$ci]", $v, $vocab, $media, $card_bg, $heading_levels, $priority_images);
+                        }
+                    }
+                } elseif ($type === 'logos') {
+                    $loitems = is_array($block['items'] ?? null) ? $block['items'] : [];
+                    if (count($loitems) === 0) {
+                        $v[] = self::vio('logos_empty', "$bpath.items", 'Logo cloud has no logos.');
+                    } elseif (count($loitems) > self::MAX_GALLERY_ITEMS) {
+                        $v[] = self::vio('logos_too_large', "$bpath.items", 'Logo cloud has more than ' . self::MAX_GALLERY_ITEMS . ' logos.');
+                    } else {
+                        foreach ($loitems as $loi => $lo) {
+                            $lp = "$bpath.items[$loi]";
+                            $lmid = is_array($lo) ? (string) ($lo['media'] ?? '') : '';
+                            $ldesc = $lmid !== '' && isset($media[$lmid]) && is_array($media[$lmid]) ? $media[$lmid] : null;
+                            if ($ldesc === null) {
+                                $v[] = self::vio('media_unresolved', "$lp.media", "Logo references media '$lmid' not in the media map.");
+                                continue;
+                            }
+                            $lurl = trim((string) ($ldesc['url'] ?? ''));
+                            if ($lurl === '' || !self::href_ok($lurl)) {
+                                $v[] = self::vio('media_bad_url', "$lp.media", 'Logo URL is missing or not http(s)/relative.');
+                            }
+                            if ((int) ($ldesc['width'] ?? 0) <= 0 || (int) ($ldesc['height'] ?? 0) <= 0) {
+                                $v[] = self::vio('media_no_dimensions', "$lp.media", 'Logo needs explicit width and height (CLS).');
+                            }
+                            if (trim((string) ($lo['alt'] ?? ($ldesc['alt'] ?? ''))) === '') {
+                                $v[] = self::vio('image_alt_missing', "$lp.alt", 'Logo needs alt text.');
+                            }
+                        }
+                    }
                 }
-            }
-        }
-
-        $h1 = count(array_filter($heading_levels, static fn($l) => $l === 1));
-        if ($h1 === 0) {
-            $v[] = self::vio('h1_missing', 'sections', 'Page must have exactly one H1; found none.');
-        } elseif ($h1 > 1) {
-            $v[] = self::vio('h1_multiple', 'sections', "Page must have exactly one H1; found $h1.");
-        }
-        $prev = 0;
-        foreach ($heading_levels as $lvl) {
-            if ($prev !== 0 && $lvl > $prev + 1) {
-                $v[] = self::vio('heading_order', 'sections', "Heading level jumps from h$prev to h$lvl (no skipping levels).");
-            }
-            $prev = $lvl;
-        }
-
-        if ($priority_images > 1) {
-            $v[] = self::vio('lcp_multiple', 'sections', "Only one image may be priority (LCP); found $priority_images.");
-        }
-
-        return ['ok' => count($v) === 0, 'violations' => $v];
     }
 
     private static function vio(string $code, string $path, string $message): array {
@@ -453,6 +511,21 @@ class Bynli_Connect_Publish_Contract {
         $radius = $s['custom']['radius'] ?? null;
         if (is_array($radius)) {
             $out['radius'] = array_map('strval', array_keys($radius));
+        }
+
+        $shadows = [];
+        foreach (['default', 'theme', 'custom'] as $origin) {
+            $sh = $s['shadow']['presets'][$origin] ?? null;
+            if (is_array($sh)) {
+                foreach ($sh as $p) {
+                    if (isset($p['slug'])) {
+                        $shadows[] = (string) $p['slug'];
+                    }
+                }
+            }
+        }
+        if ($shadows) {
+            $out['shadow'] = array_values(array_unique($shadows));
         }
 
         return $out;

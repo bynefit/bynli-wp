@@ -384,3 +384,51 @@
 .bynefit-callout__text {
     margin: 0;
 }
+
+.bynefit-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp--preset--spacing--40, 1rem);
+    height: 100%;
+    background-color: var(--bynefit-card-bg, var(--wp--preset--color--surface-2));
+    border-radius: var(--bynefit-card-radius, var(--wp--custom--radius--md, 14px));
+    box-shadow: var(--bynefit-card-shadow, none);
+    padding: var(--bynefit-card-pad, var(--wp--preset--spacing--50, 1.5rem));
+}
+
+.bynefit-card > * {
+    margin: 0;
+}
+
+.bynefit-logos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wp--preset--spacing--60, 2rem);
+}
+
+.bynefit-logos__img {
+    display: block;
+    height: 2rem;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.bynefit-logos--muted .bynefit-logos__img {
+    filter: grayscale(1);
+    opacity: 0.65;
+    transition: filter var(--wp--custom--motion--duration--base, 0.24s), opacity var(--wp--custom--motion--duration--base, 0.24s);
+}
+
+.bynefit-logos--muted .bynefit-logos__img:hover {
+    filter: grayscale(0);
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bynefit-logos--muted .bynefit-logos__img {
+        transition: none;
+    }
+}

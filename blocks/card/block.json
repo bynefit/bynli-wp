@@ -1,0 +1,23 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/card",
+    "version": "0.1.0",
+    "title": "Bynefit Card",
+    "category": "design",
+    "icon": "index-card",
+    "description": "A surface container — background, radius, shadow, and padding from theme tokens — that stacks its inner blocks. Compose feature cells, pricing tiers, and callout cards from the primitive blocks.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true
+    },
+    "attributes": {
+        "bg": { "type": "string" },
+        "radius": { "type": "string" },
+        "shadow": { "type": "string" },
+        "padding": { "type": "string" }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}

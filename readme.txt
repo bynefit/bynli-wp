@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.13.0
+Stable tag:        0.14.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.14.0 =
+* **Added:** Two more Bynefit Sites building blocks — **Card** (a surface container that stacks inner blocks with background, radius, shadow, and padding from your theme; compose feature cells, pricing tiers, and callout cards from the primitive blocks) and **Logo Cloud** (a row of partner/press logos, contained and never cropped, optionally muted to monochrome until hover). Styled from your theme's tokens and gated by the publish-quality contract.
 
 = 0.13.0 =
 * **Added:** More Bynefit Sites building blocks — **Icon** (from a curated stroke icon set, coloured and sized from your theme), **List** (feature/benefit lists with check, arrow, or dot markers and optional per-item icons), **Call to Action** (a title, supporting line, and up to two buttons on an optional token surface), and **Callout** (info / success / warning / tip notes with a leading icon). All styled from your theme's tokens and gated by the publish-quality contract.

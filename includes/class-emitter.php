@@ -151,6 +151,10 @@ class Bynli_Connect_Emitter {
                 return self::emit_cta($block);
             case 'callout':
                 return self::emit_callout($block);
+            case 'card':
+                return self::emit_card($block, $media);
+            case 'logos':
+                return self::emit_logos($block, $media);
             default:
                 return null;
         }
@@ -530,6 +534,70 @@ class Bynli_Connect_Emitter {
         }
 
         return self::wrap('bynefit/callout', $attrs, null);
+    }
+
+    private static function emit_card(array $block, array $media): ?string {
+        $children = is_array($block['blocks'] ?? null) ? $block['blocks'] : [];
+        $inner = '';
+        foreach ($children as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+            // A card is a leaf-content surface: containers (section/card) can't
+            // nest inside it, so depth stays bounded at section -> card -> leaf.
+            if (in_array((string) ($child['type'] ?? ''), ['section', 'card'], true)) {
+                continue;
+            }
+            $markup = self::emit_block($child, $media);
+            if ($markup !== null) {
+                $inner .= $markup;
+            }
+        }
+        if ($inner === '') {
+            return null;
+        }
+
+        $attrs = [];
+        $bg = self::resolve_token('color', self::deep($block, ['style', 'background']));
+        if ($bg !== null) {
+            $attrs['bg'] = $bg;
+        }
+        $radius = self::resolve_token('radius', self::deep($block, ['style', 'radius']));
+        if ($radius !== null) {
+            $attrs['radius'] = $radius;
+        }
+        $shadow = self::resolve_token('shadow', self::deep($block, ['style', 'shadow']));
+        if ($shadow !== null) {
+            $attrs['shadow'] = $shadow;
+        }
+        $pad = self::resolve_token('space', $block['padding'] ?? null);
+        if ($pad !== null) {
+            $attrs['padding'] = $pad;
+        }
+
+        return self::wrap('bynefit/card', $attrs, $inner);
+    }
+
+    private static function emit_logos(array $block, array $media): ?string {
+        $items = [];
+        foreach ((is_array($block['items'] ?? null) ? $block['items'] : []) as $it) {
+            if (!is_array($it)) {
+                continue;
+            }
+            $entry = self::media_entry($it, $media);
+            if ($entry !== null) {
+                $items[] = $entry;
+            }
+        }
+        if (!$items) {
+            return null;
+        }
+        $attrs = ['items' => $items];
+        if (array_key_exists('muted', $block)) {
+            $attrs['muted'] = (bool) $block['muted'];
+        }
+
+        return self::wrap('bynefit/logos', $attrs, null);
     }
 
     /**
