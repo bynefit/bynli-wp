@@ -16,6 +16,9 @@ class Bynli_Connect_Publish_Contract {
 
     const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider'];
 
+    const MAX_SECTIONS       = 200;
+    const MAX_BLOCKS_SECTION = 200;
+
     const CONTRAST_NORMAL = 4.5;
     const CONTRAST_LARGE  = 3.0;
 
@@ -45,6 +48,9 @@ class Bynli_Connect_Publish_Contract {
         $sections = is_array($page['sections'] ?? null) ? $page['sections'] : [];
         if (count($sections) === 0) {
             $v[] = self::vio('page_empty', 'sections', 'Page has no sections.');
+        } elseif (count($sections) > self::MAX_SECTIONS) {
+            $v[] = self::vio('page_too_large', 'sections', 'Page has more than ' . self::MAX_SECTIONS . ' sections.');
+            return ['ok' => false, 'violations' => $v];
         }
 
         $heading_levels = [];
@@ -68,6 +74,10 @@ class Bynli_Connect_Publish_Contract {
             }
 
             $blocks = is_array($section['blocks'] ?? null) ? $section['blocks'] : [];
+            if (count($blocks) > self::MAX_BLOCKS_SECTION) {
+                $v[] = self::vio('section_too_large', "$spath.blocks", 'Section has more than ' . self::MAX_BLOCKS_SECTION . ' blocks.');
+                continue;
+            }
             foreach ($blocks as $bi => $block) {
                 $bpath = "$spath.blocks[$bi]";
                 if (!is_array($block)) {
@@ -81,7 +91,7 @@ class Bynli_Connect_Publish_Contract {
                 }
 
                 $style = is_array($block['style'] ?? null) ? $block['style'] : [];
-                $style_groups = ['color' => 'color', 'background' => 'color', 'typography' => 'type', 'radius' => 'radius', 'shadow' => 'shadow'];
+                $style_groups = ['color' => 'color', 'typography' => 'type', 'radius' => 'radius'];
                 foreach ($style_groups as $key => $group) {
                     if (array_key_exists($key, $style)) {
                         self::check_token_ref($v, "$bpath.style.$key", $style[$key], $group, $vocab, true);
@@ -110,8 +120,11 @@ class Bynli_Connect_Publish_Contract {
                     if ($desc === null) {
                         $v[] = self::vio('media_unresolved', "$bpath.media", "Image references media '$mid' not present in the media map.");
                     } else {
-                        if (trim((string) ($desc['url'] ?? '')) === '') {
+                        $murl = trim((string) ($desc['url'] ?? ''));
+                        if ($murl === '') {
                             $v[] = self::vio('media_no_url', "$bpath.media", 'Resolved media has no URL.');
+                        } elseif (!self::href_ok($murl)) {
+                            $v[] = self::vio('media_bad_url', "$bpath.media", 'Media URL must be http(s) or site-relative.');
                         }
                         $w = (int) ($desc['width'] ?? 0);
                         $h = (int) ($desc['height'] ?? 0);

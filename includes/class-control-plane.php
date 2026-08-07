@@ -200,17 +200,17 @@ class Bynli_Connect_Control_Plane {
         $page  = is_array($body['page'] ?? null) ? $body['page'] : null;
         $media = is_array($body['media'] ?? null) ? $body['media'] : [];
         if ($page === null) {
-            return new WP_Error('empty_page', 'Provide a page node.', ['status' => 422]);
+            return self::unpublishable([['code' => 'empty_page', 'path' => 'page', 'message' => 'Provide a page node.']]);
         }
 
         $check = Bynli_Connect_Publish_Contract::validate($page, $media);
         if (!$check['ok']) {
-            return new WP_REST_Response(['ok' => false, 'violations' => $check['violations']], 422);
+            return self::unpublishable($check['violations']);
         }
 
         $markup = Bynli_Connect_Emitter::emit_page($page, $media);
         if (trim($markup) === '') {
-            return new WP_Error('empty_output', 'The page emitted no content.', ['status' => 422]);
+            return self::unpublishable([['code' => 'empty_output', 'path' => 'sections', 'message' => 'The page emitted no content.']]);
         }
 
         $scene_slug = (string) ($page['slug'] ?? '');
@@ -218,30 +218,43 @@ class Bynli_Connect_Control_Plane {
         $title      = (string) ($page['title'] ?? 'Untitled');
         $seo_desc   = (string) (self::deep($page, ['seo', 'description']) ?? '');
 
-        $existing = get_posts([
-            'post_type'        => 'page',
-            'post_status'      => 'any',
-            'numberposts'      => 1,
-            'fields'           => 'ids',
-            'meta_key'         => self::PAGE_SLUG_META,
-            'meta_value'       => $scene_slug,
-            'suppress_filters' => false,
-        ]);
+        global $wpdb;
+        // Serialize concurrent publishes of the same scene slug so a retry can't
+        // fork a duplicate page between the lookup and the insert. Best-effort:
+        // if the lock can't be taken we still proceed rather than fail the write.
+        $lock = 'bynli_upsert_' . md5($scene_slug);
+        $locked = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 10)', $lock)) === 1;
 
-        $postarr = [
-            'post_type'    => 'page',
-            'post_status'  => 'publish',
-            'post_title'   => $title,
-            'post_name'    => $wp_slug,
-            'post_content' => wp_slash($markup),
-            'post_excerpt' => wp_slash($seo_desc),
-        ];
+        try {
+            $existing = get_posts([
+                'post_type'        => 'page',
+                'post_status'      => 'any',
+                'numberposts'      => 1,
+                'fields'           => 'ids',
+                'meta_key'         => self::PAGE_SLUG_META,
+                'meta_value'       => $scene_slug,
+                'suppress_filters' => false,
+            ]);
 
-        if (!empty($existing)) {
-            $postarr['ID'] = (int) $existing[0];
-            $post_id = wp_update_post($postarr, true);
-        } else {
-            $post_id = wp_insert_post($postarr, true);
+            $postarr = [
+                'post_type'    => 'page',
+                'post_status'  => 'publish',
+                'post_title'   => $title,
+                'post_name'    => $wp_slug,
+                'post_content' => wp_slash($markup),
+                'post_excerpt' => wp_slash($seo_desc),
+            ];
+
+            if (!empty($existing)) {
+                $postarr['ID'] = (int) $existing[0];
+                $post_id = wp_update_post($postarr, true);
+            } else {
+                $post_id = wp_insert_post($postarr, true);
+            }
+        } finally {
+            if ($locked) {
+                $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+            }
         }
 
         if (is_wp_error($post_id) || !$post_id) {
@@ -257,16 +270,28 @@ class Bynli_Connect_Control_Plane {
             update_post_meta($post_id, '_bynli_seo_description', $seo_desc);
         }
 
+        // Front-page assignment is authoritative per publish: claim it when
+        // isHome is set, and release it when this page previously held it but no
+        // longer claims home, so home never silently sticks to a stale page.
         if (!empty($page['isHome'])) {
             update_option('show_on_front', 'page');
             update_option('page_on_front', $post_id);
+        } elseif ((int) get_option('page_on_front') === $post_id) {
+            update_option('page_on_front', 0);
+            update_option('show_on_front', 'posts');
         }
+
+        do_action('bynli_connect_page_upserted', $post_id, $scene_slug);
 
         return new WP_REST_Response([
             'ok'      => true,
             'page_id' => $post_id,
             'url'     => get_permalink($post_id) ?: '',
         ], 200);
+    }
+
+    private static function unpublishable(array $violations): WP_REST_Response {
+        return new WP_REST_Response(['ok' => false, 'violations' => $violations], 422);
     }
 
     private static function deep(array $node, array $keys) {

@@ -159,7 +159,7 @@ class Bynli_Connect_Emitter {
 
         return sprintf(
             "<!-- wp:heading %s -->\n<%s%s>%s</%s>\n<!-- /wp:heading -->",
-            wp_json_encode($attrs),
+            serialize_block_attributes($attrs),
             $tag,
             $class_attr,
             $text,
@@ -185,7 +185,7 @@ class Bynli_Connect_Emitter {
 
         $text = esc_html((string) ($block['text'] ?? ''));
         $class_attr = $classes ? ' class="' . implode(' ', $classes) . '"' : '';
-        $json = $attrs ? ' ' . wp_json_encode($attrs) : '';
+        $json = $attrs ? ' ' . serialize_block_attributes($attrs) : '';
 
         return sprintf("<!-- wp:paragraph%s -->\n<p%s>%s</p>\n<!-- /wp:paragraph -->", $json, $class_attr, $text);
     }
@@ -199,9 +199,12 @@ class Bynli_Connect_Emitter {
 
         $attrs = [
             'kind' => ($block['kind'] ?? $desc['kind'] ?? 'image') === 'video' ? 'video' : 'image',
-            'url'  => (string) $desc['url'],
+            'url'  => esc_url_raw((string) $desc['url']),
             'alt'  => (string) ($block['alt'] ?? ($desc['alt'] ?? '')),
         ];
+        if ($attrs['url'] === '') {
+            return null;
+        }
         $w = (int) ($desc['width'] ?? 0);
         $h = (int) ($desc['height'] ?? 0);
         if ($w > 0) {
@@ -223,7 +226,7 @@ class Bynli_Connect_Emitter {
             $attrs['sources'] = $sources;
         }
         if ($attrs['kind'] === 'video' && !empty($desc['poster'])) {
-            $attrs['poster'] = (string) $desc['poster'];
+            $attrs['poster'] = esc_url_raw((string) $desc['poster']);
         }
         if (!empty($block['priority'])) {
             $attrs['priority'] = true;
@@ -244,7 +247,7 @@ class Bynli_Connect_Emitter {
         }
         $url = esc_url($href);
 
-        return "<!-- wp:buttons -->\n<div class=\"wp-block-buttons\"><!-- wp:button -->\n"
+        return "<!-- wp:buttons -->\n<div class=\"wp-block-buttons is-layout-flex wp-block-buttons-is-layout-flex\"><!-- wp:button -->\n"
             . '<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="' . $url . '">' . $label . '</a></div>'
             . "\n<!-- /wp:button --></div>\n<!-- /wp:buttons -->";
     }
@@ -256,14 +259,14 @@ class Bynli_Connect_Emitter {
 
         return sprintf(
             "<!-- wp:spacer %s -->\n<div style=\"height:%s\" aria-hidden=\"true\" class=\"wp-block-spacer\"></div>\n<!-- /wp:spacer -->",
-            wp_json_encode($attrs),
+            serialize_block_attributes($attrs),
             esc_attr($var)
         );
     }
 
     /** Serialize a dynamic (save:null) block: void form when there is no inner content. */
     private static function wrap(string $name, array $attrs, ?string $inner): string {
-        $json = $attrs ? ' ' . wp_json_encode($attrs) : '';
+        $json = $attrs ? ' ' . serialize_block_attributes($attrs) : '';
         if ($inner === null) {
             return "<!-- wp:$name$json /-->";
         }
