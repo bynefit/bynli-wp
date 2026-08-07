@@ -1,0 +1,23 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/icon",
+    "version": "0.1.0",
+    "title": "Bynefit Icon",
+    "category": "design",
+    "icon": "star-filled",
+    "description": "A single icon from a curated stroke set, coloured and sized from the theme's tokens. The icon set is a server-side allow-list — arbitrary SVG is never accepted.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true
+    },
+    "attributes": {
+        "name": { "type": "string", "default": "" },
+        "size": { "type": "number", "default": 24 },
+        "color": { "type": "string" },
+        "label": { "type": "string", "default": "" }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}
