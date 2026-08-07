@@ -18,8 +18,10 @@ class Bynli_Connect_Publish_Contract {
 
     const EMBED_PROVIDERS = ['youtube', 'vimeo', 'map'];
 
-    const MAX_SECTIONS       = 200;
-    const MAX_BLOCKS_SECTION = 200;
+    const MAX_SECTIONS        = 200;
+    const MAX_BLOCKS_SECTION  = 200;
+    const MAX_GALLERY_ITEMS   = 60;
+    const MAX_ACCORDION_ITEMS = 60;
 
     const CONTRAST_NORMAL = 4.5;
     const CONTRAST_LARGE  = 3.0;
@@ -93,8 +95,16 @@ class Bynli_Connect_Publish_Contract {
                 }
 
                 $style = is_array($block['style'] ?? null) ? $block['style'] : [];
-                $style_groups = ['color' => 'color', 'typography' => 'type', 'radius' => 'radius'];
-                foreach ($style_groups as $key => $group) {
+                // Only the style keys a block's emitter actually consumes are part
+                // of its contract; validating a key the emitter ignores would flag
+                // (or worse, contrast-check) styling that never renders.
+                $allowed_style = [
+                    'heading' => ['color' => 'color'],
+                    'text'    => ['color' => 'color', 'typography' => 'type'],
+                    'image'   => ['radius' => 'radius'],
+                    'gallery' => ['radius' => 'radius'],
+                ];
+                foreach (($allowed_style[$type] ?? []) as $key => $group) {
                     if (array_key_exists($key, $style)) {
                         self::check_token_ref($v, "$bpath.style.$key", $style[$key], $group, $vocab, true);
                     }
@@ -155,6 +165,9 @@ class Bynli_Connect_Publish_Contract {
                     $gitems = is_array($block['items'] ?? null) ? $block['items'] : [];
                     if (count($gitems) === 0) {
                         $v[] = self::vio('gallery_empty', "$bpath.items", 'Gallery has no images.');
+                    } elseif (count($gitems) > self::MAX_GALLERY_ITEMS) {
+                        $v[] = self::vio('gallery_too_large', "$bpath.items", 'Gallery has more than ' . self::MAX_GALLERY_ITEMS . ' images.');
+                        continue;
                     }
                     foreach ($gitems as $gi => $git) {
                         $gp = "$bpath.items[$gi]";
@@ -185,7 +198,7 @@ class Bynli_Connect_Publish_Contract {
                             $v[] = self::vio('media_unresolved', "$bpath.avatar.media", "Quote avatar references media '$amid' not in the media map.");
                         }
                     }
-                    self::check_contrast($v, $bpath, $style, $bg_slug, $vocab, true);
+                    self::check_contrast($v, $bpath, [], $bg_slug, $vocab, true);
                 } elseif ($type === 'stat') {
                     if (trim((string) ($block['value'] ?? '')) === '') {
                         $v[] = self::vio('stat_empty', "$bpath.value", 'Stat has no value.');
@@ -193,11 +206,14 @@ class Bynli_Connect_Publish_Contract {
                     if (trim((string) ($block['label'] ?? '')) === '') {
                         $v[] = self::vio('stat_no_label', "$bpath.label", 'Stat needs a label.');
                     }
-                    self::check_contrast($v, $bpath, $style, $bg_slug, $vocab, true);
+                    self::check_contrast($v, $bpath, [], $bg_slug, $vocab, true);
                 } elseif ($type === 'accordion') {
                     $aitems = is_array($block['items'] ?? null) ? $block['items'] : [];
                     if (count($aitems) === 0) {
                         $v[] = self::vio('accordion_empty', "$bpath.items", 'Accordion has no items.');
+                    } elseif (count($aitems) > self::MAX_ACCORDION_ITEMS) {
+                        $v[] = self::vio('accordion_too_large', "$bpath.items", 'Accordion has more than ' . self::MAX_ACCORDION_ITEMS . ' items.');
+                        continue;
                     }
                     foreach ($aitems as $ai => $ait) {
                         if (!is_array($ait) || trim((string) ($ait['q'] ?? '')) === '' || trim((string) ($ait['a'] ?? '')) === '') {
