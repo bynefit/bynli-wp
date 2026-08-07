@@ -1,0 +1,22 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/callout",
+    "version": "0.1.0",
+    "title": "Bynefit Callout",
+    "category": "text",
+    "icon": "info",
+    "description": "A highlighted note — info, success, warning, or tip — with a leading icon, optional title, and body text, colour-coded from the theme's tokens.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true
+    },
+    "attributes": {
+        "variant": { "type": "string", "default": "info" },
+        "title": { "type": "string", "default": "" },
+        "text": { "type": "string", "default": "" }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}

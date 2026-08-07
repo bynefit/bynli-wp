@@ -1,0 +1,25 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/cta",
+    "version": "0.1.0",
+    "title": "Bynefit Call to Action",
+    "category": "design",
+    "icon": "megaphone",
+    "description": "A compact call-to-action: a title, optional supporting line, and up to two buttons, on an optional token surface.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true,
+        "align": ["wide", "full"]
+    },
+    "attributes": {
+        "title": { "type": "string", "default": "" },
+        "text": { "type": "string", "default": "" },
+        "align": { "type": "string", "default": "start" },
+        "bg": { "type": "string" },
+        "buttons": { "type": "array", "default": [] }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}

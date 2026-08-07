@@ -14,9 +14,12 @@ if (!defined('ABSPATH')) {
  */
 class Bynli_Connect_Publish_Contract {
 
-    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed'];
+    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout'];
 
-    const EMBED_PROVIDERS = ['youtube', 'vimeo', 'map'];
+    const EMBED_PROVIDERS   = ['youtube', 'vimeo', 'map'];
+    const LIST_MARKERS      = ['check', 'arrow', 'dot', 'none'];
+    const CALLOUT_VARIANTS  = ['info', 'success', 'warn', 'tip'];
+    const MAX_LIST_ITEMS    = 60;
 
     const MAX_SECTIONS        = 200;
     const MAX_BLOCKS_SECTION  = 200;
@@ -234,6 +237,59 @@ class Bynli_Connect_Publish_Contract {
                     }
                     if (trim((string) ($block['title'] ?? '')) === '') {
                         $v[] = self::vio('embed_title', "$bpath.title", 'Embed needs a title for accessibility.');
+                    }
+                } elseif ($type === 'icon') {
+                    $iname = (string) ($block['name'] ?? '');
+                    if (Bynli_Connect_Blocks::icon_svg($iname) === null) {
+                        $v[] = self::vio('icon_unknown', "$bpath.name", "Icon '$iname' is not in the icon set.");
+                    }
+                    self::check_token_ref($v, "$bpath.color", $block['color'] ?? null, 'color', $vocab, false);
+                } elseif ($type === 'list') {
+                    $litems = is_array($block['items'] ?? null) ? $block['items'] : [];
+                    if (count($litems) === 0) {
+                        $v[] = self::vio('list_empty', "$bpath.items", 'List has no items.');
+                    } elseif (count($litems) > self::MAX_LIST_ITEMS) {
+                        $v[] = self::vio('list_too_large', "$bpath.items", 'List has more than ' . self::MAX_LIST_ITEMS . ' items.');
+                        continue;
+                    }
+                    foreach ($litems as $li => $lit) {
+                        $ltext = is_array($lit) ? (string) ($lit['text'] ?? '') : (string) $lit;
+                        if (trim($ltext) === '') {
+                            $v[] = self::vio('list_item_empty', "$bpath.items[$li]", 'List item has no text.');
+                        }
+                        if (is_array($lit) && !empty($lit['icon']) && Bynli_Connect_Blocks::icon_svg((string) $lit['icon']) === null) {
+                            $v[] = self::vio('icon_unknown', "$bpath.items[$li].icon", "Icon '{$lit['icon']}' is not in the icon set.");
+                        }
+                    }
+                    if (isset($block['marker']) && !in_array((string) $block['marker'], self::LIST_MARKERS, true)) {
+                        $v[] = self::vio('list_marker', "$bpath.marker", 'List marker must be check, arrow, dot, or none.');
+                    }
+                    self::check_token_ref($v, "$bpath.color", $block['color'] ?? null, 'color', $vocab, false);
+                } elseif ($type === 'cta') {
+                    $cbtns = is_array($block['buttons'] ?? null) ? $block['buttons'] : [];
+                    $valid_btn = 0;
+                    foreach ($cbtns as $ci => $cbtn) {
+                        if (!is_array($cbtn)) {
+                            continue;
+                        }
+                        $clabel = (string) ($cbtn['label'] ?? '');
+                        $chref  = (string) ($cbtn['href'] ?? '');
+                        if (trim($clabel) === '' || $chref === '' || !self::href_ok($chref)) {
+                            $v[] = self::vio('cta_button', "$bpath.buttons[$ci]", 'CTA button needs a label and a valid http(s)/relative URL.');
+                        } else {
+                            $valid_btn++;
+                        }
+                    }
+                    if (trim((string) ($block['title'] ?? '')) === '' && $valid_btn === 0) {
+                        $v[] = self::vio('cta_empty', $bpath, 'CTA needs a title or at least one button.');
+                    }
+                    self::check_token_ref($v, "$bpath.bg", $block['bg'] ?? null, 'color', $vocab, false);
+                } elseif ($type === 'callout') {
+                    if (!in_array((string) ($block['variant'] ?? 'info'), self::CALLOUT_VARIANTS, true)) {
+                        $v[] = self::vio('callout_variant', "$bpath.variant", 'Callout variant must be info, success, warn, or tip.');
+                    }
+                    if (trim((string) ($block['title'] ?? '')) === '' && trim((string) ($block['text'] ?? '')) === '') {
+                        $v[] = self::vio('callout_empty', $bpath, 'Callout needs a title or text.');
                     }
                 }
             }

@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.12.0
+Stable tag:        0.13.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.13.0 =
+* **Added:** More Bynefit Sites building blocks — **Icon** (from a curated stroke icon set, coloured and sized from your theme), **List** (feature/benefit lists with check, arrow, or dot markers and optional per-item icons), **Call to Action** (a title, supporting line, and up to two buttons on an optional token surface), and **Callout** (info / success / warning / tip notes with a leading icon). All styled from your theme's tokens and gated by the publish-quality contract.
 
 = 0.12.0 =
 * **Added:** Bynefit Sites premium block set — five more server-rendered blocks the builder can publish onto: **Gallery** (responsive focal-point image grid with AVIF/WebP + explicit dimensions), **Quote** (pull quote / testimonial with attribution + avatar), **Stat** (headline metric), **Accordion** (accessible FAQ on native details/summary, no JavaScript), and **Embed** (YouTube / Vimeo / Google Maps, with the source URL built server-side from an allow-listed provider + id — arbitrary embed markup is never accepted). All styled from your theme's tokens and refused at publish time if they don't meet the quality contract.

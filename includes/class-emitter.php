@@ -143,6 +143,14 @@ class Bynli_Connect_Emitter {
                 return self::emit_accordion($block);
             case 'embed':
                 return self::emit_embed($block);
+            case 'icon':
+                return self::emit_icon($block);
+            case 'list':
+                return self::emit_list($block);
+            case 'cta':
+                return self::emit_cta($block);
+            case 'callout':
+                return self::emit_callout($block);
             default:
                 return null;
         }
@@ -401,6 +409,124 @@ class Bynli_Connect_Emitter {
         }
 
         return self::wrap('bynefit/embed', $attrs, null);
+    }
+
+    private static function emit_icon(array $block): ?string {
+        $name = (string) ($block['name'] ?? '');
+        if (trim($name) === '') {
+            return null;
+        }
+        $attrs = ['name' => $name];
+        if (isset($block['size']) && is_numeric($block['size'])) {
+            $attrs['size'] = (int) $block['size'];
+        }
+        $color = self::resolve_token('color', $block['color'] ?? null);
+        if ($color !== null) {
+            $attrs['color'] = $color;
+        }
+        $label = (string) ($block['label'] ?? '');
+        if ($label !== '') {
+            $attrs['label'] = $label;
+        }
+
+        return self::wrap('bynefit/icon', $attrs, null);
+    }
+
+    private static function emit_list(array $block): ?string {
+        $items = [];
+        foreach ((is_array($block['items'] ?? null) ? $block['items'] : []) as $it) {
+            if (is_array($it)) {
+                $text = (string) ($it['text'] ?? '');
+                $icon = (string) ($it['icon'] ?? '');
+            } else {
+                $text = (string) $it;
+                $icon = '';
+            }
+            if (trim($text) === '') {
+                continue;
+            }
+            $entry = ['text' => $text];
+            if ($icon !== '') {
+                $entry['icon'] = $icon;
+            }
+            $items[] = $entry;
+        }
+        if (!$items) {
+            return null;
+        }
+
+        $attrs = ['items' => $items];
+        $marker = (string) ($block['marker'] ?? '');
+        if (in_array($marker, ['check', 'arrow', 'dot', 'none'], true)) {
+            $attrs['marker'] = $marker;
+        }
+        $color = self::resolve_token('color', $block['color'] ?? null);
+        if ($color !== null) {
+            $attrs['color'] = $color;
+        }
+
+        return self::wrap('bynefit/list', $attrs, null);
+    }
+
+    private static function emit_cta(array $block): ?string {
+        $buttons = [];
+        foreach ((is_array($block['buttons'] ?? null) ? $block['buttons'] : []) as $btn) {
+            if (!is_array($btn) || count($buttons) >= 2) {
+                continue;
+            }
+            $label = (string) ($btn['label'] ?? '');
+            $href  = (string) ($btn['href'] ?? '');
+            if (trim($label) === '' || trim($href) === '') {
+                continue;
+            }
+            $entry = ['label' => $label, 'href' => $href];
+            if (($btn['variant'] ?? '') === 'secondary') {
+                $entry['variant'] = 'secondary';
+            }
+            $buttons[] = $entry;
+        }
+
+        $title = (string) ($block['title'] ?? '');
+        if (trim($title) === '' && !$buttons) {
+            return null;
+        }
+
+        $attrs = ['title' => $title];
+        $text = (string) ($block['text'] ?? '');
+        if ($text !== '') {
+            $attrs['text'] = $text;
+        }
+        $attrs['align'] = ($block['align'] ?? '') === 'center' ? 'center' : 'start';
+        if ($buttons) {
+            $attrs['buttons'] = $buttons;
+        }
+        $bg = self::resolve_token('color', $block['bg'] ?? null);
+        if ($bg !== null) {
+            $attrs['bg'] = $bg;
+        }
+
+        return self::wrap('bynefit/cta', $attrs, null);
+    }
+
+    private static function emit_callout(array $block): ?string {
+        $variant = (string) ($block['variant'] ?? 'info');
+        if (!in_array($variant, ['info', 'success', 'warn', 'tip'], true)) {
+            $variant = 'info';
+        }
+        $title = (string) ($block['title'] ?? '');
+        $text  = (string) ($block['text'] ?? '');
+        if (trim($title) === '' && trim($text) === '') {
+            return null;
+        }
+        $attrs = ['variant' => $variant];
+        if ($title !== '') {
+            $attrs['title'] = $title;
+        }
+        if ($text !== '') {
+            $attrs['text'] = $text;
+        }
+
+        return self::wrap('bynefit/callout', $attrs, null);
     }
 
     /**

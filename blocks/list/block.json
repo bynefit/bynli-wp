@@ -1,0 +1,22 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/list",
+    "version": "0.1.0",
+    "title": "Bynefit List",
+    "category": "text",
+    "icon": "editor-ol",
+    "description": "A feature or benefit list with token-styled markers (check, arrow, or dot) and an optional per-item icon from the curated set.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true
+    },
+    "attributes": {
+        "items": { "type": "array", "default": [] },
+        "marker": { "type": "string", "default": "check" },
+        "color": { "type": "string" }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}
