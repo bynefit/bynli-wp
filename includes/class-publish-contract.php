@@ -160,7 +160,7 @@ class Bynli_Connect_Publish_Contract {
             $v[] = self::vio('h1_multiple', 'sections', "Page must have exactly one H1; found $h1.");
         }
         $prev = 0;
-        foreach ($heading_levels as $idx => $lvl) {
+        foreach ($heading_levels as $lvl) {
             if ($prev !== 0 && $lvl > $prev + 1) {
                 $v[] = self::vio('heading_order', 'sections', "Heading level jumps from h$prev to h$lvl (no skipping levels).");
             }

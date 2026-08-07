@@ -245,7 +245,8 @@ class Bynli_Connect_Control_Plane {
                 'post_excerpt' => wp_slash($seo_desc),
             ];
 
-            if (!empty($existing)) {
+            $created = empty($existing);
+            if (!$created) {
                 $postarr['ID'] = (int) $existing[0];
                 $post_id = wp_update_post($postarr, true);
             } else {
@@ -281,7 +282,7 @@ class Bynli_Connect_Control_Plane {
             update_option('show_on_front', 'posts');
         }
 
-        do_action('bynli_connect_page_upserted', $post_id, $scene_slug);
+        do_action('bynli_connect_page_upserted', $post_id, $scene_slug, $created);
 
         return new WP_REST_Response([
             'ok'      => true,
