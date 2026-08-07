@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
  */
 class Bynli_Connect_Blocks {
 
-    const VERSION = '0.13.0';
+    const VERSION = '0.14.0';
 
     public function __construct() {
         add_action('init', [$this, 'register_blocks']);
@@ -34,7 +34,7 @@ class Bynli_Connect_Blocks {
         );
 
         $dir = BYNLI_CONNECT_PLUGIN_DIR . 'blocks';
-        foreach (['section', 'media', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout'] as $name) {
+        foreach (['section', 'media', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos'] as $name) {
             $path = "$dir/$name";
             if (is_file("$path/block.json")) {
                 register_block_type($path);

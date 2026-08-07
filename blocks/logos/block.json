@@ -1,0 +1,22 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/logos",
+    "version": "0.1.0",
+    "title": "Bynefit Logo Cloud",
+    "category": "media",
+    "icon": "images-alt",
+    "description": "A row of partner or press logos, contained (never cropped) with explicit dimensions, optionally muted to a restrained monochrome until hover.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true,
+        "align": ["wide", "full"]
+    },
+    "attributes": {
+        "items": { "type": "array", "default": [] },
+        "muted": { "type": "boolean", "default": true }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}
