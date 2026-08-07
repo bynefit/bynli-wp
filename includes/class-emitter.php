@@ -450,6 +450,9 @@ class Bynli_Connect_Emitter {
                 $entry['icon'] = $icon;
             }
             $items[] = $entry;
+            if (count($items) >= Bynli_Connect_Publish_Contract::MAX_LIST_ITEMS) {
+                break;
+            }
         }
         if (!$items) {
             return null;

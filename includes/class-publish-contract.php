@@ -19,6 +19,7 @@ class Bynli_Connect_Publish_Contract {
     const EMBED_PROVIDERS   = ['youtube', 'vimeo', 'map'];
     const LIST_MARKERS      = ['check', 'arrow', 'dot', 'none'];
     const CALLOUT_VARIANTS  = ['info', 'success', 'warn', 'tip'];
+    const CTA_BG_TOKENS     = ['surface', 'surface-2'];
     const MAX_LIST_ITEMS    = 60;
 
     const MAX_SECTIONS        = 200;
@@ -283,7 +284,10 @@ class Bynli_Connect_Publish_Contract {
                     if (trim((string) ($block['title'] ?? '')) === '' && $valid_btn === 0) {
                         $v[] = self::vio('cta_empty', $bpath, 'CTA needs a title or at least one button.');
                     }
-                    self::check_token_ref($v, "$bpath.bg", $block['bg'] ?? null, 'color', $vocab, false);
+                    $cta_bg = self::check_token_ref($v, "$bpath.bg", $block['bg'] ?? null, 'color', $vocab, false);
+                    if ($cta_bg !== null && !in_array($cta_bg, self::CTA_BG_TOKENS, true)) {
+                        $v[] = self::vio('cta_bg', "$bpath.bg", 'CTA fill must be a surface token so the title, supporting line, and buttons stay legible.');
+                    }
                 } elseif ($type === 'callout') {
                     if (!in_array((string) ($block['variant'] ?? 'info'), self::CALLOUT_VARIANTS, true)) {
                         $v[] = self::vio('callout_variant', "$bpath.variant", 'Callout variant must be info, success, warn, or tip.');
