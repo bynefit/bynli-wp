@@ -58,3 +58,178 @@
     object-fit: cover;
     object-position: var(--bynefit-focal, 50% 50%);
 }
+
+.bynefit-gallery {
+    display: grid;
+    grid-template-columns: repeat(var(--bynefit-gcols-sm, 2), minmax(0, 1fr));
+    gap: var(--bynefit-gap, 1rem);
+}
+
+@media (min-width: 1024px) {
+    .bynefit-gallery {
+        grid-template-columns: repeat(var(--bynefit-gcols-lg, var(--bynefit-gcols-sm, 3)), minmax(0, 1fr));
+    }
+}
+
+.bynefit-gallery__item {
+    margin: 0;
+    border-radius: var(--bynefit-radius, 0);
+    overflow: hidden;
+}
+
+.bynefit-gallery__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    object-position: var(--bynefit-focal, 50% 50%);
+}
+
+.bynefit-quote {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp--preset--spacing--40, 1rem);
+}
+
+.bynefit-quote--center {
+    text-align: center;
+    align-items: center;
+}
+
+.bynefit-quote__text {
+    margin: 0;
+    font-family: var(--wp--preset--font-family--serif);
+    font-size: var(--wp--preset--font-size--heading);
+    line-height: 1.3;
+    font-weight: 500;
+}
+
+.bynefit-quote__foot {
+    display: flex;
+    align-items: center;
+    gap: var(--wp--preset--spacing--30, 0.75rem);
+}
+
+.bynefit-quote--center .bynefit-quote__foot {
+    justify-content: center;
+}
+
+.bynefit-quote__avatar {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 999px;
+    object-fit: cover;
+    flex: none;
+}
+
+.bynefit-quote__who {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+    text-align: start;
+}
+
+.bynefit-quote__cite {
+    font-weight: 600;
+}
+
+.bynefit-quote__role {
+    color: var(--wp--preset--color--muted);
+    font-size: var(--wp--preset--font-size--small);
+}
+
+.bynefit-stat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp--preset--spacing--20, 0.5rem);
+}
+
+.bynefit-stat--center {
+    text-align: center;
+    align-items: center;
+}
+
+.bynefit-stat__value {
+    font-family: var(--wp--preset--font-family--serif);
+    font-size: var(--wp--preset--font-size--display);
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+
+.bynefit-stat__label {
+    font-weight: 600;
+}
+
+.bynefit-stat__caption {
+    color: var(--wp--preset--color--muted);
+    font-size: var(--wp--preset--font-size--small);
+}
+
+.bynefit-accordion {
+    display: flex;
+    flex-direction: column;
+}
+
+.bynefit-accordion__item {
+    border-bottom: 1px solid var(--wp--preset--color--border);
+}
+
+.bynefit-accordion__q {
+    cursor: pointer;
+    list-style: none;
+    padding: var(--wp--preset--spacing--40, 1rem) 0;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.bynefit-accordion__q::-webkit-details-marker {
+    display: none;
+}
+
+.bynefit-accordion__q::after {
+    content: "+";
+    font-size: 1.25em;
+    line-height: 1;
+    color: var(--wp--preset--color--muted);
+    transition: transform var(--wp--custom--motion--duration--base, 0.24s) var(--wp--custom--motion--easing--standard, ease);
+}
+
+.bynefit-accordion__item[open] .bynefit-accordion__q::after {
+    transform: rotate(45deg);
+}
+
+.bynefit-accordion__a {
+    padding: 0 0 var(--wp--preset--spacing--40, 1rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bynefit-accordion__q::after {
+        transition: none;
+    }
+}
+
+.bynefit-embed {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--bynefit-radius, 0);
+}
+
+.bynefit-embed--r-16-9 { aspect-ratio: 16 / 9; }
+.bynefit-embed--r-4-3 { aspect-ratio: 4 / 3; }
+.bynefit-embed--r-1-1 { aspect-ratio: 1 / 1; }
+.bynefit-embed--r-21-9 { aspect-ratio: 21 / 9; }
+
+.bynefit-embed__frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}

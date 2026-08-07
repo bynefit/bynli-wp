@@ -14,10 +14,14 @@ if (!defined('ABSPATH')) {
  */
 class Bynli_Connect_Publish_Contract {
 
-    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider'];
+    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed'];
 
-    const MAX_SECTIONS       = 200;
-    const MAX_BLOCKS_SECTION = 200;
+    const EMBED_PROVIDERS = ['youtube', 'vimeo', 'map'];
+
+    const MAX_SECTIONS        = 200;
+    const MAX_BLOCKS_SECTION  = 200;
+    const MAX_GALLERY_ITEMS   = 60;
+    const MAX_ACCORDION_ITEMS = 60;
 
     const CONTRAST_NORMAL = 4.5;
     const CONTRAST_LARGE  = 3.0;
@@ -91,8 +95,16 @@ class Bynli_Connect_Publish_Contract {
                 }
 
                 $style = is_array($block['style'] ?? null) ? $block['style'] : [];
-                $style_groups = ['color' => 'color', 'typography' => 'type', 'radius' => 'radius'];
-                foreach ($style_groups as $key => $group) {
+                // Only the style keys a block's emitter actually consumes are part
+                // of its contract; validating a key the emitter ignores would flag
+                // (or worse, contrast-check) styling that never renders.
+                $allowed_style = [
+                    'heading' => ['color' => 'color'],
+                    'text'    => ['color' => 'color', 'typography' => 'type'],
+                    'image'   => ['radius' => 'radius'],
+                    'gallery' => ['radius' => 'radius'],
+                ];
+                foreach (($allowed_style[$type] ?? []) as $key => $group) {
                     if (array_key_exists($key, $style)) {
                         self::check_token_ref($v, "$bpath.style.$key", $style[$key], $group, $vocab, true);
                     }
@@ -149,6 +161,80 @@ class Bynli_Connect_Publish_Contract {
                     }
                 } elseif ($type === 'spacer') {
                     self::check_token_ref($v, "$bpath.size", $block['size'] ?? null, 'space', $vocab, false);
+                } elseif ($type === 'gallery') {
+                    $gitems = is_array($block['items'] ?? null) ? $block['items'] : [];
+                    if (count($gitems) === 0) {
+                        $v[] = self::vio('gallery_empty', "$bpath.items", 'Gallery has no images.');
+                    } elseif (count($gitems) > self::MAX_GALLERY_ITEMS) {
+                        $v[] = self::vio('gallery_too_large', "$bpath.items", 'Gallery has more than ' . self::MAX_GALLERY_ITEMS . ' images.');
+                        continue;
+                    }
+                    foreach ($gitems as $gi => $git) {
+                        $gp = "$bpath.items[$gi]";
+                        $gmid = is_array($git) ? (string) ($git['media'] ?? '') : '';
+                        $gdesc = $gmid !== '' && isset($media[$gmid]) && is_array($media[$gmid]) ? $media[$gmid] : null;
+                        if ($gdesc === null) {
+                            $v[] = self::vio('media_unresolved', "$gp.media", "Gallery image references media '$gmid' not in the media map.");
+                            continue;
+                        }
+                        $gurl = trim((string) ($gdesc['url'] ?? ''));
+                        if ($gurl === '' || !self::href_ok($gurl)) {
+                            $v[] = self::vio('media_bad_url', "$gp.media", 'Gallery image URL is missing or not http(s)/relative.');
+                        }
+                        if ((int) ($gdesc['width'] ?? 0) <= 0 || (int) ($gdesc['height'] ?? 0) <= 0) {
+                            $v[] = self::vio('media_no_dimensions', "$gp.media", 'Gallery image needs explicit width and height (CLS).');
+                        }
+                        if (trim((string) ($git['alt'] ?? ($gdesc['alt'] ?? ''))) === '') {
+                            $v[] = self::vio('image_alt_missing', "$gp.alt", 'Gallery image needs alt text.');
+                        }
+                    }
+                } elseif ($type === 'quote') {
+                    if (trim((string) ($block['text'] ?? '')) === '') {
+                        $v[] = self::vio('quote_empty', "$bpath.text", 'Quote has no text.');
+                    }
+                    if (is_array($block['avatar'] ?? null)) {
+                        $amid = (string) ($block['avatar']['media'] ?? '');
+                        if ($amid !== '' && !(isset($media[$amid]) && is_array($media[$amid]))) {
+                            $v[] = self::vio('media_unresolved', "$bpath.avatar.media", "Quote avatar references media '$amid' not in the media map.");
+                        }
+                    }
+                    self::check_contrast($v, $bpath, [], $bg_slug, $vocab, true);
+                } elseif ($type === 'stat') {
+                    if (trim((string) ($block['value'] ?? '')) === '') {
+                        $v[] = self::vio('stat_empty', "$bpath.value", 'Stat has no value.');
+                    }
+                    if (trim((string) ($block['label'] ?? '')) === '') {
+                        $v[] = self::vio('stat_no_label', "$bpath.label", 'Stat needs a label.');
+                    }
+                    self::check_contrast($v, $bpath, [], $bg_slug, $vocab, true);
+                } elseif ($type === 'accordion') {
+                    $aitems = is_array($block['items'] ?? null) ? $block['items'] : [];
+                    if (count($aitems) === 0) {
+                        $v[] = self::vio('accordion_empty', "$bpath.items", 'Accordion has no items.');
+                    } elseif (count($aitems) > self::MAX_ACCORDION_ITEMS) {
+                        $v[] = self::vio('accordion_too_large', "$bpath.items", 'Accordion has more than ' . self::MAX_ACCORDION_ITEMS . ' items.');
+                        continue;
+                    }
+                    foreach ($aitems as $ai => $ait) {
+                        if (!is_array($ait) || trim((string) ($ait['q'] ?? '')) === '' || trim((string) ($ait['a'] ?? '')) === '') {
+                            $v[] = self::vio('accordion_item', "$bpath.items[$ai]", 'Accordion item needs both a question and an answer.');
+                        }
+                    }
+                } elseif ($type === 'embed') {
+                    $provider = (string) ($block['provider'] ?? '');
+                    $eid = (string) ($block['id'] ?? '');
+                    if (!in_array($provider, self::EMBED_PROVIDERS, true)) {
+                        $v[] = self::vio('embed_provider', "$bpath.provider", 'Embed provider must be youtube, vimeo, or map.');
+                    } elseif ($provider === 'youtube' && !preg_match('/^[A-Za-z0-9_-]{6,20}$/', $eid)) {
+                        $v[] = self::vio('embed_id', "$bpath.id", 'YouTube embed id is missing or malformed.');
+                    } elseif ($provider === 'vimeo' && !ctype_digit($eid)) {
+                        $v[] = self::vio('embed_id', "$bpath.id", 'Vimeo embed id must be numeric.');
+                    } elseif (trim($eid) === '') {
+                        $v[] = self::vio('embed_id', "$bpath.id", 'Embed id is required.');
+                    }
+                    if (trim((string) ($block['title'] ?? '')) === '') {
+                        $v[] = self::vio('embed_title', "$bpath.title", 'Embed needs a title for accessibility.');
+                    }
                 }
             }
         }

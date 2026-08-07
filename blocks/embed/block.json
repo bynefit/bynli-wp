@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/embed",
+    "version": "0.1.0",
+    "title": "Bynefit Embed",
+    "category": "embed",
+    "icon": "video-alt3",
+    "description": "A sanitized responsive embed (YouTube, Vimeo, or Google Maps). The source URL is built server-side from an allow-listed provider and id — arbitrary embed markup is never accepted.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true,
+        "align": ["wide", "full"]
+    },
+    "attributes": {
+        "provider": { "type": "string", "default": "" },
+        "id": { "type": "string", "default": "" },
+        "title": { "type": "string", "default": "" },
+        "ratio": { "type": "string", "default": "16-9" }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}
