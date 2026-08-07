@@ -29,6 +29,7 @@ class Bynli_Connect_Control_Plane {
     const REPLAY_WINDOW = 300;
     const MAX_BODY      = 262144; // 256KB — a design doc is small; cap before any work.
     const SECRET_OPTION = 'bynli_connect_control_plane_secret';
+    const PAGE_SLUG_META = '_bynli_site_slug';
 
     public function __construct() {
         add_action('rest_api_init', [$this, 'register_routes']);
@@ -38,6 +39,12 @@ class Bynli_Connect_Control_Plane {
         register_rest_route(self::NS, '/design', [
             'methods'             => 'POST',
             'callback'            => [$this, 'apply_design'],
+            'permission_callback' => [$this, 'authorize'],
+        ]);
+
+        register_rest_route(self::NS, '/page', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'upsert_page'],
             'permission_callback' => [$this, 'authorize'],
         ]);
     }
@@ -172,5 +179,130 @@ class Bynli_Connect_Control_Plane {
         }
 
         return new WP_REST_Response(['ok' => true, 'global_styles_id' => (int) $post_id], 200);
+    }
+
+    /**
+     * upsert_page — publish one scene-graph page to a WP page, idempotently.
+     *
+     * The publish-contract gate runs first: a page that fails is refused with
+     * every violation so the app can surface the exact fix — nothing is written
+     * on a failing document. On pass, the scene graph is emitted to registered
+     * block markup and written to the page identified by its scene-graph slug
+     * (stored in meta so re-publishing updates the same post rather than forking
+     * a new one).
+     */
+    public function upsert_page(WP_REST_Request $request) {
+        $body = json_decode((string) $request->get_body(), true);
+        if (!is_array($body)) {
+            return new WP_Error('invalid_json', 'Body is not valid JSON.', ['status' => 400]);
+        }
+
+        $page  = is_array($body['page'] ?? null) ? $body['page'] : null;
+        $media = is_array($body['media'] ?? null) ? $body['media'] : [];
+        if ($page === null) {
+            return self::unpublishable([['code' => 'empty_page', 'path' => 'page', 'message' => 'Provide a page node.']]);
+        }
+
+        $check = Bynli_Connect_Publish_Contract::validate($page, $media);
+        if (!$check['ok']) {
+            return self::unpublishable($check['violations']);
+        }
+
+        $markup = Bynli_Connect_Emitter::emit_page($page, $media);
+        if (trim($markup) === '') {
+            return self::unpublishable([['code' => 'empty_output', 'path' => 'sections', 'message' => 'The page emitted no content.']]);
+        }
+
+        $scene_slug = (string) ($page['slug'] ?? '');
+        $wp_slug    = sanitize_title(trim($scene_slug, '/')) ?: 'home';
+        $title      = (string) ($page['title'] ?? 'Untitled');
+        $seo_desc   = (string) (self::deep($page, ['seo', 'description']) ?? '');
+
+        global $wpdb;
+        // Serialize concurrent publishes of the same scene slug so a retry can't
+        // fork a duplicate page between the lookup and the insert. Best-effort:
+        // if the lock can't be taken we still proceed rather than fail the write.
+        $lock = 'bynli_upsert_' . md5($scene_slug);
+        $locked = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 10)', $lock)) === 1;
+
+        try {
+            $existing = get_posts([
+                'post_type'        => 'page',
+                'post_status'      => 'any',
+                'numberposts'      => 1,
+                'fields'           => 'ids',
+                'meta_key'         => self::PAGE_SLUG_META,
+                'meta_value'       => $scene_slug,
+                'suppress_filters' => false,
+            ]);
+
+            $postarr = [
+                'post_type'    => 'page',
+                'post_status'  => 'publish',
+                'post_title'   => $title,
+                'post_name'    => $wp_slug,
+                'post_content' => wp_slash($markup),
+                'post_excerpt' => wp_slash($seo_desc),
+            ];
+
+            $created = empty($existing);
+            if (!$created) {
+                $postarr['ID'] = (int) $existing[0];
+                $post_id = wp_update_post($postarr, true);
+            } else {
+                $post_id = wp_insert_post($postarr, true);
+            }
+        } finally {
+            if ($locked) {
+                $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
+            }
+        }
+
+        if (is_wp_error($post_id) || !$post_id) {
+            $msg = is_wp_error($post_id) ? $post_id->get_error_message() : 'unknown';
+            error_log('[Bynli Connect] upsert_page: ' . $msg);
+            return new WP_Error('write_failed', 'Could not persist the page.', ['status' => 500]);
+        }
+
+        $post_id = (int) $post_id;
+        update_post_meta($post_id, self::PAGE_SLUG_META, $scene_slug);
+        update_post_meta($post_id, '_wp_page_template', 'page-wide');
+        if ($seo_desc !== '') {
+            update_post_meta($post_id, '_bynli_seo_description', $seo_desc);
+        }
+
+        // Front-page assignment is authoritative per publish: claim it when
+        // isHome is set, and release it when this page previously held it but no
+        // longer claims home, so home never silently sticks to a stale page.
+        if (!empty($page['isHome'])) {
+            update_option('show_on_front', 'page');
+            update_option('page_on_front', $post_id);
+        } elseif ((int) get_option('page_on_front') === $post_id) {
+            update_option('page_on_front', 0);
+            update_option('show_on_front', 'posts');
+        }
+
+        do_action('bynli_connect_page_upserted', $post_id, $scene_slug, $created);
+
+        return new WP_REST_Response([
+            'ok'      => true,
+            'page_id' => $post_id,
+            'url'     => get_permalink($post_id) ?: '',
+        ], 200);
+    }
+
+    private static function unpublishable(array $violations): WP_REST_Response {
+        return new WP_REST_Response(['ok' => false, 'violations' => $violations], 422);
+    }
+
+    private static function deep(array $node, array $keys) {
+        $cur = $node;
+        foreach ($keys as $k) {
+            if (!is_array($cur) || !array_key_exists($k, $cur)) {
+                return null;
+            }
+            $cur = $cur[$k];
+        }
+        return $cur;
     }
 }
