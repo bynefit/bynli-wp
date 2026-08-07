@@ -206,7 +206,7 @@ class Bynli_Connect_Publish_Contract {
                         $v[] = self::vio('gallery_empty', "$bpath.items", 'Gallery has no images.');
                     } elseif (count($gitems) > self::MAX_GALLERY_ITEMS) {
                         $v[] = self::vio('gallery_too_large', "$bpath.items", 'Gallery has more than ' . self::MAX_GALLERY_ITEMS . ' images.');
-                        continue;
+                        return;
                     }
                     foreach ($gitems as $gi => $git) {
                         $gp = "$bpath.items[$gi]";
@@ -252,7 +252,7 @@ class Bynli_Connect_Publish_Contract {
                         $v[] = self::vio('accordion_empty', "$bpath.items", 'Accordion has no items.');
                     } elseif (count($aitems) > self::MAX_ACCORDION_ITEMS) {
                         $v[] = self::vio('accordion_too_large', "$bpath.items", 'Accordion has more than ' . self::MAX_ACCORDION_ITEMS . ' items.');
-                        continue;
+                        return;
                     }
                     foreach ($aitems as $ai => $ait) {
                         if (!is_array($ait) || trim((string) ($ait['q'] ?? '')) === '' || trim((string) ($ait['a'] ?? '')) === '') {
@@ -286,7 +286,7 @@ class Bynli_Connect_Publish_Contract {
                         $v[] = self::vio('list_empty', "$bpath.items", 'List has no items.');
                     } elseif (count($litems) > self::MAX_LIST_ITEMS) {
                         $v[] = self::vio('list_too_large', "$bpath.items", 'List has more than ' . self::MAX_LIST_ITEMS . ' items.');
-                        continue;
+                        return;
                     }
                     foreach ($litems as $li => $lit) {
                         $ltext = is_array($lit) ? (string) ($lit['text'] ?? '') : (string) $lit;
