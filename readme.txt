@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.11.0
+Stable tag:        0.12.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.12.0 =
+* **Added:** Bynefit Sites premium block set — five more server-rendered blocks the builder can publish onto: **Gallery** (responsive focal-point image grid with AVIF/WebP + explicit dimensions), **Quote** (pull quote / testimonial with attribution + avatar), **Stat** (headline metric), **Accordion** (accessible FAQ on native details/summary, no JavaScript), and **Embed** (YouTube / Vimeo / Google Maps, with the source URL built server-side from an allow-listed provider + id — arbitrary embed markup is never accepted). All styled from your theme's tokens and refused at publish time if they don't meet the quality contract.
 
 = 0.11.0 =
 * **Added:** Bynefit Sites page publishing (`bynli/v1/page`) — Bynefit turns an in-app design into a native WordPress page, laid out on the Section and Media blocks with your theme's colours, type, and spacing. A published page is refused unless it meets the quality contract (readable contrast, one main heading, described images, no off-system styling) so a managed site can't ship a substandard page. Requires the Bynefit Sites control plane; no effect on manually connected sites.

@@ -133,6 +133,16 @@ class Bynli_Connect_Emitter {
                 return self::emit_spacer($block);
             case 'divider':
                 return "<!-- wp:separator -->\n<hr class=\"wp-block-separator has-alpha-channel-opacity\"/>\n<!-- /wp:separator -->";
+            case 'gallery':
+                return self::emit_gallery($block, $media);
+            case 'quote':
+                return self::emit_quote($block, $media);
+            case 'stat':
+                return self::emit_stat($block);
+            case 'accordion':
+                return self::emit_accordion($block);
+            case 'embed':
+                return self::emit_embed($block);
             default:
                 return null;
         }
@@ -262,6 +272,170 @@ class Bynli_Connect_Emitter {
             serialize_block_attributes($attrs),
             esc_attr($var)
         );
+    }
+
+    private static function emit_gallery(array $block, array $media): ?string {
+        $items = [];
+        foreach ((is_array($block['items'] ?? null) ? $block['items'] : []) as $it) {
+            if (!is_array($it)) {
+                continue;
+            }
+            $entry = self::media_entry($it, $media);
+            if ($entry !== null) {
+                $items[] = $entry;
+            }
+        }
+        if (!$items) {
+            return null;
+        }
+
+        $cols = is_array($block['columns'] ?? null) ? $block['columns'] : [];
+        $attrs = [
+            'items'   => $items,
+            'columns' => [
+                'sm' => Bynli_Connect_Blocks::grid_int($cols['sm'] ?? null, 1, 6, 2),
+                'lg' => Bynli_Connect_Blocks::grid_int($cols['lg'] ?? null, 1, 6, 3),
+            ],
+        ];
+        $gap = self::resolve_token('space', $block['gap'] ?? null);
+        if ($gap !== null) {
+            $attrs['gap'] = $gap;
+        }
+        $radius = self::resolve_token('radius', self::deep($block, ['style', 'radius']));
+        if ($radius !== null) {
+            $attrs['radius'] = $radius;
+        }
+
+        return self::wrap('bynefit/gallery', $attrs, null);
+    }
+
+    private static function emit_quote(array $block, array $media): ?string {
+        $text = (string) ($block['text'] ?? '');
+        if (trim($text) === '') {
+            return null;
+        }
+        $attrs = ['text' => $text];
+        $cite = (string) ($block['cite'] ?? '');
+        if ($cite !== '') {
+            $attrs['cite'] = $cite;
+        }
+        $role = (string) ($block['role'] ?? '');
+        if ($role !== '') {
+            $attrs['role'] = $role;
+        }
+        $attrs['align'] = ($block['align'] ?? '') === 'center' ? 'center' : 'start';
+
+        if (is_array($block['avatar'] ?? null)) {
+            $av = self::media_entry($block['avatar'], $media);
+            if ($av !== null) {
+                $avatar = ['url' => $av['url']];
+                if (isset($av['width'])) {
+                    $avatar['width'] = $av['width'];
+                }
+                if (isset($av['height'])) {
+                    $avatar['height'] = $av['height'];
+                }
+                $attrs['avatar'] = $avatar;
+            }
+        }
+
+        return self::wrap('bynefit/quote', $attrs, null);
+    }
+
+    private static function emit_stat(array $block): ?string {
+        $value = (string) ($block['value'] ?? '');
+        if (trim($value) === '') {
+            return null;
+        }
+        $attrs = ['value' => $value];
+        $label = (string) ($block['label'] ?? '');
+        if ($label !== '') {
+            $attrs['label'] = $label;
+        }
+        $caption = (string) ($block['caption'] ?? '');
+        if ($caption !== '') {
+            $attrs['caption'] = $caption;
+        }
+        $attrs['align'] = ($block['align'] ?? '') === 'center' ? 'center' : 'start';
+
+        return self::wrap('bynefit/stat', $attrs, null);
+    }
+
+    private static function emit_accordion(array $block): ?string {
+        $items = [];
+        foreach ((is_array($block['items'] ?? null) ? $block['items'] : []) as $it) {
+            if (!is_array($it)) {
+                continue;
+            }
+            $q = (string) ($it['q'] ?? '');
+            $a = (string) ($it['a'] ?? '');
+            if (trim($q) === '' || trim($a) === '') {
+                continue;
+            }
+            $items[] = ['q' => $q, 'a' => $a];
+        }
+        if (!$items) {
+            return null;
+        }
+
+        return self::wrap('bynefit/accordion', ['items' => $items], null);
+    }
+
+    private static function emit_embed(array $block): ?string {
+        $provider = (string) ($block['provider'] ?? '');
+        if (!in_array($provider, ['youtube', 'vimeo', 'map'], true)) {
+            return null;
+        }
+        $id = (string) ($block['id'] ?? '');
+        if (trim($id) === '') {
+            return null;
+        }
+        $attrs = [
+            'provider' => $provider,
+            'id'       => $id,
+            'title'    => (string) ($block['title'] ?? ''),
+        ];
+        $ratio = (string) ($block['ratio'] ?? '16-9');
+        if (in_array($ratio, ['16-9', '4-3', '1-1', '21-9'], true)) {
+            $attrs['ratio'] = $ratio;
+        }
+
+        return self::wrap('bynefit/embed', $attrs, null);
+    }
+
+    /**
+     * Normalize a scene-graph media reference ({media:"<id>", alt?, focal?}) to a
+     * resolved descriptor for a block attribute, or null if the id doesn't
+     * resolve. url is run through esc_url_raw before it enters the stored doc.
+     */
+    private static function media_entry(array $ref, array $media): ?array {
+        $mid  = (string) ($ref['media'] ?? '');
+        $desc = $mid !== '' && isset($media[$mid]) && is_array($media[$mid]) ? $media[$mid] : null;
+        if ($desc === null) {
+            return null;
+        }
+        $url = esc_url_raw((string) ($desc['url'] ?? ''));
+        if ($url === '') {
+            return null;
+        }
+        $entry = ['url' => $url, 'alt' => (string) ($ref['alt'] ?? ($desc['alt'] ?? ''))];
+        if (isset($desc['width']) && is_numeric($desc['width'])) {
+            $entry['width'] = (int) $desc['width'];
+        }
+        if (isset($desc['height']) && is_numeric($desc['height'])) {
+            $entry['height'] = (int) $desc['height'];
+        }
+        $focal = is_array($ref['focal'] ?? null) ? $ref['focal'] : (is_array($desc['focal'] ?? null) ? $desc['focal'] : null);
+        if ($focal !== null) {
+            $fx = isset($focal['x']) && is_numeric($focal['x']) ? min(1.0, max(0.0, (float) $focal['x'])) : 0.5;
+            $fy = isset($focal['y']) && is_numeric($focal['y']) ? min(1.0, max(0.0, (float) $focal['y'])) : 0.5;
+            $entry['focal'] = ['x' => $fx, 'y' => $fy];
+        }
+        $sources = is_array($desc['sources'] ?? null) ? array_intersect_key($desc['sources'], ['avif' => 1, 'webp' => 1]) : [];
+        if ($sources) {
+            $entry['sources'] = $sources;
+        }
+        return $entry;
     }
 
     /** Serialize a dynamic (save:null) block: void form when there is no inner content. */

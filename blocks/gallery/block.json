@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/gallery",
+    "version": "0.1.0",
+    "title": "Bynefit Gallery",
+    "category": "media",
+    "icon": "images-alt2",
+    "description": "A responsive image gallery with focal points, AVIF/WebP sources, and explicit dimensions (CLS-safe). Phone-first columns expand to desktop.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true,
+        "align": ["wide", "full"]
+    },
+    "attributes": {
+        "items": { "type": "array", "default": [] },
+        "columns": { "type": "object", "default": { "sm": 2, "lg": 3 } },
+        "gap": { "type": "string" },
+        "radius": { "type": "string" }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}

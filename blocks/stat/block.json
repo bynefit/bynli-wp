@@ -1,0 +1,23 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/stat",
+    "version": "0.1.0",
+    "title": "Bynefit Stat",
+    "category": "text",
+    "icon": "chart-bar",
+    "description": "A single headline metric — a large value with a label and optional caption — styled from the theme's display type and colour tokens.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true
+    },
+    "attributes": {
+        "value": { "type": "string", "default": "" },
+        "label": { "type": "string", "default": "" },
+        "caption": { "type": "string", "default": "" },
+        "align": { "type": "string", "default": "start" }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}
