@@ -80,7 +80,10 @@
         var dots = root.querySelectorAll('.bynefit-carousel__dot');
         var prev = root.querySelector('.bynefit-carousel__prev');
         var next = root.querySelector('.bynefit-carousel__next');
-        var idx = 0, timer = null;
+        var track = root.querySelector('.bynefit-carousel__track');
+        var toggle = root.querySelector('.bynefit-carousel__toggle');
+        var autoplay = motionOk && root.getAttribute('data-autoplay') === '1';
+        var idx = 0, timer = null, userPaused = false;
         root.classList.add('is-enhanced');
 
         function show(n) {
@@ -91,20 +94,42 @@
                 if (dots[i]) { dots[i].setAttribute('aria-current', on ? 'true' : 'false'); }
             }
         }
-        function stop() { if (timer) { clearInterval(timer); timer = null; } }
-        function start() { if (autoplay) { stop(); timer = setInterval(function () { show(idx + 1); }, 6000); } }
+        function stop() {
+            if (timer) { clearInterval(timer); timer = null; }
+            if (track) { track.setAttribute('aria-live', 'polite'); }
+        }
+        function start() {
+            if (!autoplay || userPaused || timer) { return; }
+            timer = setInterval(function () { show(idx + 1); }, 6000);
+            if (track) { track.setAttribute('aria-live', 'off'); }
+        }
 
-        var autoplay = motionOk && root.getAttribute('data-autoplay') === '1';
-        if (prev) { prev.addEventListener('click', function () { show(idx - 1); start(); }); }
-        if (next) { next.addEventListener('click', function () { show(idx + 1); start(); }); }
-        Array.prototype.forEach.call(dots, function (d, i) { d.addEventListener('click', function () { show(i); start(); }); });
+        if (prev) { prev.addEventListener('click', function () { show(idx - 1); stop(); start(); }); }
+        if (next) { next.addEventListener('click', function () { show(idx + 1); stop(); start(); }); }
+        Array.prototype.forEach.call(dots, function (d, i) { d.addEventListener('click', function () { show(i); stop(); start(); }); });
 
         show(0);
         if (autoplay) {
+            if (toggle) {
+                toggle.addEventListener('click', function () {
+                    if (timer) {
+                        userPaused = true; stop();
+                        toggle.setAttribute('aria-pressed', 'true');
+                        toggle.setAttribute('aria-label', 'Play the carousel');
+                    } else {
+                        userPaused = false; start();
+                        toggle.setAttribute('aria-pressed', 'false');
+                        toggle.setAttribute('aria-label', 'Pause the carousel');
+                    }
+                });
+            }
             start();
             root.addEventListener('mouseenter', stop);
             root.addEventListener('mouseleave', start);
             root.addEventListener('focusin', stop);
+            root.addEventListener('focusout', function (e) {
+                if (!root.contains(e.relatedTarget)) { start(); }
+            });
         }
     });
 })();

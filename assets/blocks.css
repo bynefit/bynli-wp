@@ -663,3 +663,32 @@
     outline: 2px solid var(--wp--preset--color--brand);
     outline-offset: 2px;
 }
+
+.bynefit-carousel__toggle {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    appearance: none;
+    border: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: var(--wp--preset--color--surface-2);
+    color: var(--wp--preset--color--text);
+    box-shadow: 0 1px 3px rgba(17, 14, 10, 0.12);
+    cursor: pointer;
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+.bynefit-carousel__toggle::before { content: "\275A\275A"; letter-spacing: -2px; }
+.bynefit-carousel__toggle[aria-pressed="true"]::before { content: "\25BA"; }
+
+.bynefit-carousel:not(.is-enhanced) .bynefit-carousel__toggle {
+    display: none;
+}
+
+.bynefit-carousel__toggle:focus-visible {
+    outline: 2px solid var(--wp--preset--color--brand);
+    outline-offset: 2px;
+}

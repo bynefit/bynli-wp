@@ -43,14 +43,14 @@ foreach ($rows as $i => $row) {
         . ' aria-controls="' . esc_attr($panelId) . '" class="bynefit-tabs__tab">'
         . esc_html($row['label']) . '</button>';
     $panels .= '<div role="tabpanel" id="' . esc_attr($panelId) . '"'
-        . ' aria-labelledby="' . esc_attr($tabId) . '" class="bynefit-tabs__panel">'
+        . ' aria-labelledby="' . esc_attr($tabId) . '" class="bynefit-tabs__panel" tabindex="0">'
         . wp_kses_post($row['body']) . '</div>';
 }
 
 $wrapper = get_block_wrapper_attributes(['class' => 'bynefit-tabs']);
 
 printf(
-    '<div %s data-bynefit-tabs><div class="bynefit-tabs__list" role="tablist">%s</div><div class="bynefit-tabs__panels">%s</div></div>',
+    '<div %s data-bynefit-tabs><div class="bynefit-tabs__list" role="tablist" aria-label="Tabs">%s</div><div class="bynefit-tabs__panels">%s</div></div>',
     $wrapper,
     $tabs,
     $panels

@@ -62,16 +62,20 @@ foreach ($slides as $i => $s) {
 }
 
 $wrapper = get_block_wrapper_attributes(['class' => 'bynefit-carousel']);
+$toggle = $autoplay
+    ? '<button type="button" class="bynefit-carousel__toggle" aria-pressed="false" aria-label="Pause the carousel"></button>'
+    : '';
 $controls = $total > 1
     ? '<button type="button" class="bynefit-carousel__nav bynefit-carousel__prev" aria-label="Previous">&#8249;</button>'
         . '<button type="button" class="bynefit-carousel__nav bynefit-carousel__next" aria-label="Next">&#8250;</button>'
         . '<div class="bynefit-carousel__dots">' . $dots . '</div>'
+        . $toggle
     : '';
 
 printf(
-    '<div %s data-bynefit-carousel%s><div class="bynefit-carousel__track" aria-live="polite">%s</div>%s</div>',
+    '<div %s role="group" aria-roledescription="carousel" aria-label="Carousel"%s><div class="bynefit-carousel__track" aria-live="polite">%s</div>%s</div>',
     $wrapper,
-    $autoplay ? ' data-autoplay="1"' : '',
+    $autoplay ? ' data-bynefit-carousel data-autoplay="1"' : ' data-bynefit-carousel',
     $track,
     $controls
 );
