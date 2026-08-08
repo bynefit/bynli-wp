@@ -194,6 +194,10 @@ class Bynli_Connect_Emitter {
                 return self::emit_form($block);
             case 'events':
                 return self::emit_events($block);
+            case 'tabs':
+                return self::emit_tabs($block);
+            case 'carousel':
+                return self::emit_carousel($block, $media);
             default:
                 return null;
         }
@@ -679,6 +683,72 @@ class Bynli_Connect_Emitter {
         }
 
         return self::wrap('bynefit/events', $attrs, null);
+    }
+
+    private static function emit_tabs(array $block): ?string {
+        $items = [];
+        foreach ((is_array($block['items'] ?? null) ? $block['items'] : []) as $it) {
+            if (!is_array($it)) {
+                continue;
+            }
+            $label = (string) ($it['label'] ?? '');
+            $body  = (string) ($it['body'] ?? '');
+            if (trim($label) === '' || trim($body) === '') {
+                continue;
+            }
+            $items[] = ['label' => $label, 'body' => $body];
+        }
+        if (!$items) {
+            return null;
+        }
+
+        return self::wrap('bynefit/tabs', ['items' => $items], null);
+    }
+
+    private static function emit_carousel(array $block, array $media): ?string {
+        $items = [];
+        foreach ((is_array($block['items'] ?? null) ? $block['items'] : []) as $it) {
+            if (!is_array($it)) {
+                continue;
+            }
+            $text = (string) ($it['text'] ?? '');
+            if (trim($text) === '') {
+                continue;
+            }
+            $entry = ['text' => $text];
+            $cite = (string) ($it['cite'] ?? '');
+            if ($cite !== '') {
+                $entry['cite'] = $cite;
+            }
+            $role = (string) ($it['role'] ?? '');
+            if ($role !== '') {
+                $entry['role'] = $role;
+            }
+            if (is_array($it['avatar'] ?? null)) {
+                $av = self::media_entry($it['avatar'], $media);
+                if ($av !== null) {
+                    $avatar = ['url' => $av['url']];
+                    if (isset($av['width'])) {
+                        $avatar['width'] = $av['width'];
+                    }
+                    if (isset($av['height'])) {
+                        $avatar['height'] = $av['height'];
+                    }
+                    $entry['avatar'] = $avatar;
+                }
+            }
+            $items[] = $entry;
+        }
+        if (!$items) {
+            return null;
+        }
+
+        $attrs = ['items' => $items];
+        if (array_key_exists('autoplay', $block)) {
+            $attrs['autoplay'] = (bool) $block['autoplay'];
+        }
+
+        return self::wrap('bynefit/carousel', $attrs, null);
     }
 
     /**

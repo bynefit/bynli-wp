@@ -519,3 +519,176 @@
     color: var(--wp--preset--color--muted);
     font-size: var(--wp--preset--font-size--small);
 }
+
+.bynefit-tabs__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp--preset--spacing--20, 0.5rem);
+    border-bottom: 1px solid var(--wp--preset--color--border);
+}
+
+.bynefit-tabs:not(.is-enhanced) .bynefit-tabs__list {
+    display: none;
+}
+
+.bynefit-tabs__tab {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    color: var(--wp--preset--color--muted);
+    padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--40, 1rem);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.bynefit-tabs__tab[aria-selected="true"] {
+    color: var(--wp--preset--color--text);
+    border-bottom-color: var(--wp--preset--color--brand);
+}
+
+.bynefit-tabs__tab:focus-visible {
+    outline: 2px solid var(--wp--preset--color--brand);
+    outline-offset: 2px;
+}
+
+.bynefit-tabs__panel {
+    padding-top: var(--wp--preset--spacing--40, 1rem);
+}
+
+.bynefit-carousel {
+    position: relative;
+}
+
+.bynefit-carousel__track {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp--preset--spacing--50, 1.5rem);
+}
+
+.bynefit-carousel.is-enhanced .bynefit-carousel__track {
+    display: block;
+    padding: 0 3rem;
+}
+
+.bynefit-carousel__slide {
+    margin: 0;
+}
+
+.bynefit-carousel__text {
+    margin: 0 0 var(--wp--preset--spacing--40, 1rem);
+    font-family: var(--wp--preset--font-family--serif);
+    font-size: var(--wp--preset--font-size--heading);
+    line-height: 1.35;
+    font-weight: 500;
+}
+
+.bynefit-carousel__foot {
+    display: flex;
+    align-items: center;
+    gap: var(--wp--preset--spacing--30, 0.75rem);
+}
+
+.bynefit-carousel__avatar {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 999px;
+    object-fit: cover;
+    flex: none;
+}
+
+.bynefit-carousel__who {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.bynefit-carousel__cite { font-weight: 600; }
+.bynefit-carousel__role {
+    color: var(--wp--preset--color--muted);
+    font-size: var(--wp--preset--font-size--small);
+}
+
+.bynefit-carousel__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    appearance: none;
+    border: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    background: var(--wp--preset--color--surface-2);
+    color: var(--wp--preset--color--text);
+    box-shadow: 0 1px 3px rgba(17, 14, 10, 0.12);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.bynefit-carousel__prev { left: 0; }
+.bynefit-carousel__next { right: 0; }
+
+.bynefit-carousel__dots {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: var(--wp--preset--spacing--40, 1rem);
+}
+
+.bynefit-carousel__dot {
+    appearance: none;
+    border: 0;
+    padding: 0;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--wp--preset--color--border);
+    cursor: pointer;
+}
+
+.bynefit-carousel__dot[aria-current="true"] {
+    background: var(--wp--preset--color--brand);
+}
+
+.bynefit-carousel:not(.is-enhanced) .bynefit-carousel__nav,
+.bynefit-carousel:not(.is-enhanced) .bynefit-carousel__dots {
+    display: none;
+}
+
+.bynefit-carousel__nav:focus-visible,
+.bynefit-carousel__dot:focus-visible {
+    outline: 2px solid var(--wp--preset--color--brand);
+    outline-offset: 2px;
+}
+
+.bynefit-carousel__toggle {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    appearance: none;
+    border: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: var(--wp--preset--color--surface-2);
+    color: var(--wp--preset--color--text);
+    box-shadow: 0 1px 3px rgba(17, 14, 10, 0.12);
+    cursor: pointer;
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+.bynefit-carousel__toggle::before { content: "\275A\275A"; letter-spacing: -2px; }
+.bynefit-carousel__toggle[aria-pressed="true"]::before { content: "\25BA"; }
+
+.bynefit-carousel:not(.is-enhanced) .bynefit-carousel__toggle {
+    display: none;
+}
+
+.bynefit-carousel__toggle:focus-visible {
+    outline: 2px solid var(--wp--preset--color--brand);
+    outline-offset: 2px;
+}
