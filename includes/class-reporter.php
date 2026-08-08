@@ -23,6 +23,7 @@ class Bynli_Connect_Reporter {
             'storage_bytes'   => (int)$usage['storage_bytes'],
             'request_count'   => (int)$usage['request_count'],
             'meta'            => $usage['meta'],
+            'insights'        => self::collect_insights(),
         ];
         return self::post($payload);
     }
@@ -41,6 +42,73 @@ class Bynli_Connect_Reporter {
                 'measurement'    => 'best_effort_v1',
             ],
         ];
+    }
+
+    /**
+     * Cheap, cached WP site insights for the daily report (bynli#2265 Phase 1).
+     * All reads are in-process or hit already-cached update transients — no forced
+     * network refresh, no extra filesystem walk. Every branch is guarded so a
+     * missing function / odd site never fatals the cron report.
+     */
+    private static function collect_insights(): array {
+        $out = [];
+        try {
+            $posts = wp_count_posts('post');
+            $pages = wp_count_posts('page');
+            $atts  = wp_count_posts('attachment');
+            $out['posts'] = (int)($posts->publish ?? 0);
+            $out['pages'] = (int)($pages->publish ?? 0);
+            $out['media'] = (int)($atts->inherit ?? 0);
+
+            $comments = wp_count_comments();
+            $out['comments_pending'] = (int)($comments->moderated ?? 0);
+            $out['comments_spam']    = (int)($comments->spam ?? 0);
+
+            $last = get_lastpostmodified('gmt');
+            $out['last_modified'] = $last ? gmdate('c', strtotime($last . ' UTC')) : null;
+
+            $users = count_users();
+            $out['users_total'] = (int)($users['total_users'] ?? 0);
+            $out['admins']      = (int)($users['avail_roles']['administrator'] ?? 0);
+
+            // Available updates — reads cached update_* transients only (WP's own
+            // refresh cadence); never force wp_update_plugins() here (network cost).
+            if (!function_exists('wp_get_update_data')) {
+                require_once ABSPATH . 'wp-admin/includes/update.php';
+            }
+            $counts = function_exists('wp_get_update_data') ? (wp_get_update_data()['counts'] ?? []) : [];
+            $out['updates'] = [
+                'core'    => (int)($counts['wordpress'] ?? 0),
+                'plugins' => (int)($counts['plugins'] ?? 0),
+                'themes'  => (int)($counts['themes'] ?? 0),
+                'total'   => (int)($counts['total'] ?? 0),
+            ];
+
+            $theme = wp_get_theme();
+            $out['theme'] = [
+                'name'    => $theme ? (string)$theme->get('Name') : null,
+                'version' => $theme ? (string)$theme->get('Version') : null,
+            ];
+
+            // Active-plugin COUNT only (not the itemized list) — the itemized list
+            // is a site's attack surface and is privacy-gated to a future opt-in.
+            $active = get_option('active_plugins');
+            $out['plugins_active'] = is_array($active) ? count($active) : 0;
+
+            $out['https']        = function_exists('wp_is_using_https') ? (bool)wp_is_using_https() : is_ssl();
+            $out['debug']        = defined('WP_DEBUG') && WP_DEBUG;
+            $out['search_index'] = ((int)get_option('blog_public', 1) === 1);
+            $out['multisite']    = is_multisite();
+
+            $out['db_version'] = null;
+            global $wpdb;
+            if (isset($wpdb) && method_exists($wpdb, 'db_version')) {
+                $out['db_version'] = (string)$wpdb->db_version();
+            }
+        } catch (\Throwable $e) {
+            error_log('[Bynli Connect] collect_insights: ' . $e->getMessage());
+        }
+        return $out;
     }
 
     private static function dir_size(string $path, int $cap_bytes = 50 * 1024 * 1024 * 1024): int {
