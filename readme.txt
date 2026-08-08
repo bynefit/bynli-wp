@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.19.0
+Stable tag:        0.20.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.20.0 =
+* **Added:** Your daily site report now includes a richer health snapshot — available updates (WordPress core, plugins, themes), content counts (posts, pages, media), pending/spam comments, active theme, user and administrator counts, and safety flags (HTTPS, search-engine visibility, debug mode). This powers a real "site health" view in the Bynefit app. All read from data WordPress already has — no extra load on your site, and nothing about your visitors or content is sent.
 
 = 0.19.0 =
 * **Added:** Bynefit Sites can now set a site's primary navigation menu when it publishes — the pages you publish are linked into the site's menu automatically, in order, with the home page first. Control-plane only; no effect on manually connected sites.
