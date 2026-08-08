@@ -1,0 +1,21 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/tabs",
+    "version": "0.1.0",
+    "title": "Bynefit Tabs",
+    "category": "design",
+    "icon": "index-card",
+    "description": "Accessible tabbed panels (WAI-ARIA tablist, keyboard-operable). Without JavaScript every panel is shown stacked, so the content is never hidden.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true,
+        "align": ["wide"]
+    },
+    "attributes": {
+        "items": { "type": "array", "default": [] }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}

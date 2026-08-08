@@ -14,7 +14,10 @@ if (!defined('ABSPATH')) {
  */
 class Bynli_Connect_Publish_Contract {
 
-    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos', 'form', 'events'];
+    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos', 'form', 'events', 'tabs', 'carousel'];
+
+    const MAX_TABS     = 12;
+    const MAX_CAROUSEL = 30;
 
     const CONTAINER_BLOCKS = ['section', 'card'];
 
@@ -363,6 +366,39 @@ class Bynli_Connect_Publish_Contract {
                     }
                     if (trim((string) ($block['title'] ?? '')) === '' && trim((string) ($block['text'] ?? '')) === '') {
                         $v[] = self::vio('callout_empty', $bpath, 'Callout needs a title or text.');
+                    }
+                } elseif ($type === 'tabs') {
+                    $titems = is_array($block['items'] ?? null) ? $block['items'] : [];
+                    if (count($titems) < 2) {
+                        $v[] = self::vio('tabs_min', "$bpath.items", 'Tabs need at least two items.');
+                    } elseif (count($titems) > self::MAX_TABS) {
+                        $v[] = self::vio('tabs_too_large', "$bpath.items", 'Tabs has more than ' . self::MAX_TABS . ' items.');
+                        continue;
+                    }
+                    foreach ($titems as $ti => $tit) {
+                        if (!is_array($tit) || trim((string) ($tit['label'] ?? '')) === '' || trim((string) ($tit['body'] ?? '')) === '') {
+                            $v[] = self::vio('tabs_item', "$bpath.items[$ti]", 'Each tab needs a label and body.');
+                        }
+                    }
+                } elseif ($type === 'carousel') {
+                    $citems = is_array($block['items'] ?? null) ? $block['items'] : [];
+                    if (count($citems) === 0) {
+                        $v[] = self::vio('carousel_empty', "$bpath.items", 'Carousel has no slides.');
+                    } elseif (count($citems) > self::MAX_CAROUSEL) {
+                        $v[] = self::vio('carousel_too_large', "$bpath.items", 'Carousel has more than ' . self::MAX_CAROUSEL . ' slides.');
+                        continue;
+                    }
+                    foreach ($citems as $ci => $cit) {
+                        if (!is_array($cit) || trim((string) ($cit['text'] ?? '')) === '') {
+                            $v[] = self::vio('carousel_item', "$bpath.items[$ci]", 'Each carousel slide needs text.');
+                            continue;
+                        }
+                        if (is_array($cit['avatar'] ?? null)) {
+                            $amid = (string) ($cit['avatar']['media'] ?? '');
+                            if ($amid !== '' && !(isset($media[$amid]) && is_array($media[$amid]))) {
+                                $v[] = self::vio('media_unresolved', "$bpath.items[$ci].avatar.media", "Carousel avatar references media '$amid' not in the media map.");
+                            }
+                        }
                     }
                 } elseif ($type === 'form') {
                     if (!preg_match('/^frm_[A-Za-z0-9_\-]{6,40}$/', (string) ($block['formId'] ?? ''))) {

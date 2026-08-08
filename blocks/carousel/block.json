@@ -1,0 +1,22 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/carousel",
+    "version": "0.1.0",
+    "title": "Bynefit Carousel",
+    "category": "text",
+    "icon": "slides",
+    "description": "A testimonial carousel — quotes with attribution and optional avatar, one at a time with previous/next + dots. Without JavaScript all slides show stacked; autoplay honors prefers-reduced-motion.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true,
+        "align": ["wide"]
+    },
+    "attributes": {
+        "items": { "type": "array", "default": [] },
+        "autoplay": { "type": "boolean", "default": false }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}
