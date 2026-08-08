@@ -432,3 +432,73 @@
         transition: none;
     }
 }
+
+.bynefit-section-shell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: var(--bynefit-valign, flex-start);
+    min-height: var(--bynefit-minh, auto);
+    overflow: hidden;
+}
+
+.bynefit-section__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.bynefit-section__bgel {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: var(--bynefit-focal, 50% 50%);
+}
+
+.bynefit-section__scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background-color: var(--bynefit-scrim-color, #0e0d10);
+    opacity: var(--bynefit-scrim-opacity, 0.4);
+}
+
+.bynefit-section-shell > .bynefit-section {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+}
+
+.bynefit-bgvideo-toggle {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 3;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(14, 13, 16, 0.55);
+    color: #fff;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bynefit-bgvideo-toggle[data-state="playing"]::before {
+    content: "\275A\275A";
+    letter-spacing: -2px;
+}
+
+.bynefit-bgvideo-toggle[data-state="paused"]::before {
+    content: "\25BA";
+}
+
+.bynefit-bgvideo-toggle:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}

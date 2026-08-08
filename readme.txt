@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.14.0
+Stable tag:        0.15.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.15.0 =
+* **Added:** Bynefit Sites **hero sections and full-width background video** — a section can now carry a background image or looping video with an overlay scrim, a chosen height, and vertically-centred content, so a full-bleed hero reads edge-to-edge with legible text over the image. Publishing requires the scrim when a background image/video is used, so overlaid text always stays readable.
 
 = 0.14.0 =
 * **Added:** Two more Bynefit Sites building blocks — **Card** (a surface container that stacks inner blocks with background, radius, shadow, and padding from your theme; compose feature cells, pricing tiers, and callout cards from the primitive blocks) and **Logo Cloud** (a row of partner/press logos, contained and never cropped, optionally muted to monochrome until hover). Styled from your theme's tokens and gated by the publish-quality contract.

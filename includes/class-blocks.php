@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
  */
 class Bynli_Connect_Blocks {
 
-    const VERSION = '0.14.0';
+    const VERSION = '0.15.0';
 
     public function __construct() {
         add_action('init', [$this, 'register_blocks']);
@@ -31,6 +31,14 @@ class Bynli_Connect_Blocks {
             plugins_url('assets/blocks.css', BYNLI_CONNECT_PLUGIN_FILE),
             [],
             self::VERSION
+        );
+
+        wp_register_script(
+            'bynefit-blocks',
+            plugins_url('assets/blocks.js', BYNLI_CONNECT_PLUGIN_FILE),
+            [],
+            self::VERSION,
+            true
         );
 
         $dir = BYNLI_CONNECT_PLUGIN_DIR . 'blocks';

@@ -27,6 +27,18 @@
         "bg": {
             "type": "string"
         },
+        "bgMedia": {
+            "type": "object"
+        },
+        "overlay": {
+            "type": "object"
+        },
+        "minHeight": {
+            "type": "string"
+        },
+        "valign": {
+            "type": "string"
+        },
         "places": {
             "type": "array",
             "default": []
