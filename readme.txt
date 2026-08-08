@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.18.0
+Stable tag:        0.19.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.19.0 =
+* **Added:** Bynefit Sites can now set a site's primary navigation menu when it publishes — the pages you publish are linked into the site's menu automatically, in order, with the home page first. Control-plane only; no effect on manually connected sites.
 
 = 0.18.0 =
 * **Added:** Two interactive Bynefit Sites blocks — **Tabs** (accessible tabbed panels, keyboard-operable) and **Carousel** (a testimonial carousel with previous/next and dots; autoplay honors reduced-motion). Both degrade gracefully: with JavaScript off, all the content shows stacked so nothing is hidden.

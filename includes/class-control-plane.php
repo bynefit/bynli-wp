@@ -28,6 +28,8 @@ class Bynli_Connect_Control_Plane {
     const MAX_BODY      = 262144; // 256KB — a design doc is small; cap before any work.
     const SECRET_OPTION = 'bynli_connect_control_plane_secret';
     const PAGE_SLUG_META = '_bynli_site_slug';
+    const NAV_MENU_META  = '_bynli_nav';
+    const MAX_NAV_ITEMS  = 50;
 
     public function __construct() {
         add_action('rest_api_init', [$this, 'register_routes']);
@@ -43,6 +45,12 @@ class Bynli_Connect_Control_Plane {
         register_rest_route(self::NS, '/page', [
             'methods'             => 'POST',
             'callback'            => [$this, 'upsert_page'],
+            'permission_callback' => [$this, 'authorize'],
+        ]);
+
+        register_rest_route(self::NS, '/navigation', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'set_navigation'],
             'permission_callback' => [$this, 'authorize'],
         ]);
     }
@@ -311,6 +319,207 @@ class Bynli_Connect_Control_Plane {
             'page_id' => $post_id,
             'url'     => get_permalink($post_id) ?: '',
         ], 200);
+    }
+
+    /**
+     * set_navigation — write the site's primary navigation as a single managed
+     * wp_navigation post (the block-theme Navigation source). Idempotent: reuses
+     * the one post we own (marked with NAV_MENU_META) so re-publishing updates
+     * the same menu rather than forking a new one. A ref-less core/navigation
+     * block in a block theme resolves to the most-recently-published
+     * wp_navigation post, so the theme picks this menu up without a template-part
+     * edit.
+     *
+     * Each item resolves to a URL: an item carrying a scene-graph `slug` links to
+     * that published page's permalink (so nav stays in sync with pages);
+     * otherwise an explicit http(s) `url` is used. Items with neither a
+     * resolvable slug nor a valid url are dropped.
+     */
+    public function set_navigation(WP_REST_Request $request) {
+        $body = json_decode((string) $request->get_body(), true);
+        if (!is_array($body)) {
+            return new WP_Error('invalid_json', 'Body is not valid JSON.', ['status' => 400]);
+        }
+
+        $items = is_array($body['items'] ?? null) ? $body['items'] : [];
+        if (!$items) {
+            return new WP_Error('empty_navigation', 'Provide navigation items.', ['status' => 422]);
+        }
+        if (count($items) > self::MAX_NAV_ITEMS) {
+            $items = array_slice($items, 0, self::MAX_NAV_ITEMS);
+        }
+
+        $label = sanitize_text_field((string) ($body['label'] ?? 'Primary'));
+        if ($label === '') {
+            $label = 'Primary';
+        }
+
+        $blocks = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $text = sanitize_text_field((string) ($item['label'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+
+            $url  = '';
+            $slug = isset($item['slug']) ? (string) $item['slug'] : '';
+            if ($slug !== '') {
+                $url = self::permalink_for_slug($slug);
+            }
+            if ($url === '' && isset($item['url'])) {
+                $candidate = esc_url_raw((string) $item['url']);
+                if ($candidate !== '' && preg_match('#^https?://#i', $candidate)) {
+                    $url = $candidate;
+                }
+            }
+            if ($url === '') {
+                continue;
+            }
+
+            $blocks[] = [
+                'blockName'    => 'core/navigation-link',
+                'attrs'        => ['label' => $text, 'url' => $url, 'kind' => 'custom', 'type' => 'custom'],
+                'innerBlocks'  => [],
+                'innerHTML'    => '',
+                'innerContent' => [],
+            ];
+        }
+
+        if (!$blocks) {
+            return new WP_Error('no_resolvable_items', 'No navigation items resolved to a URL.', ['status' => 422]);
+        }
+
+        // serialize_blocks() JSON-encodes attributes through the same escaping WP
+        // uses for block delimiters (-->, <, >, &), so the label/url are safe in
+        // the block comment even though they originate off-site.
+        $content = serialize_blocks($blocks);
+
+        // Write into the post the active theme actually renders. If the block
+        // theme's header binds a specific wp_navigation post (a `ref` on its
+        // core/navigation block), update THAT post so the menu is really visible
+        // — otherwise a managed post is an orphan the theme never shows. Only
+        // when the header nav is ref-less do we own a managed post (marked with
+        // NAV_MENU_META); a ref-less navigation block resolves to the
+        // most-recently-published wp_navigation post, so we also keep its date
+        // current to stay selected.
+        $bound_ref = self::header_navigation_ref();
+        $is_bound  = $bound_ref > 0
+            && ($p = get_post($bound_ref)) instanceof WP_Post
+            && $p->post_type === 'wp_navigation';
+
+        $target_id = 0;
+        if ($is_bound) {
+            $target_id = $bound_ref;
+        } else {
+            $existing = get_posts([
+                'post_type'        => 'wp_navigation',
+                'post_status'      => 'any',
+                'numberposts'      => 1,
+                'fields'           => 'ids',
+                'meta_key'         => self::NAV_MENU_META,
+                'meta_value'       => '1',
+                'suppress_filters' => false,
+            ]);
+            $target_id = $existing ? (int) $existing[0] : 0;
+        }
+
+        $postarr = [
+            'post_type'    => 'wp_navigation',
+            'post_status'  => 'publish',
+            'post_content' => wp_slash($content),
+        ];
+        if ($target_id > 0) {
+            $postarr['ID'] = $target_id;
+            // Don't rename a menu the theme owns; only title the managed post.
+            // Keep the managed post most-recent so the ref-less fallback picks it.
+            if (!$is_bound) {
+                $postarr['post_title']    = $label;
+                $postarr['post_date']     = current_time('mysql');
+                $postarr['post_date_gmt'] = current_time('mysql', true);
+            }
+            $nav_id = wp_update_post($postarr, true);
+        } else {
+            $postarr['post_title'] = $label;
+            $nav_id = wp_insert_post($postarr, true);
+        }
+
+        if (is_wp_error($nav_id) || !$nav_id) {
+            $msg = is_wp_error($nav_id) ? $nav_id->get_error_message() : 'unknown';
+            error_log('[Bynli Connect] set_navigation: ' . $msg);
+            return new WP_Error('write_failed', 'Could not persist the navigation.', ['status' => 500]);
+        }
+
+        $nav_id = (int) $nav_id;
+        if (!$is_bound) {
+            update_post_meta($nav_id, self::NAV_MENU_META, '1');
+        }
+
+        return new WP_REST_Response([
+            'ok'            => true,
+            'navigation_id' => $nav_id,
+            'items'         => count($blocks),
+            'bound'         => $is_bound,
+        ], 200);
+    }
+
+    /**
+     * The wp_navigation post id the active block theme's header actually renders
+     * (the `ref` on its header core/navigation block), or 0 if the header nav is
+     * ref-less or there's no block header. Lets set_navigation write into the
+     * post the theme really shows instead of an orphaned managed post.
+     */
+    private static function header_navigation_ref(): int {
+        if (!function_exists('get_block_template') || !function_exists('parse_blocks')) {
+            return 0;
+        }
+        $tpl = get_block_template(get_stylesheet() . '//header', 'wp_template_part');
+        if (!$tpl || empty($tpl->content)) {
+            return 0;
+        }
+        return self::find_navigation_ref(parse_blocks($tpl->content));
+    }
+
+    /** First non-zero core/navigation `ref` in a parsed block tree, else 0. */
+    private static function find_navigation_ref(array $blocks): int {
+        foreach ($blocks as $block) {
+            if (($block['blockName'] ?? '') === 'core/navigation') {
+                $ref = (int) ($block['attrs']['ref'] ?? 0);
+                if ($ref > 0) {
+                    return $ref;
+                }
+            }
+            if (!empty($block['innerBlocks'])) {
+                $nested = self::find_navigation_ref($block['innerBlocks']);
+                if ($nested > 0) {
+                    return $nested;
+                }
+            }
+        }
+        return 0;
+    }
+
+    /** Permalink of the published page carrying this scene-graph slug, or '' if none. */
+    private static function permalink_for_slug(string $sceneSlug): string {
+        if ($sceneSlug === '') {
+            return '';
+        }
+        $ids = get_posts([
+            'post_type'        => 'page',
+            'post_status'      => 'publish',
+            'numberposts'      => 1,
+            'fields'           => 'ids',
+            'meta_key'         => self::PAGE_SLUG_META,
+            'meta_value'       => $sceneSlug,
+            'suppress_filters' => false,
+        ]);
+        if (!$ids) {
+            return '';
+        }
+        $url = get_permalink((int) $ids[0]);
+        return $url ?: '';
     }
 
     private static function unpublishable(array $violations): WP_REST_Response {
