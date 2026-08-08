@@ -397,26 +397,52 @@ class Bynli_Connect_Control_Plane {
         // the block comment even though they originate off-site.
         $content = serialize_blocks($blocks);
 
-        $existing = get_posts([
-            'post_type'        => 'wp_navigation',
-            'post_status'      => 'any',
-            'numberposts'      => 1,
-            'fields'           => 'ids',
-            'meta_key'         => self::NAV_MENU_META,
-            'meta_value'       => '1',
-            'suppress_filters' => false,
-        ]);
+        // Write into the post the active theme actually renders. If the block
+        // theme's header binds a specific wp_navigation post (a `ref` on its
+        // core/navigation block), update THAT post so the menu is really visible
+        // — otherwise a managed post is an orphan the theme never shows. Only
+        // when the header nav is ref-less do we own a managed post (marked with
+        // NAV_MENU_META); a ref-less navigation block resolves to the
+        // most-recently-published wp_navigation post, so we also keep its date
+        // current to stay selected.
+        $bound_ref = self::header_navigation_ref();
+        $is_bound  = $bound_ref > 0
+            && ($p = get_post($bound_ref)) instanceof WP_Post
+            && $p->post_type === 'wp_navigation';
+
+        $target_id = 0;
+        if ($is_bound) {
+            $target_id = $bound_ref;
+        } else {
+            $existing = get_posts([
+                'post_type'        => 'wp_navigation',
+                'post_status'      => 'any',
+                'numberposts'      => 1,
+                'fields'           => 'ids',
+                'meta_key'         => self::NAV_MENU_META,
+                'meta_value'       => '1',
+                'suppress_filters' => false,
+            ]);
+            $target_id = $existing ? (int) $existing[0] : 0;
+        }
 
         $postarr = [
             'post_type'    => 'wp_navigation',
             'post_status'  => 'publish',
-            'post_title'   => $label,
             'post_content' => wp_slash($content),
         ];
-        if (!empty($existing)) {
-            $postarr['ID'] = (int) $existing[0];
+        if ($target_id > 0) {
+            $postarr['ID'] = $target_id;
+            // Don't rename a menu the theme owns; only title the managed post.
+            // Keep the managed post most-recent so the ref-less fallback picks it.
+            if (!$is_bound) {
+                $postarr['post_title']    = $label;
+                $postarr['post_date']     = current_time('mysql');
+                $postarr['post_date_gmt'] = current_time('mysql', true);
+            }
             $nav_id = wp_update_post($postarr, true);
         } else {
+            $postarr['post_title'] = $label;
             $nav_id = wp_insert_post($postarr, true);
         }
 
@@ -427,9 +453,52 @@ class Bynli_Connect_Control_Plane {
         }
 
         $nav_id = (int) $nav_id;
-        update_post_meta($nav_id, self::NAV_MENU_META, '1');
+        if (!$is_bound) {
+            update_post_meta($nav_id, self::NAV_MENU_META, '1');
+        }
 
-        return new WP_REST_Response(['ok' => true, 'navigation_id' => $nav_id, 'items' => count($blocks)], 200);
+        return new WP_REST_Response([
+            'ok'            => true,
+            'navigation_id' => $nav_id,
+            'items'         => count($blocks),
+            'bound'         => $is_bound,
+        ], 200);
+    }
+
+    /**
+     * The wp_navigation post id the active block theme's header actually renders
+     * (the `ref` on its header core/navigation block), or 0 if the header nav is
+     * ref-less or there's no block header. Lets set_navigation write into the
+     * post the theme really shows instead of an orphaned managed post.
+     */
+    private static function header_navigation_ref(): int {
+        if (!function_exists('get_block_template') || !function_exists('parse_blocks')) {
+            return 0;
+        }
+        $tpl = get_block_template(get_stylesheet() . '//header', 'wp_template_part');
+        if (!$tpl || empty($tpl->content)) {
+            return 0;
+        }
+        return self::find_navigation_ref(parse_blocks($tpl->content));
+    }
+
+    /** First non-zero core/navigation `ref` in a parsed block tree, else 0. */
+    private static function find_navigation_ref(array $blocks): int {
+        foreach ($blocks as $block) {
+            if (($block['blockName'] ?? '') === 'core/navigation') {
+                $ref = (int) ($block['attrs']['ref'] ?? 0);
+                if ($ref > 0) {
+                    return $ref;
+                }
+            }
+            if (!empty($block['innerBlocks'])) {
+                $nested = self::find_navigation_ref($block['innerBlocks']);
+                if ($nested > 0) {
+                    return $nested;
+                }
+            }
+        }
+        return 0;
     }
 
     /** Permalink of the published page carrying this scene-graph slug, or '' if none. */
