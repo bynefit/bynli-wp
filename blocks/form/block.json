@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/form",
+    "version": "0.1.0",
+    "title": "Bynefit Form",
+    "category": "embed",
+    "icon": "feedback",
+    "description": "Embeds a form built in the Bynli form builder, by id. The form renders and submits securely to Bynli — no submission data touches this site — inside a token-styled card.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true
+    },
+    "attributes": {
+        "formId": { "type": "string", "default": "" },
+        "style": { "type": "string", "default": "default" },
+        "success": { "type": "string", "default": "" },
+        "successMode": { "type": "string", "default": "" },
+        "card": { "type": "boolean", "default": true }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}
