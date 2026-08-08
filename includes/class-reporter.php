@@ -71,17 +71,27 @@ class Bynli_Connect_Reporter {
             $out['users_total'] = (int)($users['total_users'] ?? 0);
             $out['admins']      = (int)($users['avail_roles']['administrator'] ?? 0);
 
-            // Available updates — reads cached update_* transients only (WP's own
-            // refresh cadence); never force wp_update_plugins() here (network cost).
-            if (!function_exists('wp_get_update_data')) {
-                require_once ABSPATH . 'wp-admin/includes/update.php';
+            // Available updates — read the cached update_* transients DIRECTLY.
+            // wp_get_update_data() gates its counts behind current_user_can(), so in
+            // WP-Cron context (no logged-in user) it returns 0 for everything; the
+            // transients carry the real pending-update set with no capability gate
+            // and no network refresh.
+            $plugin_t = get_site_transient('update_plugins');
+            $theme_t  = get_site_transient('update_themes');
+            $core_t   = get_site_transient('update_core');
+            $plugins_n = ($plugin_t && !empty($plugin_t->response) && is_array($plugin_t->response)) ? count($plugin_t->response) : 0;
+            $themes_n  = ($theme_t  && !empty($theme_t->response)  && is_array($theme_t->response))  ? count($theme_t->response)  : 0;
+            $core_n = 0;
+            if ($core_t && !empty($core_t->updates) && is_array($core_t->updates)) {
+                foreach ($core_t->updates as $u) {
+                    if (isset($u->response) && $u->response === 'upgrade') { $core_n++; }
+                }
             }
-            $counts = function_exists('wp_get_update_data') ? (wp_get_update_data()['counts'] ?? []) : [];
             $out['updates'] = [
-                'core'    => (int)($counts['wordpress'] ?? 0),
-                'plugins' => (int)($counts['plugins'] ?? 0),
-                'themes'  => (int)($counts['themes'] ?? 0),
-                'total'   => (int)($counts['total'] ?? 0),
+                'core'    => $core_n,
+                'plugins' => $plugins_n,
+                'themes'  => $themes_n,
+                'total'   => $core_n + $plugins_n + $themes_n,
             ];
 
             $theme = wp_get_theme();
