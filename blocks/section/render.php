@@ -106,9 +106,6 @@ if ($bg_media !== null) {
 
         if (($bg_media['kind'] ?? 'image') === 'video') {
             $poster = isset($bg_media['poster']) ? esc_url((string) $bg_media['poster']) : '';
-            // No `autoplay` attribute: assets/blocks.js starts playback only when
-            // the visitor hasn't asked for reduced motion, and adds a pause control
-            // (WCAG 2.2.2). Without JS the poster shows — a static, safe fallback.
             $el = '<video class="bynefit-section__bgel" src="' . $url . '"'
                 . ($poster !== '' ? ' poster="' . $poster . '"' : '')
                 . ' muted loop playsinline preload="metadata" data-bynefit-bgvideo aria-hidden="true"></video>';
