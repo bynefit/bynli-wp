@@ -43,7 +43,7 @@ if ($pad_lg !== null) {
 }
 
 $bg = Bynli_Connect_Blocks::token('color', $attributes['bg'] ?? null);
-if ($bg !== null) {
+if ($bg !== null && empty($attributes['bgMedia'])) {
     $vars['--bynefit-bg'] = $bg;
 }
 
@@ -79,7 +79,7 @@ $minh      = isset($minh_map[$attributes['minHeight'] ?? '']) ? $minh_map[$attri
 $valign_map = ['top' => 'flex-start', 'center' => 'center', 'bottom' => 'flex-end'];
 $valign     = $valign_map[$attributes['valign'] ?? ''] ?? '';
 
-$framed = $bg_media !== null || $overlay !== null || $minh !== '';
+$framed = $bg_media !== null || $overlay !== null || $minh !== '' || $valign !== '';
 
 if (!$framed) {
     $wrapper = get_block_wrapper_attributes(['class' => 'bynefit-section', 'style' => $grid_style]);
@@ -106,9 +106,13 @@ if ($bg_media !== null) {
 
         if (($bg_media['kind'] ?? 'image') === 'video') {
             $poster = isset($bg_media['poster']) ? esc_url((string) $bg_media['poster']) : '';
+            // No `autoplay` attribute: assets/blocks.js starts playback only when
+            // the visitor hasn't asked for reduced motion, and adds a pause control
+            // (WCAG 2.2.2). Without JS the poster shows — a static, safe fallback.
             $el = '<video class="bynefit-section__bgel" src="' . $url . '"'
                 . ($poster !== '' ? ' poster="' . $poster . '"' : '')
-                . ' autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>';
+                . ' muted loop playsinline preload="metadata" data-bynefit-bgvideo aria-hidden="true"></video>';
+            wp_enqueue_script('bynefit-blocks');
         } else {
             $w = (isset($bg_media['width']) && is_numeric($bg_media['width'])) ? (int) $bg_media['width'] : 0;
             $h = (isset($bg_media['height']) && is_numeric($bg_media['height'])) ? (int) $bg_media['height'] : 0;

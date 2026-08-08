@@ -468,3 +468,37 @@
     z-index: 2;
     width: 100%;
 }
+
+.bynefit-bgvideo-toggle {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 3;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(14, 13, 16, 0.55);
+    color: #fff;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bynefit-bgvideo-toggle[data-state="playing"]::before {
+    content: "\275A\275A";
+    letter-spacing: -2px;
+}
+
+.bynefit-bgvideo-toggle[data-state="paused"]::before {
+    content: "\25BA";
+}
+
+.bynefit-bgvideo-toggle:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}

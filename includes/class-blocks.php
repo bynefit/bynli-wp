@@ -33,6 +33,14 @@ class Bynli_Connect_Blocks {
             self::VERSION
         );
 
+        wp_register_script(
+            'bynefit-blocks',
+            plugins_url('assets/blocks.js', BYNLI_CONNECT_PLUGIN_FILE),
+            [],
+            self::VERSION,
+            true
+        );
+
         $dir = BYNLI_CONNECT_PLUGIN_DIR . 'blocks';
         foreach (['section', 'media', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos'] as $name) {
             $path = "$dir/$name";

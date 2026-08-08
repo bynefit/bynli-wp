@@ -29,6 +29,7 @@ class Bynli_Connect_Emitter {
         if ($name === '' || !preg_match('/^[A-Za-z0-9\-]+$/', $name)) {
             return null;
         }
+        $name = strtolower($name);
         switch ($group) {
             case 'color':
                 return $ns === 'color' ? $name : null;

@@ -93,7 +93,8 @@ class Bynli_Connect_Publish_Contract {
                     if ($burl === '' || !self::href_ok($burl)) {
                         $v[] = self::vio('media_bad_url', "$spath.bgMedia", 'Section background URL is missing or not http(s)/relative.');
                     }
-                    if (($bdesc['kind'] ?? 'image') !== 'video' && ((int) ($bdesc['width'] ?? 0) <= 0 || (int) ($bdesc['height'] ?? 0) <= 0)) {
+                    $bkind = $section['bgMedia']['kind'] ?? ($bdesc['kind'] ?? 'image');
+                    if ($bkind !== 'video' && ((int) ($bdesc['width'] ?? 0) <= 0 || (int) ($bdesc['height'] ?? 0) <= 0)) {
                         $v[] = self::vio('media_no_dimensions', "$spath.bgMedia", 'Section background image needs explicit width and height (CLS).');
                     }
                 }
