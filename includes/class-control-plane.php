@@ -7,20 +7,18 @@ if (!defined('ABSPATH')) {
  * Bynli_Connect_Control_Plane — the bynli/v1 REST namespace.
  *
  * The authenticated control plane bynli.com drives to build/update this site
- * without ever touching raw WP or the owner's login. Every route carries
- * DUAL auth (Glaze's design, Terry 2026-08-05):
+ * without ever touching raw WP or the owner's login.
  *
- *   1. Transport authN — a WordPress Application Password authenticates the
- *      request as a capable service user (WP core sets the current user from
- *      Basic auth). We require the theme-editing capability.
- *   2. Integrity + replay — an HMAC bridge over a DEDICATED per-site
- *      control-plane secret (NOT the site-host key), same scheme as the
- *      server verifier: sig = sha256(hmac(secret, ts + "\n" + rawBody)),
- *      timestamps outside a 300s window rejected, constant-time compare.
- *
- * BOTH must pass. The secret is provisioned server-side and baked as the
- * BYNLI_CONTROL_PLANE_SECRET constant (like BYNLI_CONNECT_KEY); until it
- * exists the namespace is fail-closed — every route rejects.
+ * Auth is HMAC-authoritative: an HMAC over a DEDICATED per-site control-plane
+ * secret (NOT the site-host key) — sig = sha256(hmac(secret, ts + "\n" +
+ * rawBody)), timestamps outside a 300s window rejected, constant-time compare.
+ * The secret is baked into THIS install's mu-plugin loader as
+ * BYNLI_CONTROL_PLANE_SECRET and held only by bynli.com, so a valid signature
+ * proves the caller is bynli.com. On a valid signature the request acts as the
+ * site administrator (unless an optional Application Password already
+ * established a capable identity) so theme/page writes have the capability they
+ * need. Until the secret is provisioned the namespace is fail-closed — every
+ * route rejects. An unsigned request is never authorized.
  */
 class Bynli_Connect_Control_Plane {
 
@@ -90,15 +88,39 @@ class Bynli_Connect_Control_Plane {
             return $unauthorized;
         }
 
-        // Transport authN: the request must be authenticated (Application
-        // Password) as a user with theme-editing capability. Never accept an
-        // anonymous or under-privileged caller even if the HMAC is valid.
+        // The HMAC over the dedicated per-site secret authenticates bynli.com as
+        // the caller: the secret is baked only into THIS install's mu-plugin
+        // loader and held only by bynli.com, so a valid signature is proof of
+        // origin. If a request already carries a capable identity (an optional
+        // Application Password), keep it; otherwise act as the site's
+        // administrator so the theme/page writes have the required capability.
+        // The signature is the gate — never authorize an unsigned request.
         if (!is_user_logged_in() || !current_user_can(self::CAP)) {
+            $service = self::service_user_id();
+            if ($service <= 0) {
+                self::log_reject('no_service_user');
+                return new WP_Error('no_service_user', 'No capable user available.', ['status' => 500]);
+            }
+            wp_set_current_user($service);
+        }
+        if (!current_user_can(self::CAP)) {
             self::log_reject('capability');
             return new WP_Error('forbidden', 'Insufficient capability.', ['status' => 403]);
         }
 
         return true;
+    }
+
+    /** Lowest-id administrator to act as after a valid control-plane signature. */
+    private static function service_user_id(): int {
+        $admins = get_users([
+            'role'    => 'administrator',
+            'number'  => 1,
+            'orderby' => 'ID',
+            'order'   => 'ASC',
+            'fields'  => 'ID',
+        ]);
+        return $admins ? (int) $admins[0] : 0;
     }
 
     /** Record an auth rejection (coarse reason only — never ts/sig/secret). */

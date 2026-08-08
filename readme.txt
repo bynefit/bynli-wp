@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.16.0
+Stable tag:        0.17.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.17.0 =
+* **Changed (internal):** The Bynefit Sites control-plane endpoints now authorize on the signed-request integrity check alone (a per-site secret only Bynefit holds), acting as the site administrator to make the requested change. No effect on manually connected sites — the control plane stays inert until Bynefit provisions the secret, and an unsigned request is still refused.
 
 = 0.16.0 =
 * **Added:** Two data-driven Bynefit Sites blocks — **Form** (embeds a form you built in the Bynli form builder by id, inside a clean token-styled card; the form renders and submits securely to Bynli, so no submission data touches this site) and **Events** (shows a team's upcoming or past Bynli events live). Both hydrate from Bynli at page load and only load the runtime on pages that use them.
