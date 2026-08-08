@@ -30,7 +30,7 @@ $success_mode = in_array($attributes['successMode'] ?? '', ['toast', 'replace', 
 
 Bynli_Connect_Shortcodes::require_loader();
 
-$embed  = '<div data-bynli="form" data-form-id="' . esc_attr($form_id) . '"';
+$embed  = '<div class="bynefit-form__embed" data-bynli="form" data-form-id="' . esc_attr($form_id) . '"';
 $embed .= ' data-form-style="' . esc_attr($style) . '"';
 if ($success !== '') {
     $embed .= ' data-form-success="' . esc_attr($success) . '"';
@@ -39,6 +39,7 @@ if ($success_mode !== '') {
     $embed .= ' data-form-success-mode="' . esc_attr($success_mode) . '"';
 }
 $embed .= '></div>';
+$embed .= '<noscript><span class="bynefit-form__noscript">' . esc_html__('This form needs JavaScript to load.', 'bynli-connect') . '</span></noscript>';
 
 $card    = !isset($attributes['card']) || !empty($attributes['card']);
 $wrapper = get_block_wrapper_attributes([
