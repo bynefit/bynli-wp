@@ -85,6 +85,7 @@
         var autoplay = motionOk && root.getAttribute('data-autoplay') === '1';
         var idx = 0, timer = null, userPaused = false;
         root.classList.add('is-enhanced');
+        if (toggle && !autoplay) { toggle.hidden = true; }
 
         function show(n) {
             idx = (n + slides.length) % slides.length;
