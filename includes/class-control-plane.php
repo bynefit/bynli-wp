@@ -28,6 +28,8 @@ class Bynli_Connect_Control_Plane {
     const MAX_BODY      = 262144; // 256KB — a design doc is small; cap before any work.
     const SECRET_OPTION = 'bynli_connect_control_plane_secret';
     const PAGE_SLUG_META = '_bynli_site_slug';
+    const NAV_MENU_META  = '_bynli_nav';
+    const MAX_NAV_ITEMS  = 50;
 
     public function __construct() {
         add_action('rest_api_init', [$this, 'register_routes']);
@@ -43,6 +45,12 @@ class Bynli_Connect_Control_Plane {
         register_rest_route(self::NS, '/page', [
             'methods'             => 'POST',
             'callback'            => [$this, 'upsert_page'],
+            'permission_callback' => [$this, 'authorize'],
+        ]);
+
+        register_rest_route(self::NS, '/navigation', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'set_navigation'],
             'permission_callback' => [$this, 'authorize'],
         ]);
     }
@@ -311,6 +319,138 @@ class Bynli_Connect_Control_Plane {
             'page_id' => $post_id,
             'url'     => get_permalink($post_id) ?: '',
         ], 200);
+    }
+
+    /**
+     * set_navigation — write the site's primary navigation as a single managed
+     * wp_navigation post (the block-theme Navigation source). Idempotent: reuses
+     * the one post we own (marked with NAV_MENU_META) so re-publishing updates
+     * the same menu rather than forking a new one. A ref-less core/navigation
+     * block in a block theme resolves to the most-recently-published
+     * wp_navigation post, so the theme picks this menu up without a template-part
+     * edit.
+     *
+     * Each item resolves to a URL: an item carrying a scene-graph `slug` links to
+     * that published page's permalink (so nav stays in sync with pages);
+     * otherwise an explicit http(s) `url` is used. Items with neither a
+     * resolvable slug nor a valid url are dropped.
+     */
+    public function set_navigation(WP_REST_Request $request) {
+        $body = json_decode((string) $request->get_body(), true);
+        if (!is_array($body)) {
+            return new WP_Error('invalid_json', 'Body is not valid JSON.', ['status' => 400]);
+        }
+
+        $items = is_array($body['items'] ?? null) ? $body['items'] : [];
+        if (!$items) {
+            return new WP_Error('empty_navigation', 'Provide navigation items.', ['status' => 422]);
+        }
+        if (count($items) > self::MAX_NAV_ITEMS) {
+            $items = array_slice($items, 0, self::MAX_NAV_ITEMS);
+        }
+
+        $label = sanitize_text_field((string) ($body['label'] ?? 'Primary'));
+        if ($label === '') {
+            $label = 'Primary';
+        }
+
+        $blocks = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $text = sanitize_text_field((string) ($item['label'] ?? ''));
+            if ($text === '') {
+                continue;
+            }
+
+            $url  = '';
+            $slug = isset($item['slug']) ? (string) $item['slug'] : '';
+            if ($slug !== '') {
+                $url = self::permalink_for_slug($slug);
+            }
+            if ($url === '' && isset($item['url'])) {
+                $candidate = esc_url_raw((string) $item['url']);
+                if ($candidate !== '' && preg_match('#^https?://#i', $candidate)) {
+                    $url = $candidate;
+                }
+            }
+            if ($url === '') {
+                continue;
+            }
+
+            $blocks[] = [
+                'blockName'    => 'core/navigation-link',
+                'attrs'        => ['label' => $text, 'url' => $url, 'kind' => 'custom', 'type' => 'custom'],
+                'innerBlocks'  => [],
+                'innerHTML'    => '',
+                'innerContent' => [],
+            ];
+        }
+
+        if (!$blocks) {
+            return new WP_Error('no_resolvable_items', 'No navigation items resolved to a URL.', ['status' => 422]);
+        }
+
+        // serialize_blocks() JSON-encodes attributes through the same escaping WP
+        // uses for block delimiters (-->, <, >, &), so the label/url are safe in
+        // the block comment even though they originate off-site.
+        $content = serialize_blocks($blocks);
+
+        $existing = get_posts([
+            'post_type'        => 'wp_navigation',
+            'post_status'      => 'any',
+            'numberposts'      => 1,
+            'fields'           => 'ids',
+            'meta_key'         => self::NAV_MENU_META,
+            'meta_value'       => '1',
+            'suppress_filters' => false,
+        ]);
+
+        $postarr = [
+            'post_type'    => 'wp_navigation',
+            'post_status'  => 'publish',
+            'post_title'   => $label,
+            'post_content' => wp_slash($content),
+        ];
+        if (!empty($existing)) {
+            $postarr['ID'] = (int) $existing[0];
+            $nav_id = wp_update_post($postarr, true);
+        } else {
+            $nav_id = wp_insert_post($postarr, true);
+        }
+
+        if (is_wp_error($nav_id) || !$nav_id) {
+            $msg = is_wp_error($nav_id) ? $nav_id->get_error_message() : 'unknown';
+            error_log('[Bynli Connect] set_navigation: ' . $msg);
+            return new WP_Error('write_failed', 'Could not persist the navigation.', ['status' => 500]);
+        }
+
+        $nav_id = (int) $nav_id;
+        update_post_meta($nav_id, self::NAV_MENU_META, '1');
+
+        return new WP_REST_Response(['ok' => true, 'navigation_id' => $nav_id, 'items' => count($blocks)], 200);
+    }
+
+    /** Permalink of the published page carrying this scene-graph slug, or '' if none. */
+    private static function permalink_for_slug(string $sceneSlug): string {
+        if ($sceneSlug === '') {
+            return '';
+        }
+        $ids = get_posts([
+            'post_type'        => 'page',
+            'post_status'      => 'publish',
+            'numberposts'      => 1,
+            'fields'           => 'ids',
+            'meta_key'         => self::PAGE_SLUG_META,
+            'meta_value'       => $sceneSlug,
+            'suppress_filters' => false,
+        ]);
+        if (!$ids) {
+            return '';
+        }
+        $url = get_permalink((int) $ids[0]);
+        return $url ?: '';
     }
 
     private static function unpublishable(array $violations): WP_REST_Response {
