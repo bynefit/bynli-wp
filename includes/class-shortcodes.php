@@ -65,6 +65,11 @@ class Bynli_Connect_Shortcodes {
         self::$loader_needed = true;
     }
 
+    /** Public entry so the Bynefit Sites blocks can request the hydration loader. */
+    public static function require_loader(): void {
+        self::$loader_needed = true;
+    }
+
     // ── Form ────────────────────────────────────────────────────────
     public function render_form($atts = []): string {
         $a = shortcode_atts([

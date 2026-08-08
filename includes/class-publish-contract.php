@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
  */
 class Bynli_Connect_Publish_Contract {
 
-    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos'];
+    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos', 'form', 'events'];
 
     const CONTAINER_BLOCKS = ['section', 'card'];
 
@@ -363,6 +363,29 @@ class Bynli_Connect_Publish_Contract {
                     }
                     if (trim((string) ($block['title'] ?? '')) === '' && trim((string) ($block['text'] ?? '')) === '') {
                         $v[] = self::vio('callout_empty', $bpath, 'Callout needs a title or text.');
+                    }
+                } elseif ($type === 'form') {
+                    if (!preg_match('/^frm_[A-Za-z0-9_\-]{6,40}$/', (string) ($block['formId'] ?? ''))) {
+                        $v[] = self::vio('form_id', "$bpath.formId", 'Form needs a valid Bynli form id (frm_…).');
+                    }
+                    if (isset($block['style']) && !in_array((string) $block['style'], ['default', 'bootstrap', 'bare'], true)) {
+                        $v[] = self::vio('form_style', "$bpath.style", 'Form style must be default, bootstrap, or bare.');
+                    }
+                    if (isset($block['successMode']) && !in_array((string) $block['successMode'], ['toast', 'replace', 'hide'], true)) {
+                        $v[] = self::vio('form_success_mode', "$bpath.successMode", 'Form success mode must be toast, replace, or hide.');
+                    }
+                } elseif ($type === 'events') {
+                    if (!preg_match('/^[a-z0-9\-]{3,100}$/', strtolower((string) ($block['team'] ?? '')))) {
+                        $v[] = self::vio('events_team', "$bpath.team", 'Events needs a valid team slug.');
+                    }
+                    if (isset($block['style']) && !in_array((string) $block['style'], ['cards', 'list', 'bare'], true)) {
+                        $v[] = self::vio('events_style', "$bpath.style", 'Events style must be cards, list, or bare.');
+                    }
+                    if (isset($block['scope']) && !in_array((string) $block['scope'], ['upcoming', 'past'], true)) {
+                        $v[] = self::vio('events_scope', "$bpath.scope", 'Events scope must be upcoming or past.');
+                    }
+                    if (isset($block['limit']) && (!is_numeric($block['limit']) || $block['limit'] < 1 || $block['limit'] > 50)) {
+                        $v[] = self::vio('events_limit', "$bpath.limit", 'Events limit must be 1–50.');
                     }
                 } elseif ($type === 'card') {
                     self::check_token_ref($v, "$bpath.padding", $block['padding'] ?? null, 'space', $vocab, false);

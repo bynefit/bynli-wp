@@ -502,3 +502,10 @@
     outline: 2px solid #fff;
     outline-offset: 2px;
 }
+
+.bynefit-form--card {
+    background-color: var(--wp--preset--color--surface-2);
+    border-radius: var(--wp--custom--radius--lg, 24px);
+    padding: var(--wp--preset--spacing--60, 2rem);
+    box-shadow: var(--wp--preset--shadow--card);
+}

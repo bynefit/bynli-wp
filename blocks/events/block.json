@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/events",
+    "version": "0.1.0",
+    "title": "Bynefit Events",
+    "category": "embed",
+    "icon": "calendar-alt",
+    "description": "Shows a team's upcoming (or past) Bynli events, rendered live from Bynli at page load. Cards, list, or bare layouts.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true,
+        "align": ["wide"]
+    },
+    "attributes": {
+        "team": { "type": "string", "default": "" },
+        "style": { "type": "string", "default": "cards" },
+        "scope": { "type": "string", "default": "upcoming" },
+        "limit": { "type": "number", "default": 5 }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}

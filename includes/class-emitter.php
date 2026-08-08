@@ -190,6 +190,10 @@ class Bynli_Connect_Emitter {
                 return self::emit_card($block, $media);
             case 'logos':
                 return self::emit_logos($block, $media);
+            case 'form':
+                return self::emit_form($block);
+            case 'events':
+                return self::emit_events($block);
             default:
                 return null;
         }
@@ -633,6 +637,48 @@ class Bynli_Connect_Emitter {
         }
 
         return self::wrap('bynefit/logos', $attrs, null);
+    }
+
+    private static function emit_form(array $block): ?string {
+        $fid = (string) ($block['formId'] ?? '');
+        if (!preg_match('/^frm_[A-Za-z0-9_\-]{6,40}$/', $fid)) {
+            return null;
+        }
+        $attrs = ['formId' => $fid];
+        if (in_array($block['style'] ?? '', ['default', 'bootstrap', 'bare'], true)) {
+            $attrs['style'] = $block['style'];
+        }
+        $success = (string) ($block['success'] ?? '');
+        if ($success !== '') {
+            $attrs['success'] = $success;
+        }
+        if (in_array($block['successMode'] ?? '', ['toast', 'replace', 'hide'], true)) {
+            $attrs['successMode'] = $block['successMode'];
+        }
+        if (array_key_exists('card', $block)) {
+            $attrs['card'] = (bool) $block['card'];
+        }
+
+        return self::wrap('bynefit/form', $attrs, null);
+    }
+
+    private static function emit_events(array $block): ?string {
+        $team = strtolower((string) ($block['team'] ?? ''));
+        if (!preg_match('/^[a-z0-9\-]{3,100}$/', $team)) {
+            return null;
+        }
+        $attrs = ['team' => $team];
+        if (in_array($block['style'] ?? '', ['cards', 'list', 'bare'], true)) {
+            $attrs['style'] = $block['style'];
+        }
+        if (in_array($block['scope'] ?? '', ['upcoming', 'past'], true)) {
+            $attrs['scope'] = $block['scope'];
+        }
+        if (isset($block['limit']) && is_numeric($block['limit'])) {
+            $attrs['limit'] = max(1, min(50, (int) $block['limit']));
+        }
+
+        return self::wrap('bynefit/events', $attrs, null);
     }
 
     /**
