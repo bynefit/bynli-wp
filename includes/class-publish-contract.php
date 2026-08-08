@@ -83,6 +83,39 @@ class Bynli_Connect_Publish_Contract {
                 self::check_token_ref($v, "$spath.padding.$bp", self::deep($section, ['padding', $bp]), 'space', $vocab, false);
             }
 
+            if (is_array($section['bgMedia'] ?? null)) {
+                $bmid  = (string) ($section['bgMedia']['media'] ?? '');
+                $bdesc = $bmid !== '' && isset($media[$bmid]) && is_array($media[$bmid]) ? $media[$bmid] : null;
+                if ($bdesc === null) {
+                    $v[] = self::vio('media_unresolved', "$spath.bgMedia", "Section background references media '$bmid' not in the media map.");
+                } else {
+                    $burl = trim((string) ($bdesc['url'] ?? ''));
+                    if ($burl === '' || !self::href_ok($burl)) {
+                        $v[] = self::vio('media_bad_url', "$spath.bgMedia", 'Section background URL is missing or not http(s)/relative.');
+                    }
+                    if (($bdesc['kind'] ?? 'image') !== 'video' && ((int) ($bdesc['width'] ?? 0) <= 0 || (int) ($bdesc['height'] ?? 0) <= 0)) {
+                        $v[] = self::vio('media_no_dimensions', "$spath.bgMedia", 'Section background image needs explicit width and height (CLS).');
+                    }
+                }
+                // Text over a background image/video needs a scrim to stay legible.
+                if (!is_array($section['overlay'] ?? null)) {
+                    $v[] = self::vio('bg_needs_overlay', "$spath.overlay", 'A section with a background image/video needs an overlay scrim so overlaid text stays legible.');
+                }
+            }
+            if (is_array($section['overlay'] ?? null)) {
+                self::check_token_ref($v, "$spath.overlay.color", $section['overlay']['color'] ?? null, 'color', $vocab, false);
+                $oop = $section['overlay']['opacity'] ?? null;
+                if ($oop !== null && (!is_numeric($oop) || $oop < 0 || $oop > 100)) {
+                    $v[] = self::vio('overlay_opacity', "$spath.overlay.opacity", 'Overlay opacity must be 0–100.');
+                }
+            }
+            if (isset($section['minHeight']) && !in_array((string) $section['minHeight'], ['short', 'medium', 'tall', 'full'], true)) {
+                $v[] = self::vio('section_minheight', "$spath.minHeight", 'Section minHeight must be short, medium, tall, or full.');
+            }
+            if (isset($section['valign']) && !in_array((string) $section['valign'], ['top', 'center', 'bottom'], true)) {
+                $v[] = self::vio('section_valign', "$spath.valign", 'Section valign must be top, center, or bottom.');
+            }
+
             $blocks = is_array($section['blocks'] ?? null) ? $section['blocks'] : [];
             if (count($blocks) > self::MAX_BLOCKS_SECTION) {
                 $v[] = self::vio('section_too_large', "$spath.blocks", 'Section has more than ' . self::MAX_BLOCKS_SECTION . ' blocks.');

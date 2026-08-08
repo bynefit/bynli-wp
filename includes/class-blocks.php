@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
  */
 class Bynli_Connect_Blocks {
 
-    const VERSION = '0.14.0';
+    const VERSION = '0.15.0';
 
     public function __construct() {
         add_action('init', [$this, 'register_blocks']);

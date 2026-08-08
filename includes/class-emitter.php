@@ -96,6 +96,40 @@ class Bynli_Connect_Emitter {
             $attrs['bg'] = $bg;
         }
 
+        if (is_array($section['bgMedia'] ?? null)) {
+            $bgm = self::media_entry($section['bgMedia'], $media);
+            if ($bgm !== null) {
+                $bgm['kind'] = (($section['bgMedia']['kind'] ?? ($media[$section['bgMedia']['media'] ?? '']['kind'] ?? 'image')) === 'video') ? 'video' : 'image';
+                $poster = $media[$section['bgMedia']['media'] ?? '']['poster'] ?? null;
+                if ($bgm['kind'] === 'video' && $poster) {
+                    $bgm['poster'] = esc_url_raw((string) $poster);
+                }
+                unset($bgm['alt']);
+                $attrs['bgMedia'] = $bgm;
+            }
+        }
+
+        if (is_array($section['overlay'] ?? null)) {
+            $ov = [];
+            $oc = self::resolve_token('color', $section['overlay']['color'] ?? null);
+            if ($oc !== null) {
+                $ov['color'] = $oc;
+            }
+            if (isset($section['overlay']['opacity']) && is_numeric($section['overlay']['opacity'])) {
+                $ov['opacity'] = min(100, max(0, (int) $section['overlay']['opacity']));
+            }
+            if ($ov) {
+                $attrs['overlay'] = $ov;
+            }
+        }
+
+        if (in_array($section['minHeight'] ?? '', ['short', 'medium', 'tall', 'full'], true)) {
+            $attrs['minHeight'] = $section['minHeight'];
+        }
+        if (in_array($section['valign'] ?? '', ['top', 'center', 'bottom'], true)) {
+            $attrs['valign'] = $section['valign'];
+        }
+
         $blocks = is_array($section['blocks'] ?? null) ? $section['blocks'] : [];
         $inner = '';
         $places = [];
