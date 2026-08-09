@@ -92,16 +92,24 @@ class Bynli_Connect_Blocks {
      * place map. Only the phone (sm) breakpoint is required; lg falls back to
      * sm in CSS. Kept on the class so render.php can't redeclare it when a page
      * holds more than one section.
+     *
+     * $cols carries the section's real per-breakpoint track counts (#51): col
+     * and colSpan are clamped against them so a span wider than the section
+     * can't overflow into implicit tracks. Defaults keep legacy callers on the
+     * old 1..12 behavior.
      */
-    public static function cell_vars(array $place): string {
+    public static function cell_vars(array $place, array $cols = ['sm' => 12, 'lg' => 12]): string {
         $out = [];
         foreach (['sm', 'lg'] as $bp) {
             $p = isset($place[$bp]) && is_array($place[$bp]) ? $place[$bp] : null;
             if ($p === null) {
                 continue;
             }
-            $out["--bynefit-col-$bp"]     = (string) self::grid_int($p['col'] ?? null, 1, 12, 1);
-            $out["--bynefit-colspan-$bp"] = (string) self::grid_int($p['colSpan'] ?? null, 1, 12, ($bp === 'sm' ? 4 : 12));
+            $track_max = self::grid_int($cols[$bp] ?? null, 1, 12, 12);
+            $col       = self::grid_int($p['col'] ?? null, 1, $track_max, 1);
+            $span_max  = max(1, $track_max - $col + 1);
+            $out["--bynefit-col-$bp"]     = (string) $col;
+            $out["--bynefit-colspan-$bp"] = (string) self::grid_int($p['colSpan'] ?? null, 1, $span_max, min(($bp === 'sm' ? 4 : 12), $span_max));
             $out["--bynefit-row-$bp"]     = (string) self::grid_int($p['row'] ?? null, 1, 999, 1);
             $out["--bynefit-rowspan-$bp"] = (string) self::grid_int($p['rowSpan'] ?? null, 1, 999, 1);
             if (isset($p['order']) && is_numeric($p['order'])) {

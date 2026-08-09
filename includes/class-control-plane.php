@@ -31,8 +31,36 @@ class Bynli_Connect_Control_Plane {
     const NAV_MENU_META  = '_bynli_nav';
     const MAX_NAV_ITEMS  = 50;
 
+    const RL_WINDOW = 300; // seconds
+    const RL_MAX    = 240; // requests per window per IP — generous for a full multi-page publish
+
     public function __construct() {
         add_action('rest_api_init', [$this, 'register_routes']);
+        // #63 regression tripwire — the control-plane secret must never become a
+        // registered setting (settings UI / REST exposure = admin-level takeover).
+        add_action('admin_init',    [$this, 'guard_secret_option'], 999);
+        add_action('rest_api_init', [$this, 'guard_secret_option'], 999);
+    }
+
+    /**
+     * #63 — if any future code register_setting()'s the control-plane secret
+     * (which would surface it in the settings UI and, with show_in_rest, over
+     * /wp-json/wp/v2/settings), unregister it immediately and log loudly. The
+     * option is a deliberate non-setting: no write path, no REST, no UI.
+     */
+    public function guard_secret_option(): void {
+        if (!function_exists('get_registered_settings')) {
+            return;
+        }
+        $registered = get_registered_settings();
+        if (isset($registered[self::SECRET_OPTION])) {
+            unregister_setting(
+                $registered[self::SECRET_OPTION]['group'] ?? 'general',
+                self::SECRET_OPTION
+            );
+            error_log('[Bynli Connect] SECURITY: ' . self::SECRET_OPTION
+                . ' was register_setting()\'d — unregistered. This option must never reach the settings UI or REST.');
+        }
     }
 
     public function register_routes(): void {
@@ -75,6 +103,15 @@ class Bynli_Connect_Control_Plane {
         // unauthenticated probe can't distinguish a provisioned site from an
         // unprovisioned one. Still fail-closed either way.
         $unauthorized = new WP_Error('unauthorized', 'Unauthorized.', ['status' => 401]);
+
+        // #53 — per-IP throttle on the namespace, before any HMAC work, so a
+        // pre-auth attacker is bounded by a counter bump rather than repeated
+        // signature verification. Transient-backed (works without object cache);
+        // the cap is far above a legit full-site publish (~1 call per page).
+        if (!self::rate_limit_ok()) {
+            self::log_reject('rate_limited');
+            return new WP_Error('rate_limited', 'Too many requests.', ['status' => 429]);
+        }
 
         $secret = self::secret();
         if ($secret === '') {
@@ -134,6 +171,28 @@ class Bynli_Connect_Control_Plane {
     /** Record an auth rejection (coarse reason only — never ts/sig/secret). */
     private static function log_reject(string $reason): void {
         error_log('[Bynli Connect] control-plane auth reject: ' . $reason);
+    }
+
+    /**
+     * #53 — sliding per-IP counter over RL_WINDOW. Returns false once the IP
+     * exceeds RL_MAX in the window. Best-effort by design: transients can be
+     * evicted early under memory pressure, which only ever loosens the limit —
+     * auth (HMAC) remains the actual gate; this just bounds pre-auth work.
+     */
+    private static function rate_limit_ok(): bool {
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+        if ($ip === '') {
+            return true; // CLI/unusual SAPI — nothing meaningful to key on
+        }
+        $key   = 'bynli_cp_rl_' . md5($ip);
+        $count = (int) get_transient($key);
+        if ($count >= self::RL_MAX) {
+            return false;
+        }
+        // set_transient refreshes the TTL on update, making this a sliding
+        // window — acceptable for a coarse pre-auth throttle.
+        set_transient($key, $count + 1, self::RL_WINDOW);
+        return true;
     }
 
     /**
@@ -409,6 +468,12 @@ class Bynli_Connect_Control_Plane {
         $is_bound  = $bound_ref > 0
             && ($p = get_post($bound_ref)) instanceof WP_Post
             && $p->post_type === 'wp_navigation';
+        // #66 — a header ref that no longer resolves (menu trashed/deleted): we
+        // fall back to the managed post, but the theme's header still renders the
+        // dead ref, so the customer's menu won't reflect this publish. Surface it
+        // distinctly (additive key — `bound` stays boolean for existing decoders)
+        // so the app can prompt the owner to re-pick a menu.
+        $stale_ref = ($bound_ref > 0 && !$is_bound);
 
         $target_id = 0;
         if ($is_bound) {
@@ -457,11 +522,17 @@ class Bynli_Connect_Control_Plane {
             update_post_meta($nav_id, self::NAV_MENU_META, '1');
         }
 
+        if ($stale_ref) {
+            error_log('[Bynli Connect] set_navigation: header nav ref ' . $bound_ref
+                . ' no longer resolves — wrote the managed post, but the theme header renders the dead ref.');
+        }
+
         return new WP_REST_Response([
             'ok'            => true,
             'navigation_id' => $nav_id,
             'items'         => count($blocks),
             'bound'         => $is_bound,
+            'stale_ref'     => $stale_ref,
         ], 200);
     }
 

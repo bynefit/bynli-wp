@@ -60,7 +60,7 @@ $inner_blocks = ($block instanceof WP_Block && !empty($block->parsed_block['inne
 $cells = '';
 foreach ($inner_blocks as $i => $inner) {
     $place      = isset($places[$i]) && is_array($places[$i]) ? $places[$i] : [];
-    $cell_style = Bynli_Connect_Blocks::cell_vars($place);
+    $cell_style = Bynli_Connect_Blocks::cell_vars($place, ['sm' => $cols_sm, 'lg' => $cols_lg]);
     $rendered   = render_block($inner);
     $cells     .= '<div class="bynefit-cell"'
         . ($cell_style !== '' ? ' style="' . esc_attr($cell_style) . '"' : '')

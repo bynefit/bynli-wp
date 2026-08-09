@@ -59,6 +59,11 @@
     object-position: var(--bynefit-focal, 50% 50%);
 }
 
+/* Dimensionless media (#51): no width/height attrs means no intrinsic ratio to
+   reserve — hold a default 3:2 box so the layout can't shift when it loads. */
+.bynefit-media--nodims { aspect-ratio: 3 / 2; }
+.bynefit-media--nodims .bynefit-media__el { aspect-ratio: 3 / 2; height: auto; }
+
 .bynefit-gallery {
     display: grid;
     grid-template-columns: repeat(var(--bynefit-gcols-sm, 2), minmax(0, 1fr));

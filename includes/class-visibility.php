@@ -28,6 +28,13 @@ class Bynli_Connect_Visibility {
     public function __construct() {
         add_action('template_redirect',          [$this, 'gate'], 1);
         add_filter('rest_authentication_errors', [$this, 'gate_rest']);
+        // XML-RPC parity (#33): xmlrpc.php is its own entry point — neither
+        // template_redirect nor rest_authentication_errors fires there. Content
+        // methods require credentials (no anonymous leak), so this is
+        // belt-and-suspenders parity with the retired coming-soon plugin:
+        // while the site is gated, XML-RPC is off entirely.
+        add_filter('xmlrpc_enabled',              [$this, 'gate_xmlrpc']);
+        add_filter('xmlrpc_methods',              [$this, 'gate_xmlrpc_methods']);
         add_action('wp_ajax_' . self::AJAX,       [$this, 'handle_ajax']);
         add_shortcode('bynli-gate',               [$this, 'shortcode_gate']);
     }
@@ -86,10 +93,26 @@ class Bynli_Connect_Visibility {
      * untouched.
      */
     public function gate_rest($result) {
+        // Maintainer note (#33): the !empty($result) guard defers to any handler
+        // that already DECIDED (WP_Error or true). Edge case: a plugin that
+        // authenticates solely by returning true at a LATER filter priority
+        // without setting the current user would be preempted by our 401 —
+        // uncommon (authenticators set the user), and it fails CLOSED, never
+        // open. Documented so a future refactor doesn't "fix" it into a bypass.
         if (!empty($result))            return $result;   // another handler already decided
         if (self::mode() === 'live')    return $result;
         if (is_user_logged_in())        return $result;
         return new WP_Error('bynli_gate_rest', 'Authentication required.', ['status' => 401]);
+    }
+
+    /** #33 — while gated, the authenticated XML-RPC API is disabled outright. */
+    public function gate_xmlrpc($enabled) {
+        return self::mode() === 'live' ? $enabled : false;
+    }
+
+    /** #33 — and no XML-RPC methods are exposed at all (full entry-point parity). */
+    public function gate_xmlrpc_methods($methods) {
+        return self::mode() === 'live' ? $methods : [];
     }
 
     private function current_url(): string {

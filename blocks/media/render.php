@@ -37,8 +37,13 @@ if ($radius !== null) {
     $style .= '--bynefit-radius:' . $radius . ';';
 }
 
+// CLS fallback (#51): the emitter contract supplies width+height, but when a
+// caller omits either the element has no intrinsic ratio and height:100% has
+// nothing to fill. Flag the wrapper so CSS reserves a default aspect ratio.
+$has_dims = ($width > 0 && $height > 0);
+
 $wrapper = get_block_wrapper_attributes([
-    'class' => 'bynefit-media bynefit-media--' . $kind,
+    'class' => 'bynefit-media bynefit-media--' . $kind . ($has_dims ? '' : ' bynefit-media--nodims'),
     'style' => $style,
 ]);
 
