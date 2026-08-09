@@ -21,13 +21,18 @@ if (!defined('ABSPATH')) { exit; }
  */
 class Bynli_Connect_Woo {
 
-    const REF_META = '_bynefit_checkout_ref';
+    const REF_META   = '_bynefit_checkout_ref';
+    const SYNC_EVENT = 'bynli_connect_woo_order_sync';
 
     public function __construct() {
         add_action('plugins_loaded', [$this, 'load_gateway_class'], 11);
         add_filter('woocommerce_payment_gateways', [$this, 'register_gateway']);
         add_action('woocommerce_api_bynefit_connect', [$this, 'handle_nudge']);
         add_action('woocommerce_thankyou', [$this, 'reconcile_on_thankyou'], 10, 1);
+        // Order-sync (#2164): push lifecycle changes for Bynefit-gateway orders to
+        // the portal, off the request path (scheduled) so it never stalls checkout.
+        add_action('woocommerce_order_status_changed', [$this, 'schedule_order_sync'], 10, 4);
+        add_action(self::SYNC_EVENT, [$this, 'do_order_sync'], 10, 1);
     }
 
     public function load_gateway_class(): void {
@@ -91,6 +96,62 @@ class Bynli_Connect_Woo {
         } elseif (in_array($status, ['refunded', 'partially_refunded'], true)) {
             // Full refund handling arrives in a later phase; note it for now.
             $order->add_order_note(sprintf(__('Bynefit reports this order as %s.', 'bynli-connect'), $status));
+        }
+    }
+
+    /**
+     * On any WC status change for a Bynefit-gateway order, schedule a background
+     * lifecycle sync to the Bynefit portal. Scheduled — never inline — so a slow
+     * bynli.com round-trip can't stall the store's order flow. WP dedupes an
+     * identical (hook, args) event within its window, so rapid transitions
+     * coalesce into a single sync of the final status.
+     */
+    public function schedule_order_sync($order_id, $old_status, $new_status, $order = null): void {
+        if (!$order instanceof \WC_Order) {
+            $order = wc_get_order($order_id);
+        }
+        if (!$order instanceof \WC_Order || $order->get_payment_method() !== 'bynefit') {
+            return;
+        }
+        $ref = (string) $order->get_meta(self::REF_META);
+        if (!preg_match('/^wco_[a-f0-9]{32}$/', $ref)) {
+            return; // not a Bynefit-checkout order — nothing to sync
+        }
+        if (!wp_next_scheduled(self::SYNC_EVENT, [(int) $order_id])) {
+            wp_schedule_single_event(time() + 5, self::SYNC_EVENT, [(int) $order_id]);
+        }
+    }
+
+    /**
+     * Background handler — re-reads the order and pushes its CURRENT lifecycle
+     * (status + totals) to POST /api/site-host/woo/order-sync (signed v2). The
+     * server persists lifecycle only; the money/fee columns stay authoritative
+     * there. Best-effort: a failure is logged, never surfaced or destructively
+     * retried (a later status change re-syncs; the endpoint is idempotent).
+     */
+    public function do_order_sync($order_id): void {
+        $order = wc_get_order((int) $order_id);
+        if (!$order instanceof \WC_Order) {
+            return;
+        }
+        $ref = (string) $order->get_meta(self::REF_META);
+        if (!preg_match('/^wco_[a-f0-9]{32}$/', $ref)) {
+            return;
+        }
+        $payload = [
+            'checkout_ref'  => $ref,
+            'site_order_id' => (int) $order->get_id(),
+            'status'        => $order->get_status(),
+            'totals'        => [
+                'gross'    => (int) round(((float) $order->get_total()) * 100),
+                'currency' => $order->get_currency(),
+            ],
+        ];
+        $idem = function_exists('wp_generate_uuid4') ? wp_generate_uuid4() : md5(uniqid((string) $order_id, true));
+        $res  = Bynli_Connect_Api::post_v2('/api/site-host/woo/order-sync', $payload, $idem);
+        if (empty($res['ok'])) {
+            error_log('[Bynli Connect] woo order-sync failed for order ' . (int) $order_id
+                . ': ' . (string) ($res['error'] ?? $res['message'] ?? 'unknown'));
         }
     }
 
