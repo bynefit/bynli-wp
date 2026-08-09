@@ -115,6 +115,24 @@ class Bynli_Connect_Reporter {
             if (isset($wpdb) && method_exists($wpdb, 'db_version')) {
                 $out['db_version'] = (string)$wpdb->db_version();
             }
+
+            // WooCommerce block (bynli#2265 Phase 2) — only when Woo is active.
+            // Cheap status COUNTs (wc_orders_count) + product count; the "needs
+            // action" queue (processing + on-hold) is the highest-value signal.
+            // Counts only — no order/customer money data or PII is sent.
+            if (class_exists('WooCommerce') && function_exists('wc_orders_count')) {
+                $woo = [
+                    'products'          => (int)(wp_count_posts('product')->publish ?? 0),
+                    'orders_processing' => (int)wc_orders_count('processing'),
+                    'orders_on_hold'    => (int)wc_orders_count('on-hold'),
+                    'orders_completed'  => (int)wc_orders_count('completed'),
+                ];
+                if (function_exists('wc_get_products')) {
+                    $oos = wc_get_products(['stock_status' => 'outofstock', 'return' => 'ids', 'limit' => -1]);
+                    $woo['out_of_stock'] = is_array($oos) ? count($oos) : 0;
+                }
+                $out['woo'] = $woo;
+            }
         } catch (\Throwable $e) {
             error_log('[Bynli Connect] collect_insights: ' . $e->getMessage());
         }

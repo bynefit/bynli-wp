@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.20.0
+Stable tag:        0.21.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.21.0 =
+* **Added (WooCommerce):** If your site runs WooCommerce, the daily report now includes a light store snapshot — product count, orders awaiting action (processing + on-hold), completed-order count, and out-of-stock count — so the Bynefit app can show your store's status at a glance. Order counts only; no customer details, order contents, or revenue figures are sent.
 
 = 0.20.0 =
 * **Added:** Your daily site report now includes a richer health snapshot — available updates (WordPress core, plugins, themes), content counts (posts, pages, media), pending/spam comments, active theme, user and administrator counts, and safety flags (HTTPS, search-engine visibility, debug mode). This powers a real "site health" view in the Bynefit app. All read from data WordPress already has — no extra load on your site, and nothing about your visitors or content is sent.
