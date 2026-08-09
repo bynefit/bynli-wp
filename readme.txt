@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.21.0
+Stable tag:        0.21.1
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,9 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.21.1 =
+* **Fixed:** A PHP fatal error ("'continue' not in the 'loop' or 'switch' context") that could occur when validating a page containing a Tabs or Carousel block. Restructured the validation so no page publish can trigger it. Recommended update for all sites.
 
 = 0.21.0 =
 * **Added (WooCommerce):** If your site runs WooCommerce, the daily report now includes a light store snapshot — product count, orders awaiting action (processing + on-hold), completed-order count, and out-of-stock count — so the Bynefit app can show your store's status at a glance. Order counts only; no customer details, order contents, or revenue figures are sent.

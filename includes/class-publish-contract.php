@@ -373,11 +373,11 @@ class Bynli_Connect_Publish_Contract {
                         $v[] = self::vio('tabs_min', "$bpath.items", 'Tabs need at least two items.');
                     } elseif (count($titems) > self::MAX_TABS) {
                         $v[] = self::vio('tabs_too_large', "$bpath.items", 'Tabs has more than ' . self::MAX_TABS . ' items.');
-                        continue;
-                    }
-                    foreach ($titems as $ti => $tit) {
-                        if (!is_array($tit) || trim((string) ($tit['label'] ?? '')) === '' || trim((string) ($tit['body'] ?? '')) === '') {
-                            $v[] = self::vio('tabs_item', "$bpath.items[$ti]", 'Each tab needs a label and body.');
+                    } else {
+                        foreach ($titems as $ti => $tit) {
+                            if (!is_array($tit) || trim((string) ($tit['label'] ?? '')) === '' || trim((string) ($tit['body'] ?? '')) === '') {
+                                $v[] = self::vio('tabs_item', "$bpath.items[$ti]", 'Each tab needs a label and body.');
+                            }
                         }
                     }
                 } elseif ($type === 'carousel') {
@@ -386,17 +386,17 @@ class Bynli_Connect_Publish_Contract {
                         $v[] = self::vio('carousel_empty', "$bpath.items", 'Carousel has no slides.');
                     } elseif (count($citems) > self::MAX_CAROUSEL) {
                         $v[] = self::vio('carousel_too_large', "$bpath.items", 'Carousel has more than ' . self::MAX_CAROUSEL . ' slides.');
-                        continue;
-                    }
-                    foreach ($citems as $ci => $cit) {
-                        if (!is_array($cit) || trim((string) ($cit['text'] ?? '')) === '') {
-                            $v[] = self::vio('carousel_item', "$bpath.items[$ci]", 'Each carousel slide needs text.');
-                            continue;
-                        }
-                        if (is_array($cit['avatar'] ?? null)) {
-                            $amid = (string) ($cit['avatar']['media'] ?? '');
-                            if ($amid !== '' && !(isset($media[$amid]) && is_array($media[$amid]))) {
-                                $v[] = self::vio('media_unresolved', "$bpath.items[$ci].avatar.media", "Carousel avatar references media '$amid' not in the media map.");
+                    } else {
+                        foreach ($citems as $ci => $cit) {
+                            if (!is_array($cit) || trim((string) ($cit['text'] ?? '')) === '') {
+                                $v[] = self::vio('carousel_item', "$bpath.items[$ci]", 'Each carousel slide needs text.');
+                                continue;
+                            }
+                            if (is_array($cit['avatar'] ?? null)) {
+                                $amid = (string) ($cit['avatar']['media'] ?? '');
+                                if ($amid !== '' && !(isset($media[$amid]) && is_array($media[$amid]))) {
+                                    $v[] = self::vio('media_unresolved', "$bpath.items[$ci].avatar.media", "Carousel avatar references media '$amid' not in the media map.");
+                                }
                             }
                         }
                     }
