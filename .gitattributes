@@ -1,0 +1,5 @@
+# Keep dev-only files out of the distributed plugin zip (git archive / releases).
+# The bynli release-verify CI already excludes exactly these from its diff, so
+# dropping them from the archive stays green.
+.gitignore      export-ignore
+.gitattributes  export-ignore
