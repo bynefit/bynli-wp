@@ -31,8 +31,13 @@ class Bynli_Connect_Visibility {
         // XML-RPC parity (#33): xmlrpc.php is its own entry point — neither
         // template_redirect nor rest_authentication_errors fires there. Content
         // methods require credentials (no anonymous leak), so this is
-        // belt-and-suspenders parity with the retired coming-soon plugin:
-        // while the site is gated, XML-RPC is off entirely.
+        // belt-and-suspenders parity with the retired coming-soon plugin: while
+        // gated, no content or authenticated method is exposed (IXR_Server still
+        // answers system.listMethods introspection — no content, no auth).
+        // Note: XML-RPC authenticates per request, so while gated the owner's own
+        // Jetpack / WP mobile app access is blocked too — unlike the front and
+        // REST gates, which pass logged-in users. Gated == pre-launch, so this is
+        // the intended trade.
         add_filter('xmlrpc_enabled',              [$this, 'gate_xmlrpc']);
         add_filter('xmlrpc_methods',              [$this, 'gate_xmlrpc_methods']);
         add_action('wp_ajax_' . self::AJAX,       [$this, 'handle_ajax']);

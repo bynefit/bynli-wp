@@ -3,7 +3,7 @@
  * Plugin Name:       Bynefit Connect
  * Plugin URI:        https://bynefit.com/guides/wordpress
  * Description:       Connect a WordPress site to Bynefit — reports daily usage and exposes Bynefit shortcodes for forms, modals, toasts, confirms, and the floating widget.
- * Version:           0.21.1
+ * Version:           0.21.2
  * Requires at least: 6.1
  * Requires PHP:      7.4
  * Author:            Bynefit
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BYNLI_CONNECT_VERSION', '0.21.1');
+define('BYNLI_CONNECT_VERSION', '0.21.2');
 define('BYNLI_CONNECT_PLUGIN_FILE', __FILE__);
 define('BYNLI_CONNECT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BYNLI_CONNECT_DEFAULT_API_BASE', 'https://bynefit.com');
@@ -40,6 +40,19 @@ require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-blocks.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-plugin.php';
 
 add_action('plugins_loaded', ['Bynli_Connect_Plugin', 'instance']);
+
+// Declared at file-load time (not inside plugins_loaded) because WooCommerce can
+// fire before_woocommerce_init before our bootstrap, depending on plugin load
+// order — this is WooCommerce's documented placement for the declaration.
+add_action('before_woocommerce_init', static function () {
+    if (class_exists('Automattic\WooCommerce\Utilities\FeaturesUtil')) {
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility(
+            'cart_checkout_blocks',
+            BYNLI_CONNECT_PLUGIN_FILE,
+            true
+        );
+    }
+});
 
 register_activation_hook(__FILE__,  ['Bynli_Connect_Plugin', 'on_activate']);
 register_deactivation_hook(__FILE__, ['Bynli_Connect_Plugin', 'on_deactivate']);

@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.21.1
+Stable tag:        0.21.2
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -131,6 +131,13 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.21.2 =
+* **Fixed (WooCommerce):** "Pay with Bynefit" did not appear on stores using the block-based Checkout — shoppers saw "no payment methods available" even with the gateway enabled. The gateway now registers with the Cart/Checkout blocks as well as the classic checkout. **Recommended update for any store taking Bynefit payments.** (After updating, confirm the gateway is enabled under WooCommerce → Settings → Payments and your site-host key is saved under Settings → Bynli Connect.)
+* **Added:** Site visibility now also closes the XML-RPC endpoint while a site is set to Coming soon or Members only. Note this pauses app access that signs in over XML-RPC (e.g. Jetpack, the WordPress mobile apps) until the site is set back to Live.
+* **Improved:** Images published without dimensions now reserve their space while loading, so pages no longer shift as they render.
+* **Improved:** Section layouts keep items inside the section's own column count, so a wide item can no longer spill outside the grid.
+* **Security:** Added request throttling to the Bynefit control-plane endpoints and a safeguard that keeps the control-plane secret out of the settings screen and REST API.
 
 = 0.21.1 =
 * **Fixed:** A PHP fatal error ("'continue' not in the 'loop' or 'switch' context") that could occur when validating a page containing a Tabs or Carousel block. Restructured the validation so no page publish can trigger it. Recommended update for all sites.

@@ -27,6 +27,11 @@ class Bynli_Connect_Woo {
     public function __construct() {
         add_action('plugins_loaded', [$this, 'load_gateway_class'], 11);
         add_filter('woocommerce_payment_gateways', [$this, 'register_gateway']);
+        // Block-based Cart/Checkout support. WooCommerce's block checkout builds
+        // its payment list from the Blocks registry, NOT from classic gateway
+        // classes — without this the shopper sees "no payment methods available"
+        // on a block checkout even with the gateway enabled and available.
+        add_action('woocommerce_blocks_payment_method_type_registration', [$this, 'register_blocks_support']);
         add_action('woocommerce_api_bynefit_connect', [$this, 'handle_nudge']);
         add_action('woocommerce_thankyou', [$this, 'reconcile_on_thankyou'], 10, 1);
         // Order-sync (#2164): push lifecycle changes for Bynefit-gateway orders to
@@ -45,6 +50,26 @@ class Bynli_Connect_Woo {
             $gateways[] = 'WC_Gateway_Bynefit';
         }
         return $gateways;
+    }
+
+    /**
+     * Register the gateway with the Cart/Checkout Blocks payment registry.
+     * Loaded here (not at bootstrap) because AbstractPaymentMethodType only
+     * exists once WooCommerce Blocks is present.
+     *
+     * @param mixed $registry Blocks PaymentMethodRegistry
+     */
+    public function register_blocks_support($registry): void {
+        if (!class_exists('Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType')) {
+            return;
+        }
+        if (!is_object($registry) || !method_exists($registry, 'register')) {
+            return;
+        }
+        require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-wc-blocks-bynefit.php';
+        if (class_exists('WC_Blocks_Bynefit')) {
+            $registry->register(new WC_Blocks_Bynefit());
+        }
     }
 
     /** Inbound nudge from Bynefit — a hint to go verify, never trusted on its own. */
