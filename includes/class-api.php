@@ -111,7 +111,7 @@ class Bynli_Connect_Api {
      * into the signature preimage so a retry can't be forged. Response handling
      * mirrors post().
      */
-    public static function post_v2(string $path, array $body, string $idempotency_key): array {
+    public static function post_v2(string $path, array $body, string $idempotency_key, string $method = 'POST'): array {
         $key = Bynli_Connect_Settings::key();
         if (!$key) {
             return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynli Connect.'];
@@ -129,8 +129,9 @@ class Bynli_Connect_Api {
         $ts  = time();
         $sig = Bynli_Connect_Signer::sign_v2($key, $ts, $idempotency_key, (string)$body_raw);
 
-        $resp = wp_remote_post($url, [
+        $resp = wp_remote_request($url, [
             'timeout' => 20,
+            'method'  => $method,
             'headers' => [
                 'Content-Type'            => 'application/json',
                 'Accept'                  => 'application/json',
@@ -160,7 +161,7 @@ class Bynli_Connect_Api {
             'ok'      => false,
             'status'  => $code,
             'error'   => $err,
-            'message' => 'Payment could not be started (' . $err . ').',
+            'message' => 'Request failed (' . $err . ').',
         ];
     }
 

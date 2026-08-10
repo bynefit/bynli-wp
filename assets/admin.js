@@ -170,6 +170,10 @@
     }
 
     const BCN_ON_SUCCESS = {
+        cp_state(form, data) {
+            setTimeout(() => { window.location.reload(); }, 1200);
+            return true;
+        },
         reply(form, data) {
             if (!data || !data.message_html) return false;
             const foot = form.closest('.bcn-thread-foot');
