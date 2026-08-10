@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.21.2
+Stable tag:        0.22.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -137,6 +137,10 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.22.0 =
+* **Added (WooCommerce):** Orders paid with Bynefit now arrive at the payment page as *your* checkout — your store name and logo, the shopper's own name, their order number and where it's shipping — instead of a bare total on an unfamiliar page. PayPal is pre-filled from the details they already gave you, so there's less to retype and fewer abandoned carts, and providing the real shipping address is also what qualifies an order for PayPal Seller Protection on physical goods.
+* **Privacy — please read:** to do the above, an order paid through Bynefit now sends that order's buyer name, email, phone and billing/shipping addresses (plus item SKUs) to bynefit.com. This happens **only** when you have enabled the Bynefit payment method **and** a shopper actively chooses it at checkout — never for visitors browsing your site, and never for orders paid by any other method. The "Does this send any personal data?" FAQ has been rewritten to describe this accurately. You remain the data controller for your customers; Bynefit processes this data on your behalf to take the payment.
 
 = 0.21.2 =
 * **Fixed (WooCommerce):** "Pay with Bynefit" did not appear on stores using the block-based Checkout — shoppers saw "no payment methods available" even with the gateway enabled. The gateway now registers with the Cart/Checkout blocks as well as the classic checkout. **Recommended update for any store taking Bynefit payments.** (After updating, confirm the gateway is enabled under WooCommerce → Settings → Payments and your site-host key is saved under Settings → Bynli Connect.)
