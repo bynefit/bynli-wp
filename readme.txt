@@ -104,7 +104,13 @@ Optional: `position`, `label`.
 
 = Does this send any personal data? =
 
-No. The plugin reports byte counts, request counts, and version strings. No user data, no post content, no visitor information ever leaves your site.
+**Site reporting: no.** The daily report sends byte counts, request counts, and version strings. No user data, no post content, and no visitor information leaves your site.
+
+**Bynefit payments: only for orders paid through Bynefit.** If you enable the "Pay with Bynefit" payment method and a shopper chooses it at checkout, that order's details are sent to bynefit.com so the payment can be completed: the buyer's name, email address and phone number, the billing and shipping addresses, and the order's items, quantities, totals and SKUs. This is what lets the Bynefit payment page show the shopper your store and their own order, and pre-fills PayPal so they aren't retyping what you already have.
+
+Nothing is sent for shoppers who browse your site, for orders paid by any other method, or for orders where the Bynefit method was never selected. If you don't enable the Bynefit payment method, no customer data is sent at all.
+
+When you take payments through Bynefit, Bynefit processes that customer data on your behalf — you remain the data controller for your customers.
 
 = What if my API key is compromised? =
 

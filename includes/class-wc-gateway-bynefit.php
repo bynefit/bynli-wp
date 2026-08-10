@@ -70,11 +70,21 @@ class WC_Gateway_Bynefit extends WC_Payment_Gateway {
 
         $items = [];
         foreach ($order->get_items() as $item) {
-            $items[] = [
+            $line = [
                 'name'  => $item->get_name(),
                 'qty'   => (int) $item->get_quantity(),
                 'total' => self::cents($item->get_total()),
             ];
+            // SKU lets the merchant reconcile a Bynefit order against their own
+            // catalogue. get_product() is null for a deleted product — don't fatal.
+            if (method_exists($item, 'get_product')) {
+                $product = $item->get_product();
+                if ($product && method_exists($product, 'get_sku')) {
+                    $sku = (string) $product->get_sku();
+                    if ($sku !== '') { $line['sku'] = $sku; }
+                }
+            }
+            $items[] = $line;
         }
         $ship = (float) $order->get_shipping_total() + (float) $order->get_shipping_tax();
         if ($ship > 0) {
@@ -90,6 +100,30 @@ class WC_Gateway_Bynefit extends WC_Payment_Gateway {
             'return_url'    => $this->get_return_url($order),
             'cancel_url'    => $order->get_cancel_order_url_raw(),
         ];
+
+        // Verified buyer + addresses. This travels over the signed server-to-server
+        // channel, so Bynefit can trust it: it personalises the hosted pay page
+        // (the shopper sees this store's name and their own order, not a bare
+        // total on an unfamiliar domain), prefills PayPal so they aren't retyping
+        // what this store already has, and gives the merchant portal the context
+        // refunds and support need. Only sent for the Bynefit gateway, only for
+        // this order, and only the fields Bynefit stores.
+        $buyer = self::compact_fields([
+            'first_name' => $order->get_billing_first_name(),
+            'last_name'  => $order->get_billing_last_name(),
+            'email'      => $order->get_billing_email(),
+            'phone'      => $order->get_billing_phone(),
+        ]);
+        if ($buyer) { $payload['buyer'] = $buyer; }
+
+        $billing = self::address_fields($order, 'billing');
+        if ($billing) { $payload['billing'] = $billing; }
+
+        // Only present on orders that actually ship. For countries WooCommerce ships
+        // a states list for, `state` is the 2-letter subdivision code PayPal wants;
+        // elsewhere it's free text, which PayPal also accepts.
+        $shipping = self::address_fields($order, 'shipping');
+        if ($shipping) { $payload['shipping'] = $shipping; }
 
         $idempotency_key = function_exists('wp_generate_uuid4') ? wp_generate_uuid4() : md5(uniqid((string) $order_id, true));
         $res = Bynli_Connect_Api::post_v2('/api/site-host/woo/checkout', $payload, $idempotency_key);
@@ -118,5 +152,52 @@ class WC_Gateway_Bynefit extends WC_Payment_Gateway {
 
     private static function cents($amount): int {
         return (int) round(((float) $amount) * 100);
+    }
+
+    /** Trim, drop empties, and return null when nothing survives. */
+    private static function compact_fields(array $fields): ?array {
+        $out = [];
+        foreach ($fields as $k => $v) {
+            $v = trim((string) $v);
+            if ($v !== '') { $out[$k] = $v; }
+        }
+        return $out ?: null;
+    }
+
+    /**
+     * A billing or shipping address in Bynefit's shape. Returns null when the
+     * address is empty — a virtual/downloadable order has no shipping address, and
+     * sending an empty one would make Bynefit hand PayPal a partial address.
+     *
+     * @param string $type 'billing' | 'shipping'
+     */
+    private static function address_fields(\WC_Order $order, string $type): ?array {
+        $get = function (string $field) use ($order, $type) {
+            $method = 'get_' . $type . '_' . $field;
+            return method_exists($order, $method) ? (string) $order->{$method}() : '';
+        };
+        $addr = self::compact_fields([
+            // Recipient name — a "ship to a different address" order (a gift) has a
+            // different name here than the billing name, and without it the payment
+            // page and PayPal would show the buyer's own name against someone
+            // else's street.
+            'first_name' => $get('first_name'),
+            'last_name'  => $get('last_name'),
+            'line1'      => $get('address_1'),
+            'line2'      => $get('address_2'),
+            'city'       => $get('city'),
+            'state'      => $get('state'),
+            'postcode'   => $get('postcode'),
+            'country'    => $get('country'),
+            'company'    => $get('company'),
+        ]);
+
+        // A stray country with nothing else isn't an address — it would just render
+        // as a junk one-line ship-to in the merchant's portal. Require enough to be
+        // meaningful before sending anything.
+        if (!$addr || empty($addr['city']) || empty($addr['country'])) {
+            return null;
+        }
+        return $addr;
     }
 }
