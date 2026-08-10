@@ -34,8 +34,12 @@ class Bynli_Connect_Control_Plane {
     const RL_WINDOW = 300; // seconds
     const RL_MAX    = 240; // requests per window per IP — generous for a full multi-page publish
 
+    const NONCE_PAIR = 'bynli_connect_cp_pair';
+
     public function __construct() {
         add_action('rest_api_init', [$this, 'register_routes']);
+        add_action('wp_ajax_bynli_connect_cp_pair',   [$this, 'handle_pair']);
+        add_action('wp_ajax_bynli_connect_cp_unpair', [$this, 'handle_unpair']);
         // #63 regression tripwire — the control-plane secret must never become a
         // registered setting (settings UI / REST exposure = admin-level takeover).
         add_action('admin_init',    [$this, 'guard_secret_option'], 999);
@@ -92,6 +96,174 @@ class Bynli_Connect_Control_Plane {
             return (string) BYNLI_CONTROL_PLANE_SECRET;
         }
         return (string) get_option(self::SECRET_OPTION, '');
+    }
+
+    /** Is app editing currently granted? (Managed installs are always paired.) */
+    public static function is_paired(): bool {
+        return self::secret() !== '';
+    }
+
+    /**
+     * Grant Bynefit app editing.
+     *
+     * We generate the secret here and hand it to bynli.com over the existing
+     * signed site-host channel — bynli.com cannot push one in, because until a
+     * secret exists this namespace is fail-closed and there is nothing to
+     * authenticate an inbound push with.
+     *
+     * Order is deliberate: store locally FIRST, then report. A local write that
+     * lands while the network call fails leaves an orphan secret that authorizes
+     * nobody (the server holds no matching credential) and is cleaned up below.
+     * The reverse order would leave the server holding a secret this site never
+     * stored, and every subsequent control-plane call would 401 with no way for
+     * the admin to see why.
+     */
+    public function handle_pair(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Forbidden.'], 403);
+        }
+        if (!check_ajax_referer(self::NONCE_PAIR, '_ajax_nonce', false)) {
+            wp_send_json_error(['message' => 'Security check failed. Reload and try again.'], 403);
+        }
+        if (defined('BYNLI_CONTROL_PLANE_SECRET') && BYNLI_CONTROL_PLANE_SECRET) {
+            wp_send_json_error(['message' => 'This is a Bynefit-managed site — app editing is already enabled.'], 409);
+        }
+
+        $home = home_url();
+        if (stripos($home, 'https://') !== 0) {
+            wp_send_json_error(['message' => 'Your site must be served over HTTPS before app editing can be enabled.'], 400);
+        }
+
+        try {
+            $secret = bin2hex(random_bytes(32));
+        } catch (\Throwable $e) {
+            error_log('[Bynli Connect] control-plane pair: no secure randomness — ' . $e->getMessage());
+            wp_send_json_error(['message' => 'Could not generate a secure key on this server.'], 500);
+        }
+
+        $previous = (string) get_option(self::SECRET_OPTION, '');
+        update_option(self::SECRET_OPTION, $secret, false);
+
+        $resp = Bynli_Connect_Api::post_v2(
+            '/site-host/control-plane/pair',
+            ['site_url' => $home, 'secret' => $secret],
+            wp_generate_uuid4()
+        );
+
+        if (empty($resp['ok'])) {
+            // Roll back so the site never advertises access Bynefit can't use.
+            if ($previous === '') {
+                delete_option(self::SECRET_OPTION);
+            } else {
+                update_option(self::SECRET_OPTION, $previous, false);
+            }
+            error_log('[Bynli Connect] control-plane pair rejected: ' . (string) ($resp['error'] ?? 'unknown'));
+            wp_send_json_error([
+                'message' => self::pair_error_message((string) ($resp['error'] ?? '')),
+            ], 400);
+        }
+
+        wp_send_json_success(['message' => 'App editing is on. You can now design this site from the Bynefit app.']);
+    }
+
+    /** Revoke app editing — clears the local secret and tells bynli.com to drop it. */
+    public function handle_unpair(): void {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Forbidden.'], 403);
+        }
+        if (!check_ajax_referer(self::NONCE_PAIR, '_ajax_nonce', false)) {
+            wp_send_json_error(['message' => 'Security check failed. Reload and try again.'], 403);
+        }
+        if (defined('BYNLI_CONTROL_PLANE_SECRET') && BYNLI_CONTROL_PLANE_SECRET) {
+            wp_send_json_error(['message' => 'This is a Bynefit-managed site — app editing cannot be turned off here.'], 409);
+        }
+
+        // Local first: revocation must take effect on THIS site even if bynli.com
+        // is unreachable. Once the option is gone every route fails closed, so a
+        // failed server call can only leave a stale credential that authorizes
+        // nothing.
+        delete_option(self::SECRET_OPTION);
+
+        $resp = Bynli_Connect_Api::post_v2('/site-host/control-plane/pair', [], wp_generate_uuid4(), 'DELETE');
+        if (empty($resp['ok'])) {
+            error_log('[Bynli Connect] control-plane unpair: local revoke done, server not notified — '
+                . (string) ($resp['error'] ?? 'unknown'));
+        }
+
+        wp_send_json_success(['message' => 'App editing is off. Bynefit can no longer change this site.']);
+    }
+
+    /**
+     * Connection-panel card. Rendered only on the manage_options-gated settings
+     * screen. Managed installs show state without controls — their secret is
+     * baked into the mu-loader and isn't ours to revoke from here.
+     */
+    public static function render_card(): void {
+        $managed    = defined('BYNLI_CONTROL_PLANE_SECRET') && BYNLI_CONTROL_PLANE_SECRET;
+        $paired     = self::is_paired();
+        $has_key    = (bool) Bynli_Connect_Settings::key();
+        $is_https   = stripos(home_url(), 'https://') === 0;
+        $nonce      = wp_create_nonce(self::NONCE_PAIR);
+        ?>
+        <section class="bcn-card">
+            <div class="bcn-card-head">
+                <h2>App editing</h2>
+                <span class="bcn-card-sub">Design this site from the Bynefit app</span>
+            </div>
+            <div class="bcn-card-body">
+                <?php if ($managed): ?>
+                    <p class="bcn-hint">This site is hosted by Bynefit, so app editing is always on.</p>
+                <?php elseif (!$has_key): ?>
+                    <p class="bcn-hint">Add your Bynefit key above first — app editing uses the same secure connection.</p>
+                <?php elseif (!$is_https): ?>
+                    <div class="bcn-notice bcn-notice-warn">
+                        Your site needs HTTPS before app editing can be turned on. Bynefit will not send
+                        changes over an unencrypted connection.
+                    </div>
+                <?php elseif ($paired): ?>
+                    <div class="bcn-notice bcn-notice-ok">App editing is on. This site appears in the Bynefit app's designer.</div>
+                    <p class="bcn-hint">
+                        Bynefit can update pages it created and your site's design. Pages you made in
+                        WordPress are left alone.
+                    </p>
+                    <form class="bcn-ajax-form" data-bcn-action="bynli_connect_cp_unpair" novalidate>
+                        <input type="hidden" name="_ajax_nonce" value="<?php echo esc_attr($nonce); ?>">
+                        <div class="bcn-form-feedback" data-role="feedback" hidden></div>
+                        <button type="submit" class="bcn-btn bcn-btn-danger" data-role="submit">Turn off app editing</button>
+                    </form>
+                <?php else: ?>
+                    <p class="bcn-hint">
+                        Turn this on to design this site from the Bynefit app. Bynefit will be able to
+                        update your site's design and the pages it creates. You can turn it off any time.
+                    </p>
+                    <form class="bcn-ajax-form" data-bcn-action="bynli_connect_cp_pair" novalidate>
+                        <input type="hidden" name="_ajax_nonce" value="<?php echo esc_attr($nonce); ?>">
+                        <div class="bcn-form-feedback" data-role="feedback" hidden></div>
+                        <button type="submit" class="bcn-btn bcn-btn-primary" data-role="submit">Turn on app editing</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </section>
+        <?php
+    }
+
+    /** Map the server's coarse error codes to something an admin can act on. */
+    private static function pair_error_message(string $code): string {
+        switch ($code) {
+            case 'managed_site':
+                return 'This site is Bynefit-managed — app editing is already enabled.';
+            case 'site_url_mismatch':
+                return 'This site address does not match the one registered with Bynefit. Update the site in Bynefit first.';
+            case 'insecure_site_url':
+                return 'Your site must be served over HTTPS before app editing can be enabled.';
+            case 'unauthorized':
+            case 'signature_invalid':
+                return 'Your Bynefit key was rejected. Re-check the key on this page and try again.';
+            case 'site_not_found':
+                return 'Bynefit does not have a site registered for this key.';
+            default:
+                return 'Bynefit could not enable app editing right now. Please try again.';
+        }
     }
 
     /**
