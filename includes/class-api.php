@@ -161,7 +161,7 @@ class Bynli_Connect_Api {
             'ok'      => false,
             'status'  => $code,
             'error'   => $err,
-            'message' => 'Payment could not be started (' . $err . ').',
+            'message' => 'Request failed (' . $err . ').',
         ];
     }
 

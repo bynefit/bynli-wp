@@ -129,7 +129,10 @@ class WC_Gateway_Bynefit extends WC_Payment_Gateway {
         $res = Bynli_Connect_Api::post_v2('/api/site-host/woo/checkout', $payload, $idempotency_key);
 
         if (empty($res['ok']) || empty($res['data']['checkout_url'])) {
-            $msg = $res['message'] ?? __('Could not start the payment. Please try again.', 'bynli-connect');
+            $err = (string) ($res['error'] ?? '');
+            $msg = $err !== ''
+                ? sprintf(__('Payment could not be started (%s).', 'bynli-connect'), $err)
+                : __('Could not start the payment. Please try again.', 'bynli-connect');
             wc_add_notice($msg, 'error');
             $order->add_order_note('Bynefit checkout failed to start: ' . $msg);
             return ['result' => 'failure'];

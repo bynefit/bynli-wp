@@ -145,21 +145,35 @@ class Bynli_Connect_Control_Plane {
         update_option(self::SECRET_OPTION, $secret, false);
 
         $resp = Bynli_Connect_Api::post_v2(
-            '/site-host/control-plane/pair',
+            '/api/site-host/control-plane/pair',
             ['site_url' => $home, 'secret' => $secret],
             wp_generate_uuid4()
         );
 
         if (empty($resp['ok'])) {
-            // Roll back so the site never advertises access Bynefit can't use.
-            if ($previous === '') {
-                delete_option(self::SECRET_OPTION);
-            } else {
-                update_option(self::SECRET_OPTION, $previous, false);
+            $status = (int) ($resp['status'] ?? 0);
+            // Only roll back on a DEFINITE refusal (a 4xx we actually received).
+            // On a timeout, transport error or 5xx we cannot know whether the
+            // server committed — and if it did, deleting our copy would leave
+            // bynli.com holding a credential this site no longer has: it would
+            // show the site as app-editable while every control-plane call fails
+            // closed, and the admin would have no reason to retry because we
+            // told them it failed. Keeping the secret is the recoverable side of
+            // that uncertainty; re-pairing rotates in place, so a retry heals it.
+            $definite_refusal = $status >= 400 && $status < 500;
+            if ($definite_refusal) {
+                if ($previous === '') {
+                    delete_option(self::SECRET_OPTION);
+                } else {
+                    update_option(self::SECRET_OPTION, $previous, false);
+                }
             }
-            error_log('[Bynli Connect] control-plane pair rejected: ' . (string) ($resp['error'] ?? 'unknown'));
+            error_log('[Bynli Connect] control-plane pair failed (status ' . $status . ', rolled back: '
+                . ($definite_refusal ? 'yes' : 'no') . '): ' . (string) ($resp['error'] ?? 'unknown'));
             wp_send_json_error([
-                'message' => self::pair_error_message((string) ($resp['error'] ?? '')),
+                'message' => $definite_refusal
+                    ? self::pair_error_message((string) ($resp['error'] ?? ''))
+                    : 'We could not confirm this with Bynefit. Please try again in a moment.',
             ], 400);
         }
 
@@ -184,10 +198,16 @@ class Bynli_Connect_Control_Plane {
         // nothing.
         delete_option(self::SECRET_OPTION);
 
-        $resp = Bynli_Connect_Api::post_v2('/site-host/control-plane/pair', [], wp_generate_uuid4(), 'DELETE');
+        $resp = Bynli_Connect_Api::post_v2('/api/site-host/control-plane/pair', [], wp_generate_uuid4(), 'DELETE');
         if (empty($resp['ok'])) {
             error_log('[Bynli Connect] control-plane unpair: local revoke done, server not notified — '
                 . (string) ($resp['error'] ?? 'unknown'));
+            // Say so rather than claiming a clean revoke: access IS off (the
+            // namespace fails closed without the local secret), but Bynefit may
+            // still list this site as editable until it retries.
+            wp_send_json_success([
+                'message' => 'App editing is off on this site. We could not reach Bynefit to confirm — it may still show as connected there for a short while.',
+            ]);
         }
 
         wp_send_json_success(['message' => 'App editing is off. Bynefit can no longer change this site.']);
@@ -226,20 +246,24 @@ class Bynli_Connect_Control_Plane {
                         Bynefit can update pages it created and your site's design. Pages you made in
                         WordPress are left alone.
                     </p>
-                    <form class="bcn-ajax-form" data-bcn-action="bynli_connect_cp_unpair" novalidate>
+                    <form class="bcn-ajax-form" data-bcn-action="bynli_connect_cp_unpair"
+                          data-bcn-on-success="cp_state"
+                          data-bcn-confirm="Turn off app editing? Bynefit will no longer be able to update this site's design or the pages it created."
+                          novalidate>
                         <input type="hidden" name="_ajax_nonce" value="<?php echo esc_attr($nonce); ?>">
                         <div class="bcn-form-feedback" data-role="feedback" hidden></div>
-                        <button type="submit" class="bcn-btn bcn-btn-danger" data-role="submit">Turn off app editing</button>
+                        <button type="submit" class="bcn-btn danger" data-role="submit">Turn off app editing</button>
                     </form>
                 <?php else: ?>
                     <p class="bcn-hint">
                         Turn this on to design this site from the Bynefit app. Bynefit will be able to
                         update your site's design and the pages it creates. You can turn it off any time.
                     </p>
-                    <form class="bcn-ajax-form" data-bcn-action="bynli_connect_cp_pair" novalidate>
+                    <form class="bcn-ajax-form" data-bcn-action="bynli_connect_cp_pair"
+                          data-bcn-on-success="cp_state" novalidate>
                         <input type="hidden" name="_ajax_nonce" value="<?php echo esc_attr($nonce); ?>">
                         <div class="bcn-form-feedback" data-role="feedback" hidden></div>
-                        <button type="submit" class="bcn-btn bcn-btn-primary" data-role="submit">Turn on app editing</button>
+                        <button type="submit" class="bcn-btn primary" data-role="submit">Turn on app editing</button>
                     </form>
                 <?php endif; ?>
             </div>
@@ -260,7 +284,14 @@ class Bynli_Connect_Control_Plane {
             case 'signature_invalid':
                 return 'Your Bynefit key was rejected. Re-check the key on this page and try again.';
             case 'site_not_found':
-                return 'Bynefit does not have a site registered for this key.';
+            case 'site_url_unregistered':
+                return 'Bynefit does not have this site address registered. Add the site in Bynefit first, then try again.';
+            case 'site_url_not_public':
+                return 'Bynefit could not reach this site address from the internet.';
+            case 'no_key':
+                return 'Add your Bynefit key on this page first.';
+            case 'transport':
+                return 'Could not reach Bynefit — check your server\'s outbound connection and try again.';
             default:
                 return 'Bynefit could not enable app editing right now. Please try again.';
         }
