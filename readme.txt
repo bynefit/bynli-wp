@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.22.0
+Stable tag:        0.22.1
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -137,6 +137,11 @@ Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from thi
 Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
 
 == Changelog ==
+
+= 0.22.1 =
+* **Fixed:** Logo strips no longer stack down the page on phones. A row of twelve marks took up 736px of scrolling and now takes 224px, and marks scale smoothly with the screen instead of holding their desktop size all the way down.
+* **Fixed:** Controls on published pages are now big enough to tap reliably. The carousel dots, arrows and pause button, the background-video button, call-to-action buttons and tab headings were all under the 44px minimum for touch. The carousel dots keep their small look on a mouse-driven screen and only grow their tap area on touch devices.
+* **Fixed:** Block styles were being cached under an older version number, so recent styling improvements were not reaching published sites even after updating. Style and script updates now arrive with every release. **Recommended update for any site using Bynefit Sites blocks** — it is what makes the two fixes above visible.
 
 = 0.22.0 =
 * **Added (WooCommerce):** Orders paid with Bynefit now arrive at the payment page as *your* checkout — your store name and logo, the shopper's own name, their order number and where it's shipping — instead of a bare total on an unfamiliar page. PayPal is pre-filled from the details they already gave you, so there's less to retype and fewer abandoned carts, and providing the real shipping address is also what qualifies an order for PayPal Seller Protection on physical goods.
