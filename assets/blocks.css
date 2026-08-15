@@ -410,15 +410,25 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: var(--wp--preset--spacing--60, 2rem);
+    gap: var(--wp--preset--spacing--40, 1rem);
 }
 
 .bynefit-logos__img {
     display: block;
-    height: 2rem;
+    height: 1.5rem;
     width: auto;
     max-width: 100%;
     object-fit: contain;
+}
+
+@media (min-width: 1024px) {
+    .bynefit-logos {
+        gap: var(--wp--preset--spacing--60, 2rem);
+    }
+
+    .bynefit-logos__img {
+        height: 2rem;
+    }
 }
 
 .bynefit-logos--muted .bynefit-logos__img {
@@ -479,8 +489,8 @@
     right: 1rem;
     bottom: 1rem;
     z-index: 3;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
     padding: 0;
     border: 0;
     border-radius: 999px;
@@ -622,8 +632,8 @@
     transform: translateY(-50%);
     appearance: none;
     border: 0;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
     border-radius: 999px;
     background: var(--wp--preset--color--surface-2);
     color: var(--wp--preset--color--text);
@@ -658,6 +668,36 @@
     background: var(--wp--preset--color--brand);
 }
 
+/* Touch pointers get a 44px hit box; the 8px dot stays the visual. Scoped to
+   coarse so the desktop row keeps its density. */
+@media (pointer: coarse) {
+    .bynefit-carousel__dots {
+        gap: 0;
+    }
+
+    .bynefit-carousel__dot,
+    .bynefit-carousel__dot[aria-current="true"] {
+        width: 2.75rem;
+        height: 2.75rem;
+        background: transparent;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bynefit-carousel__dot::before {
+        content: "";
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 999px;
+        background: var(--wp--preset--color--border);
+    }
+
+    .bynefit-carousel__dot[aria-current="true"]::before {
+        background: var(--wp--preset--color--brand);
+    }
+}
+
 .bynefit-carousel:not(.is-enhanced) .bynefit-carousel__nav,
 .bynefit-carousel:not(.is-enhanced) .bynefit-carousel__dots {
     display: none;
@@ -675,8 +715,8 @@
     right: 0.75rem;
     appearance: none;
     border: 0;
-    width: 2rem;
-    height: 2rem;
+    width: 2.75rem;
+    height: 2.75rem;
     border-radius: 999px;
     background: var(--wp--preset--color--surface-2);
     color: var(--wp--preset--color--text);
