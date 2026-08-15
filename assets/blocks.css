@@ -338,6 +338,9 @@
     justify-content: center;
     text-decoration: none;
     font-weight: 500;
+    /* Padding alone lands at ~43px on a typical line-height, and a theme can set
+       the spacing slug smaller still. */
+    min-height: 2.75rem;
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--50, 1.5rem);
     border-radius: var(--wp--custom--radius--md, 14px);
 }
@@ -410,25 +413,17 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: var(--wp--preset--spacing--40, 1rem);
+    /* Capped: two 6:1 marks only fit a 326px phone box while the gap stays under
+       ~38px, and a theme is free to define this spacing slug as anything. */
+    gap: min(var(--wp--preset--spacing--40, 1rem), 1.5rem);
 }
 
 .bynefit-logos__img {
     display: block;
-    height: 1.5rem;
+    height: clamp(1.5rem, 1rem + 1.4vw, 2rem);
     width: auto;
     max-width: 100%;
     object-fit: contain;
-}
-
-@media (min-width: 1024px) {
-    .bynefit-logos {
-        gap: var(--wp--preset--spacing--60, 2rem);
-    }
-
-    .bynefit-logos__img {
-        height: 2rem;
-    }
 }
 
 .bynefit-logos--muted .bynefit-logos__img {
@@ -554,6 +549,7 @@
     font: inherit;
     font-weight: 600;
     color: var(--wp--preset--color--muted);
+    min-height: 2.75rem;
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--40, 1rem);
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
@@ -668,15 +664,17 @@
     background: var(--wp--preset--color--brand);
 }
 
-/* Touch pointers get a 44px hit box; the 8px dot stays the visual. Scoped to
-   coarse so the desktop row keeps its density. */
-@media (pointer: coarse) {
+/* Touch pointers get a 44px hit box; the 8px dot stays the visual. any-pointer
+   is included so touch laptops, whose primary pointer reports fine, still get it. */
+@media (pointer: coarse), (any-pointer: coarse) {
     .bynefit-carousel__dots {
         gap: 0;
+        flex-wrap: wrap;
     }
 
     .bynefit-carousel__dot,
     .bynefit-carousel__dot[aria-current="true"] {
+        flex: none;
         width: 2.75rem;
         height: 2.75rem;
         background: transparent;
@@ -712,7 +710,9 @@
 .bynefit-carousel__toggle {
     position: absolute;
     top: 0.75rem;
-    right: 0.75rem;
+    /* 0.25 + 2.75 = the track's 3rem gutter exactly; any more and the chip sits
+       over the quote. */
+    right: 0.25rem;
     appearance: none;
     border: 0;
     width: 2.75rem;
