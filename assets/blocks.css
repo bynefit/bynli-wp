@@ -714,6 +714,27 @@
  * dot legible where a theme's muted sits close to its surface, and gives it an
  * affordance edge at rest.
  */
+/*
+ * INACTIVE = ring. ACTIVE = filled. The two states differ by SHAPE, not hue.
+ *
+ * Getting this wrong twice is instructive. It started on the theme's border token,
+ * 1.22:1 against surface — a decorative hairline doing a state indicator's job, and
+ * failing 1.4.11. Moving the fill to the muted token fixed that (5.37:1) and broke
+ * the thing the dots exist for: active brand #157A42 against inactive muted #6B6459
+ * measures 1.08:1. The two states became distinguishable from the background and
+ * indistinguishable from EACH OTHER — worse, because "which slide am I on" is the
+ * only information an 8px dot carries. Hue as the sole channel also fails 1.4.1
+ * outright and vanishes under red-green colour deficiency.
+ *
+ * Empty-vs-filled survives greyscale and every colour deficiency, and keeps the
+ * 5.37:1 ring edge against the surface — so 1.4.11 and 1.4.1 are satisfied together
+ * without requiring the theme's two tokens to differ in luminance, which this
+ * stylesheet cannot demand of a theme it does not own.
+ *
+ * It also makes the ring real: ring and fill were both the muted token, so the
+ * box-shadow drew an invisible outline around an identically-coloured disc while its
+ * comment claimed it aided legibility.
+ */
 .bynefit-carousel__dot {
     appearance: none;
     border: 0;
@@ -721,13 +742,16 @@
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 999px;
-    background: var(--wp--preset--color--muted);
+    background: transparent;
     box-shadow: 0 0 0 1px var(--wp--preset--color--muted);
     cursor: pointer;
 }
 
 .bynefit-carousel__dot[aria-current="true"] {
+    /* Fill is the state; the ring keeps the silhouette identical to the inactive
+       dot so the row does not shift between slides. */
     background: var(--wp--preset--color--brand);
+    box-shadow: 0 0 0 1px var(--wp--preset--color--brand);
 }
 
 /* Touch pointers get a 44px hit box; the 8px dot stays the visual. any-pointer
@@ -757,12 +781,16 @@
         width: 0.5rem;
         height: 0.5rem;
         border-radius: 999px;
-        background: var(--wp--preset--color--muted);
+        /* Ring, not fill — repeated here because the ::before IS the visible dot at
+           this breakpoint (the button went transparent to become a hit box), so the
+           distinction only lands for mouse users otherwise. */
+        background: transparent;
         box-shadow: 0 0 0 1px var(--wp--preset--color--muted);
     }
 
     .bynefit-carousel__dot[aria-current="true"]::before {
         background: var(--wp--preset--color--brand);
+        box-shadow: 0 0 0 1px var(--wp--preset--color--brand);
     }
 }
 

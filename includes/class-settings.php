@@ -267,6 +267,18 @@ class Bynli_Connect_Settings {
             'status_label'     => !$is_configured ? 'Not connected' : ($is_connected ? 'Connected' : 'Not verified'),
             'next_cron'        => wp_next_scheduled('bynli_connect_daily_report'),
             'update_available' => !empty($upd['version']) && version_compare($upd['version'], BYNLI_CONNECT_VERSION, '>'),
+            // Is that update something THIS ADMIN can act on? On a Bynefit-managed
+            // site the plugin is an mu-plugin, WordPress cannot apply a plugin update
+            // at all, and Bynefit pushes it on the next call-home — so the answer is
+            // no, and every affordance that invites action must say so (wp#87).
+            //
+            // Separate from update_available rather than replacing it: "a newer
+            // version exists" is still true and the Updates panel still reports it.
+            // What changes is whether the rail badge, the rail dot, the overview tile
+            // and the activity entry present it as something to do.
+            'update_actionable' => (!empty($upd['version'])
+                && version_compare($upd['version'], BYNLI_CONNECT_VERSION, '>')
+                && !Bynli_Connect_Updater::is_mu_install()),
             'tested'           => isset($_GET['tested']) ? sanitize_text_field((string)$_GET['tested']) : '',
             'cleared'          => isset($_GET['cleared']) && (string)$_GET['cleared'] === 'updates',
             'discon'           => isset($_GET['disconnected']) && (string)$_GET['disconnected'] === '1',
@@ -328,7 +340,10 @@ class Bynli_Connect_Settings {
             'activity'   => ['dashicons-backup',        'Activity'],
             'updates'    => ['dashicons-update',        'Updates'],
         ];
-        $up_to_date = !$ctx['update_available'];
+        // "Nothing for you to do" rather than "nothing pending": on a managed site an
+        // available update is real but not the admin's to apply, so the rail reads calm
+        // and the Updates panel explains the queue (wp#87).
+        $up_to_date = !$ctx['update_actionable'];
         ?>
         <nav class="bcn-rail" aria-label="Bynefit Connect sections">
             <?php foreach ($items as $key => [$icon, $label]):
@@ -340,7 +355,7 @@ class Bynli_Connect_Settings {
                    <?php echo $is ? 'aria-current="page"' : ''; ?>>
                     <span class="dashicons <?php echo esc_attr($icon); ?>" aria-hidden="true"></span>
                     <span class="bcn-rail-label"><?php echo esc_html($label); ?></span>
-                    <?php if ($key === 'updates' && $ctx['update_available']): ?>
+                    <?php if ($key === 'updates' && $ctx['update_actionable']): ?>
                         <span class="bcn-nav-count bcn-chip acc" aria-label="Update available">1</span>
                     <?php endif; ?>
                 </a>
@@ -400,7 +415,8 @@ class Bynli_Connect_Settings {
         $next_cron = $ctx['next_cron'];
 
         // Health tiles.
-        $update_available = $ctx['update_available'];
+        $update_available  = $ctx['update_available'];
+        $update_actionable = $ctx['update_actionable'];
         $daily_recent = !empty($last['at']) && (time() - (int)$last['at']) < 2 * DAY_IN_SECONDS;
         ?>
         <div class="bcn-hero" data-state="<?php echo esc_attr($hero_state); ?>">
@@ -453,10 +469,10 @@ class Bynli_Connect_Settings {
                 <span class="bcn-tile-label">Daily report</span>
                 <span class="bcn-tile-value"><?php echo !empty($last['at']) ? esc_html(human_time_diff((int)$last['at']) . ' ago') : 'never'; ?></span>
             </div>
-            <div class="bcn-tile" data-state="<?php echo $update_available ? 'acc' : 'ok'; ?>">
+            <div class="bcn-tile" data-state="<?php echo $update_actionable ? 'acc' : 'ok'; ?>">
                 <span class="dashicons dashicons-update" aria-hidden="true"></span>
                 <span class="bcn-tile-label">Plugin</span>
-                <span class="bcn-tile-value"><?php echo $update_available ? 'Update ready' : 'v' . esc_html(BYNLI_CONNECT_VERSION); ?></span>
+                <span class="bcn-tile-value"><?php echo $update_actionable ? 'Update ready' : 'v' . esc_html(BYNLI_CONNECT_VERSION); ?></span>
             </div>
             <div class="bcn-tile" data-state="ok">
                 <span class="dashicons dashicons-lock" aria-hidden="true"></span>
@@ -857,7 +873,7 @@ class Bynli_Connect_Settings {
         if (!empty($upd['has'])) {
             if (!empty($upd['error'])) {
                 $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
-            } elseif ($ctx['update_available']) {
+            } elseif ($ctx['update_actionable']) {
                 $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
             } else {
                 $update_event = ['state' => 'ok', 'ico' => 'dashicons-yes-alt', 'title' => 'Up to date', 'detail' => 'v' . BYNLI_CONNECT_VERSION];
