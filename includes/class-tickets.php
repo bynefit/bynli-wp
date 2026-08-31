@@ -20,8 +20,8 @@ class Bynli_Connect_Tickets {
         // top-level menu. The settings page itself is also under Settings;
         // both share the same admin parent for predictable navigation.
         add_options_page(
-            'Bynli Support Tickets',
-            'Bynli Tickets',
+            'Bynefit Support Tickets',
+            'Bynefit Tickets',
             'manage_options',
             self::MENU_SLUG,
             [$this, 'render']

@@ -6,6 +6,27 @@
  * fall back to sm when a block didn't override that breakpoint.
  */
 
+:root {
+    /*
+     * Minimum hit area for an interactive control (WCAG 2.5.5 / 2.5.8).
+     *
+     * PX, DELIBERATELY. Every minimum here used to read 2.75rem, which is 44px only
+     * while the root font-size is 16px — and `html { font-size: 62.5% }` is common
+     * enough in WordPress themes to have to be assumed. Under it every one of these
+     * rendered at 27.5px while the release notes told customers the controls now met
+     * 44px.
+     *
+     * A touch minimum is a physical claim about fingers, not a typographic one, so it
+     * must NOT scale with a theme's type scale. That is exactly why the two avatars in
+     * this file keep their 2.75rem and these do not: an avatar SHOULD grow with the
+     * text beside it.
+     *
+     * Anything sized to HOLD one of these controls derives from this token rather than
+     * restating 44px, so a change here cannot leave a container behind.
+     */
+    --bynefit-touch-min: 44px;
+}
+
 .bynefit-section {
     display: grid;
     grid-template-columns: repeat(var(--bynefit-cols-sm, 4), minmax(0, 1fr));
@@ -59,7 +80,7 @@
     object-position: var(--bynefit-focal, 50% 50%);
 }
 
-/* Dimensionless media (#51): no width/height attrs means no intrinsic ratio to
+/* Dimensionless media: no width/height attrs means no intrinsic ratio to
    reserve — hold a default 3:2 box so the layout can't shift when it loads. */
 .bynefit-media--nodims { aspect-ratio: 3 / 2; }
 .bynefit-media--nodims .bynefit-media__el { aspect-ratio: 3 / 2; height: auto; }
@@ -339,8 +360,9 @@
     text-decoration: none;
     font-weight: 500;
     /* Padding alone lands at ~43px on a typical line-height, and a theme can set
-       the spacing slug smaller still. */
-    min-height: 2.75rem;
+       the spacing slug smaller still. No min-width here on purpose: the side padding
+       is 1.5rem a side = 48px, so this button clears 44px for any label at all. */
+    min-height: var(--bynefit-touch-min);
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--50, 1.5rem);
     border-radius: var(--wp--custom--radius--md, 14px);
 }
@@ -484,8 +506,8 @@
     right: 1rem;
     bottom: 1rem;
     z-index: 3;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: var(--bynefit-touch-min);
+    height: var(--bynefit-touch-min);
     padding: 0;
     border: 0;
     border-radius: 999px;
@@ -549,7 +571,13 @@
     font: inherit;
     font-weight: 600;
     color: var(--wp--preset--color--muted);
-    min-height: 2.75rem;
+    /* BOTH axes. The 0.22.1 pass set min-height only. That is enough for the CTA
+       button, whose label is always a phrase, but not for a tab: the side padding is
+       1rem a side = 32px, so a short label — "Pro", "All", "1" — rendered around
+       40px wide and still missed the minimum on one axis, while the release notes
+       said tab headings now met it. */
+    min-height: var(--bynefit-touch-min);
+    min-width: var(--bynefit-touch-min);
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--40, 1rem);
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
@@ -579,9 +607,33 @@
     gap: var(--wp--preset--spacing--50, 1.5rem);
 }
 
+/*
+ * A floor tall enough that the vertically-centred nav arrows clear the pause chip
+ * in the top-right corner.
+ *
+ * Both controls live within one control-width of the right edge, so with a one-line
+ * quote the container is ~90px: the chip occupies y 12-56 and the centred nav lands
+ * around y 23-67, and they overlap. Derivation, with T = --bynefit-touch-min:
+ *
+ *   chip bottom      = 0.75rem + T
+ *   nav top edge     = H/2 - T/2
+ *   want             nav top >= chip bottom + 0.5rem breathing room
+ *   =>  H >= 3T + 2.5rem
+ *
+ * Only on .is-enhanced, because a carousel with no JS shows neither control (see the
+ * :not(.is-enhanced) rule below) and has nothing to collide.
+ */
+.bynefit-carousel.is-enhanced {
+    min-height: calc(var(--bynefit-touch-min) * 3 + 2.5rem);
+}
+
 .bynefit-carousel.is-enhanced .bynefit-carousel__track {
     display: block;
-    padding: 0 3rem;
+    /* Wide enough to hold the nav arrow (right/left: 0) and the pause chip
+       (right: 0.25rem) without either sitting over the quote. Derived from the
+       control so it cannot drift from it — it was a bare 3rem, which stopped
+       matching the moment the controls became px. */
+    padding: 0 calc(var(--bynefit-touch-min) + 0.25rem);
 }
 
 .bynefit-carousel__slide {
@@ -628,8 +680,8 @@
     transform: translateY(-50%);
     appearance: none;
     border: 0;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: var(--bynefit-touch-min);
+    height: var(--bynefit-touch-min);
     border-radius: 999px;
     background: var(--wp--preset--color--surface-2);
     color: var(--wp--preset--color--text);
@@ -649,6 +701,19 @@
     margin-top: var(--wp--preset--spacing--40, 1rem);
 }
 
+/*
+ * The inactive dot is a UI STATE indicator, so it needs 3:1 against its background
+ * (WCAG 1.4.11). It used --wp--preset--color--border, which is low-contrast by
+ * design (~1.5-2:1) — a decorative hairline token doing a state token's job
+ *. It reads worse since the touch pass, because the row is now one
+ * control-width per slide rather than 16n-8: five slides is 220px instead of 72px,
+ * so the dots are sparse low-contrast specks with no button affordance.
+ *
+ * --muted is the foreground token the theme already guarantees against surface, and
+ * it is what every other secondary label in this file uses. The 1px ring keeps the
+ * dot legible where a theme's muted sits close to its surface, and gives it an
+ * affordance edge at rest.
+ */
 .bynefit-carousel__dot {
     appearance: none;
     border: 0;
@@ -656,7 +721,8 @@
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 999px;
-    background: var(--wp--preset--color--border);
+    background: var(--wp--preset--color--muted);
+    box-shadow: 0 0 0 1px var(--wp--preset--color--muted);
     cursor: pointer;
 }
 
@@ -675,20 +741,24 @@
     .bynefit-carousel__dot,
     .bynefit-carousel__dot[aria-current="true"] {
         flex: none;
-        width: 2.75rem;
-        height: 2.75rem;
+        width: var(--bynefit-touch-min);
+        height: var(--bynefit-touch-min);
         background: transparent;
         display: inline-flex;
         align-items: center;
         justify-content: center;
     }
 
+    /* The ::before IS the visible dot at this breakpoint — the button itself went
+       transparent to become a hit box — so the contrast fix has to be repeated here
+       or it only lands for mouse users. */
     .bynefit-carousel__dot::before {
         content: "";
         width: 0.5rem;
         height: 0.5rem;
         border-radius: 999px;
-        background: var(--wp--preset--color--border);
+        background: var(--wp--preset--color--muted);
+        box-shadow: 0 0 0 1px var(--wp--preset--color--muted);
     }
 
     .bynefit-carousel__dot[aria-current="true"]::before {
@@ -710,13 +780,17 @@
 .bynefit-carousel__toggle {
     position: absolute;
     top: 0.75rem;
-    /* 0.25 + 2.75 = the track's 3rem gutter exactly; any more and the chip sits
-       over the quote. */
+    /* Sits inside the track's gutter, which is sized FROM this control (see
+       .is-enhanced .bynefit-carousel__track) rather than both restating a number.
+       The old comment read "0.25 + 2.75 = the track's 3rem gutter exactly", which
+       was true only at a 16px root: with the control in px and the gutter in rem,
+       a theme at 62.5% shrank the gutter to 30px and left the chip sitting over the
+       quote. Any more inset than this and it does the same. */
     right: 0.25rem;
     appearance: none;
     border: 0;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: var(--bynefit-touch-min);
+    height: var(--bynefit-touch-min);
     border-radius: 999px;
     background: var(--wp--preset--color--surface-2);
     color: var(--wp--preset--color--text);

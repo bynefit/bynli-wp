@@ -39,7 +39,7 @@ class WC_Gateway_Bynefit extends WC_Payment_Gateway {
                 'type'        => 'checkbox',
                 'label'       => __('Enable Bynefit payments', 'bynli-connect'),
                 'default'     => 'no',
-                'description' => $connected ? '' : __('Add your Bynefit site-host key in Settings → Bynli Connect first.', 'bynli-connect'),
+                'description' => $connected ? '' : __('Add your Bynefit site-host key in Settings → Bynefit Connect first.', 'bynli-connect'),
             ],
             'title' => [
                 'title'       => __('Title', 'bynli-connect'),

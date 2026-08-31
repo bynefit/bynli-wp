@@ -912,11 +912,18 @@ class Bynli_Connect_Settings {
 
     private function render_updates(array $ctx): void {
         $upd = $ctx['upd']; $update_available = $ctx['update_available'];
+        // On a Bynefit-managed site this plugin is an mu-plugin, and WordPress cannot
+        // apply a plugin update there at all. Offering the same buttons as a self-hosted
+        // site meant an admin clicked "Check for updates now", was told a newer version
+        // existed, and had nothing they could do with that.
+        $managed = Bynli_Connect_Updater::is_mu_install();
         ?>
         <section class="bcn-card">
             <div class="bcn-card-head">
                 <h2>Updates</h2>
-                <span class="bcn-card-sub">Released directly from Bynefit</span>
+                <span class="bcn-card-sub"><?php echo $managed
+                    ? 'Applied for you by Bynefit'
+                    : 'Released directly from Bynefit'; ?></span>
             </div>
             <div class="bcn-card-body">
                 <div class="bcn-up-row">
@@ -951,19 +958,39 @@ class Bynli_Connect_Settings {
                     </div>
                 <?php endif; ?>
 
-                <div class="bcn-actions bcn-pad-top">
-                    <?php if ($update_available): ?>
-                        <a class="bcn-btn primary" href="<?php echo esc_url(admin_url('plugins.php')); ?>">
-                            <span class="dashicons dashicons-update"></span> Go to Plugins → Update
-                        </a>
-                    <?php endif; ?>
-                    <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
-                        <input type="hidden" name="action" value="bynli_connect_clear_update_cache">
-                        <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
-                        <button type="submit" class="bcn-btn ink">Check for updates now</button>
-                    </form>
-                    <span class="bcn-action-hint">WordPress polls Bynefit every 12 hours.</span>
-                </div>
+                <?php if ($managed): ?>
+                    <div class="bcn-notice bcn-notice-ok bcn-pad-top">
+                        <?php if ($update_available): ?>
+                            <strong>Update queued.</strong> Bynefit keeps this site&rsquo;s plugin up to
+                            date for you, and will apply v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
+                            on this site&rsquo;s next check-in. There is nothing for you to do here.
+                        <?php else: ?>
+                            <strong>Up to date.</strong> Bynefit keeps this site&rsquo;s plugin up to date
+                            for you &mdash; updates arrive automatically, with no action from you.
+                        <?php endif; ?>
+                    </div>
+                    <div class="bcn-actions bcn-pad-top">
+                        <span class="bcn-action-hint">
+                            This site runs the plugin from WordPress&rsquo;s must-use directory, which
+                            WordPress offers no update button for. That is why Bynefit applies the
+                            update instead of it appearing on your Plugins screen.
+                        </span>
+                    </div>
+                <?php else: ?>
+                    <div class="bcn-actions bcn-pad-top">
+                        <?php if ($update_available): ?>
+                            <a class="bcn-btn primary" href="<?php echo esc_url(admin_url('plugins.php')); ?>">
+                                <span class="dashicons dashicons-update"></span> Go to Plugins &rarr; Update
+                            </a>
+                        <?php endif; ?>
+                        <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
+                            <input type="hidden" name="action" value="bynli_connect_clear_update_cache">
+                            <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
+                            <button type="submit" class="bcn-btn ink">Check for updates now</button>
+                        </form>
+                        <span class="bcn-action-hint">WordPress polls Bynefit every 12 hours.</span>
+                    </div>
+                <?php endif; ?>
 
                 <?php if (!empty($upd['changelog'])): ?>
                     <div class="bcn-changelog">

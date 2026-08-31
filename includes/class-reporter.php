@@ -162,7 +162,7 @@ class Bynli_Connect_Reporter {
         $api_base = Bynli_Connect_Settings::api_base();
         $key      = Bynli_Connect_Settings::key();
         if (!$key) {
-            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynli Connect.'];
+            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynefit Connect.'];
         }
 
         $body  = wp_json_encode($payload);

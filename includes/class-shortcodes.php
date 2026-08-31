@@ -2,7 +2,7 @@
 if (!defined('ABSPATH')) { exit; }
 
 /**
- * Shortcode handlers for Bynli Connect.
+ * Shortcode handlers for Bynefit Connect.
  *
  * Each shortcode emits the same `data-bynli` HTML that a Bynli-hosted
  * team site uses. The bynli.js loader is enqueued exactly once per

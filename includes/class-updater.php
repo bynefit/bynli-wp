@@ -9,6 +9,36 @@ class Bynli_Connect_Updater {
 
     private $plugin_basename;
 
+    /**
+     * Is this install running as a must-use plugin?
+     *
+     * WordPress cannot update an mu-plugin: get_plugins() scans WP_PLUGIN_DIR only,
+     * the Must-Use tab renders no update action, and Plugin_Upgrader targets
+     * WP_PLUGIN_DIR. So on a Bynefit-managed site this plugin's own updater is inert
+     * by design and Bynefit pushes the update server-side on the call-home instead.
+     *
+     * The precise test is WHERE THE FILE LIVES, not whether BYNLI_CONNECT_KEY is
+     * defined. That constant is a proxy for "managed" and the two are not the same
+     * question: a managed site could in principle be a normal plugin install, and
+     * what decides whether WordPress can apply an update is the directory.
+     *
+     * realpath() on both sides so a symlinked mu-plugins directory — which is how
+     * several managed stacks lay this out — still compares equal.
+     */
+    public static function is_mu_install(): bool {
+        if (!defined('WPMU_PLUGIN_DIR') || !defined('BYNLI_CONNECT_PLUGIN_FILE')) {
+            return false;
+        }
+        $mu   = realpath(WPMU_PLUGIN_DIR);
+        $self = realpath(BYNLI_CONNECT_PLUGIN_FILE);
+        if ($mu === false || $self === false) {
+            return false;
+        }
+        $mu   = rtrim(str_replace('\\', '/', $mu), '/') . '/';
+        $self = str_replace('\\', '/', $self);
+        return strpos($self, $mu) === 0;
+    }
+
     public function __construct() {
         $this->plugin_basename = plugin_basename(BYNLI_CONNECT_PLUGIN_FILE);
 
@@ -31,6 +61,22 @@ class Bynli_Connect_Updater {
 
         $entry = $this->build_update_entry($remote);
 
+        // An mu-plugin install goes in no_update even when a newer version exists.
+        // Putting it in ->response is what increments WordPress's update badge, and on
+        // an mu install NOTHING in WordPress can ever decrement it again: there is no
+        // update action on the Must-Use tab, and Plugin_Upgrader would target the wrong
+        // directory. The admin would carry a permanent "1 update" dot for a plugin they
+        // are not able to update and that Bynefit is already keeping current.
+        //
+        // The entry itself is still registered so plugins_api and the version readout
+        // keep working — the panel below reports the real installed-vs-latest state and
+        // says who applies it.
+        if (self::is_mu_install()) {
+            $transient->no_update[$this->plugin_basename] = $entry;
+            unset($transient->response[$this->plugin_basename]);
+            return $transient;
+        }
+
         if (version_compare($remote['version'], BYNLI_CONNECT_VERSION, '>')) {
             $transient->response[$this->plugin_basename] = $entry;
             unset($transient->no_update[$this->plugin_basename]);
@@ -42,6 +88,35 @@ class Bynli_Connect_Updater {
         return $transient;
     }
 
+    /**
+     * The name to show a human, from the most authoritative source available.
+     *
+     * Order: the server manifest (which the release process already updates), then
+     * the plugin header via get_plugin_data, then a literal as the last resort. A
+     * hardcoded literal here is what produced bynli-wp#84 — it drifted from the
+     * header, the readme, the admin menu and the manifest, all four of which were
+     * already correct.
+     *
+     * get_plugin_data lives in wp-admin/includes/plugin.php, which is loaded on
+     * admin requests but not guaranteed on every code path that can reach the
+     * updater, so it is guarded rather than assumed.
+     *
+     * @param array $remote Decoded manifest.
+     */
+    private static function plugin_display_name(array $remote): string {
+        $from_manifest = isset($remote['name']) ? trim((string) $remote['name']) : '';
+        if ($from_manifest !== '') {
+            return $from_manifest;
+        }
+        if (function_exists('get_plugin_data') && defined('BYNLI_CONNECT_PLUGIN_FILE')) {
+            $data = get_plugin_data(BYNLI_CONNECT_PLUGIN_FILE, false, false);
+            $name = isset($data['Name']) ? trim((string) $data['Name']) : '';
+            if ($name !== '') {
+                return $name;
+            }
+        }
+        return 'Bynefit Connect';
+    }
     public function plugins_api($result, $action, $args) {
         if ($action !== 'plugin_information') return $result;
         if (empty($args->slug) || $args->slug !== self::PLUGIN_SLUG) return $result;
@@ -50,11 +125,18 @@ class Bynli_Connect_Updater {
         if (!$remote || empty($remote['version'])) return $result;
 
         $info = new stdClass();
-        $info->name          = 'Bynli Connect';
+        // From the manifest, falling back to the plugin header — never a literal.
+        // This was hardcoded 'Bynli Connect', which is the title WordPress renders
+        // at the top of the "View version details" lightbox, immediately above the
+        // release notes. The 0.22.1 notes tell the reader to open "Settings →
+        // Bynefit Connect" under a heading that said Bynli Connect. Reading it from
+        // the source that already carries the right value is what stops it drifting
+        // again (bynli-wp#84).
+        $info->name          = self::plugin_display_name($remote);
         $info->slug          = self::PLUGIN_SLUG;
         $info->version       = (string)$remote['version'];
         $info->author        = '<a href="https://bynefit.org">Bynefit</a>';
-        $info->homepage      = 'https://bynli.com/guides/wordpress';
+        $info->homepage      = 'https://bynefit.com/guides/wordpress';
         $info->requires      = $remote['requires']      ?? '6.0';
         $info->tested        = $remote['tested']        ?? '6.6';
         $info->requires_php  = $remote['requires_php']  ?? '7.4';
@@ -62,7 +144,7 @@ class Bynli_Connect_Updater {
         $info->download_link = (string)($remote['download_url'] ?? '');
         $info->trunk         = $info->download_link;
         $info->sections = [
-            'description' => $remote['description'] ?? 'Connect a WordPress site to Bynli — daily usage reporting and Bynli shortcodes.',
+            'description' => $remote['description'] ?? 'Connect a WordPress site to Bynefit — daily usage reporting and Bynefit shortcodes.',
             'changelog'   => $remote['changelog']   ?? '',
         ];
         if (!empty($remote['banners']) && is_array($remote['banners'])) {

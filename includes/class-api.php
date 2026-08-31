@@ -40,7 +40,7 @@ class Bynli_Connect_Api {
     public static function post(string $path, array $body = []): array {
         $key = Bynli_Connect_Settings::key();
         if (!$key) {
-            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynli Connect.'];
+            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynefit Connect.'];
         }
 
         $api_base = Bynli_Connect_Settings::api_base();
@@ -114,7 +114,7 @@ class Bynli_Connect_Api {
     public static function post_v2(string $path, array $body, string $idempotency_key, string $method = 'POST'): array {
         $key = Bynli_Connect_Settings::key();
         if (!$key) {
-            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynli Connect.'];
+            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynefit Connect.'];
         }
         if ($idempotency_key === '') {
             return ['ok' => false, 'error' => 'no_idempotency_key', 'message' => 'Missing idempotency key.'];
@@ -168,7 +168,7 @@ class Bynli_Connect_Api {
     public static function get(string $path, array $query = []): array {
         $key = Bynli_Connect_Settings::key();
         if (!$key) {
-            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynli Connect.'];
+            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynefit Connect.'];
         }
 
         $api_base = Bynli_Connect_Settings::api_base();
