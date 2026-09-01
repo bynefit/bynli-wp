@@ -44,6 +44,10 @@ class Bynli_Connect_Updater {
 
         add_filter('pre_set_site_transient_update_plugins', [$this, 'inject_update']);
         add_filter('plugins_api',                           [$this, 'plugins_api'], 10, 3);
+        // BEFORE the unzip. upgrader_source_selection runs after WordPress has already
+        // unpacked the archive, so it is too late to refuse a tampered one — this is
+        // the only hook that sees the package while it is still a file.
+        add_filter('upgrader_pre_download',                 [$this, 'verify_download'], 10, 4);
         add_filter('upgrader_source_selection',             [$this, 'rename_source'], 10, 4);
         add_action('upgrader_process_complete',             [$this, 'clear_cache'], 10, 2);
         add_action('admin_post_bynli_connect_clear_update_cache', [$this, 'handle_clear_cache']);
@@ -151,6 +155,101 @@ class Bynli_Connect_Updater {
             $info->banners = $remote['banners'];
         }
         return $info;
+    }
+
+    /**
+     * Download our own package and refuse it if it does not match the manifest hash.
+     *
+     * WordPress checks nothing about an update archive: no signature, no checksum. It
+     * fetches whatever `package` says and unzips it over the live plugin directory. The
+     * manifest has carried `download_sha256` since the server side of this landed, and
+     * nothing has ever read it, so the field has been decorative.
+     *
+     * Runs on `upgrader_pre_download` because it is the only hook that sees the package
+     * while it is still a FILE — `upgrader_source_selection`, which this class already
+     * uses, fires after the unpack, by which point refusing is pointless.
+     *
+     * Contract, deliberately asymmetric:
+     *   hash present and MATCHES   -> proceed with the file we already downloaded
+     *   hash present and MISMATCHES -> hard stop, WP_Error, nothing is unpacked
+     *   hash ABSENT or empty        -> proceed, unverified
+     *
+     * The absent case is permissive on purpose. Older manifests do not carry the field,
+     * and treating "unverifiable" as "refuse" would stop updates fleet-wide the moment
+     * a server rolled back — turning a security improvement into an availability
+     * incident on sites that cannot self-heal.
+     *
+     * Only OUR package: $hook_extra carries the plugin basename, and anything else
+     * returns $reply untouched so every other updater on the site is unaffected.
+     *
+     * @param bool|WP_Error $reply      false to let WP download normally.
+     * @param string        $package    The URL being fetched.
+     * @param object        $upgrader
+     * @param array         $hook_extra
+     * @return bool|string|WP_Error
+     */
+    public function verify_download($reply, $package, $upgrader = null, $hook_extra = []) {
+        // Someone earlier in the chain already handled it.
+        if ($reply !== false) {
+            return $reply;
+        }
+        $plugin = is_array($hook_extra) && isset($hook_extra['plugin']) ? (string) $hook_extra['plugin'] : '';
+        if ($plugin !== '' && $plugin !== $this->plugin_basename) {
+            return $reply;
+        }
+        if (!is_string($package) || $package === '') {
+            return $reply;
+        }
+
+        $remote = $this->get_remote_manifest();
+        $expected = is_array($remote) && isset($remote['download_sha256'])
+            ? strtolower(trim((string) $remote['download_sha256']))
+            : '';
+
+        // When $hook_extra carries no plugin key we cannot be certain this package is
+        // ours, so only claim it if the URL is the one our own manifest names.
+        $our_url = is_array($remote) ? (string) ($remote['download_url'] ?? '') : '';
+        if ($plugin === '' && ($our_url === '' || $package !== $our_url)) {
+            return $reply;
+        }
+
+        // Nothing to check against — proceed exactly as before.
+        if ($expected === '' || !preg_match('/^[a-f0-9]{64}$/', $expected)) {
+            return $reply;
+        }
+
+        if (!function_exists('download_url')) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+        }
+        $tmp = download_url($package);
+        if (is_wp_error($tmp)) {
+            // Let WordPress report its own download failure.
+            return $reply;
+        }
+
+        $actual = @hash_file('sha256', $tmp);
+        if ($actual === false) {
+            @unlink($tmp);
+            error_log('[Bynli Connect] update: could not hash the downloaded package');
+            return new WP_Error(
+                'bynli_connect_hash_failed',
+                __('Could not verify the downloaded update. The update was not installed.', 'bynli-connect')
+            );
+        }
+
+        if (!hash_equals($expected, strtolower($actual))) {
+            @unlink($tmp);
+            error_log('[Bynli Connect] update REFUSED: package checksum mismatch — expected '
+                . $expected . ', got ' . $actual);
+            return new WP_Error(
+                'bynli_connect_checksum_mismatch',
+                __('The downloaded update did not match the checksum published for it, so it was not installed. This can mean the download was corrupted or tampered with. Try again, and contact Bynefit support if it keeps happening.', 'bynli-connect')
+            );
+        }
+
+        // Verified. Hand WordPress the file we already have rather than making it
+        // fetch a second copy — which would also mean unpacking bytes we never hashed.
+        return $tmp;
     }
 
     public function rename_source($source, $remote_source, $upgrader, $hook_extra) {
