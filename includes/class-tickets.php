@@ -459,7 +459,7 @@ class Bynli_Connect_Tickets {
                 if (!empty($replies)): foreach ($replies as $r):
                     echo self::render_thread_message_html([
                         'is_staff'   => !empty($r['is_staff']),
-                        'author'     => (string)($r['author']     ?? (!empty($r['is_staff']) ? 'Bynli support' : 'Team member')),
+                        'author'     => (string)($r['author']     ?? (!empty($r['is_staff']) ? 'Bynefit support' : 'Team member')),
                         'body'       => (string)($r['body']       ?? ''),
                         'created_at' => (string)($r['created_at'] ?? ''),
                         'attachment' => isset($r['attachment']) && is_array($r['attachment']) ? $r['attachment'] : null,
@@ -494,7 +494,7 @@ class Bynli_Connect_Tickets {
                             if ($who_email !== '') {
                                 printf(
                                     /* translators: %1$s: display name, %2$s: email */
-                                    esc_html__('Posted as %1$s (%2$s). Bynli staff will email this address with any reply.', 'bynli-connect'),
+                                    esc_html__('Posted as %1$s (%2$s). Bynefit staff will email this address with any reply.', 'bynli-connect'),
                                     esc_html($who_name ?: $who_email),
                                     esc_html($who_email)
                                 );
@@ -551,7 +551,7 @@ class Bynli_Connect_Tickets {
 
     public static function render_thread_message_html(array $msg): string {
         $is_staff = !empty($msg['is_staff']);
-        $author   = (string)($msg['author']     ?? ($is_staff ? 'Bynli support' : 'Team member'));
+        $author   = (string)($msg['author']     ?? ($is_staff ? 'Bynefit support' : 'Team member'));
         $body     = (string)($msg['body']       ?? '');
         $when     = (string)($msg['created_at'] ?? '');
         $att      = isset($msg['attachment']) && is_array($msg['attachment']) ? $msg['attachment'] : null;
@@ -562,7 +562,7 @@ class Bynli_Connect_Tickets {
             <header class="bcn-thread-msg-head">
                 <strong><?php echo esc_html($author); ?></strong>
                 <?php if ($is_staff): ?>
-                    <span class="bcn-pill bcn-pill-staff">Bynli</span>
+                    <span class="bcn-pill bcn-pill-staff">Bynefit</span>
                 <?php endif; ?>
                 <span class="bcn-thread-msg-when"><?php echo esc_html($when !== '' ? self::human_when($when) : ''); ?></span>
             </header>
@@ -574,7 +574,7 @@ class Bynli_Connect_Tickets {
                     <?php if (isset($att['size']) && $att['size'] !== null): ?>
                         <span class="bcn-thread-msg-att-size">(<?php echo esc_html(size_format((int)$att['size'])); ?>)</span>
                     <?php endif; ?>
-                    <em><?php esc_html_e('— open on Bynli to download', 'bynli-connect'); ?></em>
+                    <em><?php esc_html_e('— open on Bynefit to download', 'bynli-connect'); ?></em>
                 </p>
             <?php endif; ?>
         </article>

@@ -34,9 +34,42 @@ class Bynli_Connect_Updater {
         if ($mu === false || $self === false) {
             return false;
         }
-        $mu   = rtrim(str_replace('\\', '/', $mu), '/') . '/';
-        $self = str_replace('\\', '/', $self);
-        return strpos($self, $mu) === 0;
+        $mu_n   = rtrim(str_replace('\\', '/', $mu), '/') . '/';
+        $self_n = str_replace('\\', '/', $self);
+        if (strpos($self_n, $mu_n) === 0) {
+            return true;
+        }
+
+        // The prefix test alone is not enough (wp#97). __FILE__ is ALREADY
+        // symlink-resolved by PHP, so realpath() on it is a no-op — which means a
+        // mu-plugins directory holding a SYMLINK to a plugin that lives elsewhere
+        // (a common managed-hosting layout) reports the real out-of-tree path, fails
+        // the prefix, and is judged not-managed. That hands the site straight back the
+        // un-clearable update badge this detection exists to remove.
+        //
+        // So when the fast path misses, ask the directory instead of the file: does any
+        // entry in mu-plugins RESOLVE to us? Only reached when the answer would
+        // otherwise be false, so the ordinary install pays nothing for it.
+        $entries = @scandir($mu);
+        if ($entries === false) {
+            return false;
+        }
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+            $candidate = realpath($mu . DIRECTORY_SEPARATOR . $entry);
+            if ($candidate === false) {
+                continue;
+            }
+            $candidate = rtrim(str_replace('\\', '/', $candidate), '/');
+            // Our file itself, or the directory it lives in — a symlink usually points
+            // at the plugin FOLDER rather than the bootstrap file.
+            if ($candidate === $self_n || strpos($self_n, $candidate . '/') === 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function __construct() {

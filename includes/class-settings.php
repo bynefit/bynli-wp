@@ -951,7 +951,16 @@ class Bynli_Connect_Settings {
                     <span class="bcn-up-value">
                         <?php if (!empty($upd['version'])): ?>
                             <code>v<?php echo esc_html($upd['version']); ?></code>
-                            <?php if ($update_available): ?>
+                            <?php if ($update_available && $managed): ?>
+                                <?php /* On a managed site the update is real but is not the
+                                     admin's to apply, so an accent "Update available" chip
+                                     contradicted the notice directly below it — which says
+                                     there is nothing for them to do. Four affordances were
+                                     routed through update_actionable for this reason and this
+                                     fifth one, inside the panel itself, kept reading the raw
+                                     version comparison (wp#96). */ ?>
+                                <span class="bcn-chip ok">Update queued</span>
+                            <?php elseif ($update_available): ?>
                                 <span class="bcn-chip acc">Update available</span>
                             <?php else: ?>
                                 <span class="bcn-chip ok">Up to date</span>

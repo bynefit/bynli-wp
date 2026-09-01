@@ -7,23 +7,9 @@
  */
 
 :root {
-    /*
-     * Minimum hit area for an interactive control (WCAG 2.5.5 / 2.5.8).
-     *
-     * PX, DELIBERATELY. Every minimum here used to read 2.75rem, which is 44px only
-     * while the root font-size is 16px — and `html { font-size: 62.5% }` is common
-     * enough in WordPress themes to have to be assumed. Under it every one of these
-     * rendered at 27.5px while the release notes told customers the controls now met
-     * 44px.
-     *
-     * A touch minimum is a physical claim about fingers, not a typographic one, so it
-     * must NOT scale with a theme's type scale. That is exactly why the two avatars in
-     * this file keep their 2.75rem and these do not: an avatar SHOULD grow with the
-     * text beside it.
-     *
-     * Anything sized to HOLD one of these controls derives from this token rather than
-     * restating 44px, so a change here cannot leave a container behind.
-     */
+    /* Touch minimum, in PX not rem: a theme at `html{font-size:62.5%}` renders 2.75rem
+   as 27.5px. Physical target, so it must not scale with the type ramp — which is why
+   the avatars below deliberately keep rem. Containers derive from this token. */
     --bynefit-touch-min: 44px;
 }
 
@@ -70,7 +56,7 @@
  * image crops around its focal point instead of letter-boxing. The explicit
  * width/height attributes give the intrinsic aspect-ratio (CLS-safe) and, when
  * the cell isn't height-constrained, define the natural height. Emitter
- * contract: bynefit/media MUST carry width+height (see bynefit-sites#3).
+ * contract: bynefit/media MUST carry width+height — the emitter guarantees it.
  */
 .bynefit-media__el {
     display: block;
@@ -80,8 +66,8 @@
     object-position: var(--bynefit-focal, 50% 50%);
 }
 
-/* Dimensionless media: no width/height attrs means no intrinsic ratio to
-   reserve — hold a default 3:2 box so the layout can't shift when it loads. */
+/* Dimensionless media: no width/height attrs means no intrinsic ratio, so the box is
+   pinned here to stop the reflow. */
 .bynefit-media--nodims { aspect-ratio: 3 / 2; }
 .bynefit-media--nodims .bynefit-media__el { aspect-ratio: 3 / 2; height: auto; }
 
@@ -571,11 +557,8 @@
     font: inherit;
     font-weight: 600;
     color: var(--wp--preset--color--muted);
-    /* BOTH axes. The 0.22.1 pass set min-height only. That is enough for the CTA
-       button, whose label is always a phrase, but not for a tab: the side padding is
-       1rem a side = 32px, so a short label — "Pro", "All", "1" — rendered around
-       40px wide and still missed the minimum on one axis, while the release notes
-       said tab headings now met it. */
+    /* BOTH axes: min-height alone left a short tab label ("Pro", "All", "1") under the
+   minimum on width, because the side padding is only 1rem. */
     min-height: var(--bynefit-touch-min);
     min-width: var(--bynefit-touch-min);
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--40, 1rem);
@@ -607,32 +590,15 @@
     gap: var(--wp--preset--spacing--50, 1.5rem);
 }
 
-/*
- * A floor tall enough that the vertically-centred nav arrows clear the pause chip
- * in the top-right corner.
- *
- * Both controls live within one control-width of the right edge, so with a one-line
- * quote the container is ~90px: the chip occupies y 12-56 and the centred nav lands
- * around y 23-67, and they overlap. Derivation, with T = --bynefit-touch-min:
- *
- *   chip bottom      = 0.75rem + T
- *   nav top edge     = H/2 - T/2
- *   want             nav top >= chip bottom + 0.5rem breathing room
- *   =>  H >= 3T + 2.5rem
- *
- * Only on .is-enhanced, because a carousel with no JS shows neither control (see the
- * :not(.is-enhanced) rule below) and has nothing to collide.
- */
+/* Floor so the centred nav arrows clear the top-right chip: with T = touch token,
+   chip bottom = 0.75rem + T and nav top = H/2 - T/2, so H >= 3T + 2.5rem. */
 .bynefit-carousel.is-enhanced {
     min-height: calc(var(--bynefit-touch-min) * 3 + 2.5rem);
 }
 
 .bynefit-carousel.is-enhanced .bynefit-carousel__track {
     display: block;
-    /* Wide enough to hold the nav arrow (right/left: 0) and the pause chip
-       (right: 0.25rem) without either sitting over the quote. Derived from the
-       control so it cannot drift from it — it was a bare 3rem, which stopped
-       matching the moment the controls became px. */
+    /* Sized FROM the control token so the gutter cannot drift from what it holds. */
     padding: 0 calc(var(--bynefit-touch-min) + 0.25rem);
 }
 
@@ -748,8 +714,8 @@
 }
 
 .bynefit-carousel__dot[aria-current="true"] {
-    /* Fill is the state; the ring keeps the silhouette identical to the inactive
-       dot so the row does not shift between slides. */
+    /* Fill is the state, ring keeps the silhouette constant — shape, not hue alone, and
+   the inactive dot needs 3:1 as a UI state (WCAG 1.4.11). */
     background: var(--wp--preset--color--brand);
     box-shadow: 0 0 0 1px var(--wp--preset--color--brand);
 }
@@ -773,17 +739,14 @@
         justify-content: center;
     }
 
-    /* The ::before IS the visible dot at this breakpoint — the button itself went
-       transparent to become a hit box — so the contrast fix has to be repeated here
-       or it only lands for mouse users. */
+    /* The ::before is the visible dot here (the button goes transparent to become the hit
+   box), so the state treatment has to be repeated or touch users lose it. */
     .bynefit-carousel__dot::before {
         content: "";
         width: 0.5rem;
         height: 0.5rem;
         border-radius: 999px;
-        /* Ring, not fill — repeated here because the ::before IS the visible dot at
-           this breakpoint (the button went transparent to become a hit box), so the
-           distinction only lands for mouse users otherwise. */
+        /* Ring, not fill — same reason as above: the ::before is the visible dot. */
         background: transparent;
         box-shadow: 0 0 0 1px var(--wp--preset--color--muted);
     }
@@ -808,12 +771,8 @@
 .bynefit-carousel__toggle {
     position: absolute;
     top: 0.75rem;
-    /* Sits inside the track's gutter, which is sized FROM this control (see
-       .is-enhanced .bynefit-carousel__track) rather than both restating a number.
-       The old comment read "0.25 + 2.75 = the track's 3rem gutter exactly", which
-       was true only at a 16px root: with the control in px and the gutter in rem,
-       a theme at 62.5% shrank the gutter to 30px and left the chip sitting over the
-       quote. Any more inset than this and it does the same. */
+    /* Inset stays in rem; the gutter is derived from the control token, so the two cannot
+   disagree the way a hardcoded 3rem did. */
     right: 0.25rem;
     appearance: none;
     border: 0;

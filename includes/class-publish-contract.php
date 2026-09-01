@@ -423,7 +423,7 @@ class Bynli_Connect_Publish_Contract {
                     }
                 } elseif ($type === 'form') {
                     if (!preg_match('/^frm_[A-Za-z0-9_\-]{6,40}$/', (string) ($block['formId'] ?? ''))) {
-                        $v[] = self::vio('form_id', "$bpath.formId", 'Form needs a valid Bynli form id (frm_…).');
+                        $v[] = self::vio('form_id', "$bpath.formId", 'Form needs a valid Bynefit form id (frm_…).');
                     }
                     if (isset($block['style']) && !in_array((string) $block['style'], ['default', 'bootstrap', 'bare'], true)) {
                         $v[] = self::vio('form_style', "$bpath.style", 'Form style must be default, bootstrap, or bare.');
