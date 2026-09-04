@@ -270,7 +270,7 @@ class Bynli_Connect_Settings {
             // Is that update something THIS ADMIN can act on? On a Bynefit-managed
             // site the plugin is an mu-plugin, WordPress cannot apply a plugin update
             // at all, and Bynefit pushes it on the next call-home — so the answer is
-            // no, and every affordance that invites action must say so (wp#87).
+            // no, and every affordance that invites action must say so (#87).
             //
             // Separate from update_available rather than replacing it: "a newer
             // version exists" is still true and the Updates panel still reports it.
@@ -342,7 +342,7 @@ class Bynli_Connect_Settings {
         ];
         // "Nothing for you to do" rather than "nothing pending": on a managed site an
         // available update is real but not the admin's to apply, so the rail reads calm
-        // and the Updates panel explains the queue (wp#87).
+        // and the Updates panel explains the queue (#87).
         $up_to_date = !$ctx['update_actionable'];
         ?>
         <nav class="bcn-rail" aria-label="Bynefit Connect sections">
@@ -958,7 +958,7 @@ class Bynli_Connect_Settings {
                                      there is nothing for them to do. Four affordances were
                                      routed through update_actionable for this reason and this
                                      fifth one, inside the panel itself, kept reading the raw
-                                     version comparison (wp#96). */ ?>
+                                     version comparison (#96). */ ?>
                                 <span class="bcn-chip ok">Update queued</span>
                             <?php elseif ($update_available): ?>
                                 <span class="bcn-chip acc">Update available</span>

@@ -6,7 +6,7 @@
     "title": "Bynefit Events",
     "category": "embed",
     "icon": "calendar-alt",
-    "description": "Shows a team's upcoming (or past) Bynli events, rendered live from Bynli at page load. Cards, list, or bare layouts.",
+    "description": "Shows a team's upcoming (or past) Bynefit events, rendered live from Bynefit at page load. Cards, list, or bare layouts.",
     "textdomain": "bynli-connect",
     "supports": {
         "html": false,

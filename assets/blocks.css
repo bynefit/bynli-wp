@@ -8,8 +8,8 @@
 
 :root {
     /* Touch minimum, in PX not rem: a theme at `html{font-size:62.5%}` renders 2.75rem
-   as 27.5px. Physical target, so it must not scale with the type ramp — which is why
-   the avatars below deliberately keep rem. Containers derive from this token. */
+       as 27.5px. Physical target, so it must not scale with the type ramp — which is
+       why the avatars below deliberately keep rem. Containers derive from this. */
     --bynefit-touch-min: 44px;
 }
 
@@ -591,7 +591,9 @@
 }
 
 /* Floor so the centred nav arrows clear the top-right chip: with T = touch token,
-   chip bottom = 0.75rem + T and nav top = H/2 - T/2, so H >= 3T + 2.5rem. */
+   chip bottom = 0.75rem + T and nav top = H/2 - T/2, giving H >= 3T + 1.5rem.
+   The rule adds a further 1rem of deliberate clearance (3T + 2.5rem = 172px rather
+   than the derived 156px) so the arrows are not flush against the chip. */
 .bynefit-carousel.is-enhanced {
     min-height: calc(var(--bynefit-touch-min) * 3 + 2.5rem);
 }
@@ -668,38 +670,11 @@
 }
 
 /*
- * The inactive dot is a UI STATE indicator, so it needs 3:1 against its background
- * (WCAG 1.4.11). It used --wp--preset--color--border, which is low-contrast by
- * design (~1.5-2:1) — a decorative hairline token doing a state token's job
- *. It reads worse since the touch pass, because the row is now one
- * control-width per slide rather than 16n-8: five slides is 220px instead of 72px,
- * so the dots are sparse low-contrast specks with no button affordance.
- *
- * --muted is the foreground token the theme already guarantees against surface, and
- * it is what every other secondary label in this file uses. The 1px ring keeps the
- * dot legible where a theme's muted sits close to its surface, and gives it an
- * affordance edge at rest.
- */
-/*
- * INACTIVE = ring. ACTIVE = filled. The two states differ by SHAPE, not hue.
- *
- * Getting this wrong twice is instructive. It started on the theme's border token,
- * 1.22:1 against surface — a decorative hairline doing a state indicator's job, and
- * failing 1.4.11. Moving the fill to the muted token fixed that (5.37:1) and broke
- * the thing the dots exist for: active brand #157A42 against inactive muted #6B6459
- * measures 1.08:1. The two states became distinguishable from the background and
- * indistinguishable from EACH OTHER — worse, because "which slide am I on" is the
- * only information an 8px dot carries. Hue as the sole channel also fails 1.4.1
- * outright and vanishes under red-green colour deficiency.
- *
- * Empty-vs-filled survives greyscale and every colour deficiency, and keeps the
- * 5.37:1 ring edge against the surface — so 1.4.11 and 1.4.1 are satisfied together
- * without requiring the theme's two tokens to differ in luminance, which this
- * stylesheet cannot demand of a theme it does not own.
- *
- * It also makes the ring real: ring and fill were both the muted token, so the
- * box-shadow drew an invisible outline around an identically-coloured disc while its
- * comment claimed it aided legibility.
+ * INACTIVE = ring, ACTIVE = filled: the states differ by SHAPE, not hue, so they
+ * survive greyscale and colour deficiency (1.4.1) while the ring edge holds 3:1
+ * against surface (1.4.11). Hue alone failed both — brand against muted measures
+ * 1.08:1, and this stylesheet cannot require a theme it does not own to keep those
+ * two tokens apart in luminance.
  */
 .bynefit-carousel__dot {
     appearance: none;
@@ -714,8 +689,8 @@
 }
 
 .bynefit-carousel__dot[aria-current="true"] {
-    /* Fill is the state, ring keeps the silhouette constant — shape, not hue alone, and
-   the inactive dot needs 3:1 as a UI state (WCAG 1.4.11). */
+    /* Ring matches the fill so the apparent diameter is the same in both states.
+       (Not a layout concern — box-shadow never participates in layout.) */
     background: var(--wp--preset--color--brand);
     box-shadow: 0 0 0 1px var(--wp--preset--color--brand);
 }
@@ -733,14 +708,18 @@
         flex: none;
         width: var(--bynefit-touch-min);
         height: var(--bynefit-touch-min);
+        /* Both, not just background: the button became a hit box and the ::before
+           below is the visible dot, so any paint left on the button is a 44px
+           artifact. The ring arrived after this reset was written. */
         background: transparent;
+        box-shadow: none;
         display: inline-flex;
         align-items: center;
         justify-content: center;
     }
 
-    /* The ::before is the visible dot here (the button goes transparent to become the hit
-   box), so the state treatment has to be repeated or touch users lose it. */
+    /* The ::before is the visible dot here (the button goes transparent to become the
+       hit box), so the state treatment is repeated or touch users lose it. */
     .bynefit-carousel__dot::before {
         content: "";
         width: 0.5rem;
@@ -771,8 +750,8 @@
 .bynefit-carousel__toggle {
     position: absolute;
     top: 0.75rem;
-    /* Inset stays in rem; the gutter is derived from the control token, so the two cannot
-   disagree the way a hardcoded 3rem did. */
+    /* Inset stays in rem; the gutter derives from the control token, so the two cannot
+       disagree the way a hardcoded 3rem did. */
     right: 0.25rem;
     appearance: none;
     border: 0;

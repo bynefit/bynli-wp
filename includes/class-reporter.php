@@ -45,7 +45,7 @@ class Bynli_Connect_Reporter {
     }
 
     /**
-     * Cheap, cached WP site insights for the daily report (bynli#2265 Phase 1).
+     * Cheap, cached WP site insights for the daily report (phase 1).
      * All reads are in-process or hit already-cached update transients — no forced
      * network refresh, no extra filesystem walk. Every branch is guarded so a
      * missing function / odd site never fatals the cron report.
@@ -116,7 +116,7 @@ class Bynli_Connect_Reporter {
                 $out['db_version'] = (string)$wpdb->db_version();
             }
 
-            // WooCommerce block (bynli#2265 Phase 2) — only when Woo is active.
+            // WooCommerce block (phase 2) — only when Woo is active.
             // Cheap status COUNTs (wc_orders_count) + product count; the "needs
             // action" queue (processing + on-hold) is the highest-value signal.
             // Counts only — no order/customer money data or PII is sent.
