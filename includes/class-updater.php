@@ -30,7 +30,7 @@ class Bynli_Connect_Updater {
         // read at least twice per Settings load plus once per update-transient fire.
         // Without this the DEFAULT install — wp-content/plugins, which always misses
         // the fast path below — pays a full scandir plus a realpath per entry, every
-        // time, to recompute a constant false (#108).
+        // time, to recompute a constant false.
         static $cached = null;
         if ($cached !== null) {
             return $cached;
@@ -49,7 +49,7 @@ class Bynli_Connect_Updater {
             return $cached = true;
         }
 
-        // The prefix test alone is not enough (#97). __FILE__ is ALREADY
+        // The prefix test alone is not enough. __FILE__ is ALREADY
         // symlink-resolved by PHP, so realpath() on it is a no-op — which means a
         // mu-plugins directory holding a SYMLINK to a plugin that lives elsewhere
         // (a common managed-hosting layout) reports the real out-of-tree path, fails
@@ -66,7 +66,7 @@ class Bynli_Connect_Updater {
         // Our bootstrap file, or our own plugin directory — NOTHING higher.
         //
         // This was `strpos($self_n, $candidate . '/') === 0`, which accepts any
-        // ANCESTOR of our file (#107). A mu-plugins symlink pointing at a shared
+        // ANCESTOR of our file. A mu-plugins symlink pointing at a shared
         // application root, a vendor tree or a deploy-releases directory would then
         // resolve to an ancestor and mark the site managed. That fails in the
         // dangerous direction: a genuinely self-hosted site, which CAN apply the
@@ -76,7 +76,7 @@ class Bynli_Connect_Updater {
         //
         // The fast path above never had this problem: it appends a trailing slash to
         // the mu-plugins ROOT, which is the correct containment test. This is the
-        // equivalent, and it still covers what #97 was filed for, since a symlink
+        // equivalent, and it still covers the symlink-to-plugin-folder case, since a symlink
         // normally points at the plugin folder.
         $self_dir = rtrim(str_replace('\\', '/', dirname($self)), '/');
         foreach ($entries as $entry) {
@@ -153,7 +153,7 @@ class Bynli_Connect_Updater {
      *
      * Order: the server manifest (which the release process already updates), then
      * the plugin header via get_plugin_data, then a literal as the last resort. A
-     * hardcoded literal here is what produced #84 — it drifted from the
+     * hardcoded literal here is what produced the two-names defect — it drifted from the
      * header, the readme, the admin menu and the manifest, all four of which were
      * already correct.
      *
@@ -191,7 +191,7 @@ class Bynli_Connect_Updater {
         // release notes. The 0.22.1 notes tell the reader to open "Settings →
         // Bynefit Connect" under a heading that said Bynli Connect. Reading it from
         // the source that already carries the right value is what stops it drifting
-        // again (#84).
+        // again.
         $info->name          = self::plugin_display_name($remote);
         $info->slug          = self::PLUGIN_SLUG;
         $info->version       = (string)$remote['version'];
@@ -365,7 +365,7 @@ class Bynli_Connect_Updater {
         $entry->slug          = self::PLUGIN_SLUG;
         $entry->plugin        = $this->plugin_basename;
         $entry->new_version   = (string)$remote['version'];
-        $entry->url           = 'https://bynli.com/guides/wordpress';
+        $entry->url           = 'https://bynefit.com/guides/wordpress';
         $entry->package       = (string)($remote['download_url'] ?? '');
         $entry->tested        = $remote['tested']       ?? '6.6';
         $entry->requires_php  = $remote['requires_php'] ?? '7.4';

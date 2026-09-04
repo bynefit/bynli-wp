@@ -2,7 +2,7 @@
 if (!defined('ABSPATH')) { exit; }
 
 /**
- * WC_Gateway_Bynefit — off-site (redirect) WooCommerce payment gateway (#2164).
+ * WC_Gateway_Bynefit — off-site (redirect) WooCommerce payment gateway.
  * Holds NO PayPal credentials: process_payment() calls the signed
  * /api/site-host/woo/checkout with the site-host key the plugin already carries,
  * then redirects the buyer to the returned Bynefit-hosted pay page. The order

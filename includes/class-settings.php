@@ -270,7 +270,7 @@ class Bynli_Connect_Settings {
             // Is that update something THIS ADMIN can act on? On a Bynefit-managed
             // site the plugin is an mu-plugin, WordPress cannot apply a plugin update
             // at all, and Bynefit pushes it on the next call-home — so the answer is
-            // no, and every affordance that invites action must say so (#87).
+            // no, and every affordance that invites action must say so.
             //
             // Separate from update_available rather than replacing it: "a newer
             // version exists" is still true and the Updates panel still reports it.
@@ -342,7 +342,7 @@ class Bynli_Connect_Settings {
         ];
         // "Nothing for you to do" rather than "nothing pending": on a managed site an
         // available update is real but not the admin's to apply, so the rail reads calm
-        // and the Updates panel explains the queue (#87).
+        // and the Updates panel explains the queue.
         $up_to_date = !$ctx['update_actionable'];
         ?>
         <nav class="bcn-rail" aria-label="Bynefit Connect sections">
@@ -502,7 +502,7 @@ class Bynli_Connect_Settings {
             <div class="bcn-card-body">
                 <p>Generate a site-host key on Bynefit, paste it in <strong>Connection</strong>, and this WordPress install starts reporting and unlocks every shortcode.</p>
                 <ol>
-                    <li>Open <a href="https://bynli.com/dash/sites/host-keys" target="_blank" rel="noopener">/dash/sites/host-keys</a> signed in as a team admin.</li>
+                    <li>Open <a href="https://bynefit.com/dash/sites/host-keys" target="_blank" rel="noopener">/dash/sites/host-keys</a> signed in as a team admin.</li>
                     <li>Pick this site, <strong>Generate key</strong>, copy the plaintext value — shown once.</li>
                     <li>Paste it into the API key field in Connection and save.</li>
                 </ol>
@@ -838,7 +838,7 @@ class Bynli_Connect_Settings {
                         <?php endforeach; ?>
                     </div>
                 </div>
-                <p class="bcn-hint bcn-pad-top">Full reference at <a href="https://bynli.com/guides/wordpress" target="_blank" rel="noopener">/guides/wordpress</a>.</p>
+                <p class="bcn-hint bcn-pad-top">Full reference at <a href="https://bynefit.com/guides/wordpress" target="_blank" rel="noopener">/guides/wordpress</a>.</p>
             </div>
         </section>
         <?php
@@ -958,7 +958,7 @@ class Bynli_Connect_Settings {
                                      there is nothing for them to do. Four affordances were
                                      routed through update_actionable for this reason and this
                                      fifth one, inside the panel itself, kept reading the raw
-                                     version comparison (#96). */ ?>
+                                     version comparison. */ ?>
                                 <span class="bcn-chip ok">Update queued</span>
                             <?php elseif ($update_available): ?>
                                 <span class="bcn-chip acc">Update available</span>

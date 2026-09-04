@@ -8,7 +8,7 @@ class Bynli_Connect_Signer {
     }
 
     /**
-     * Signer v2 (payment rail #2164) — folds an idempotency key into the HMAC
+     * Signer v2 — folds an idempotency key into the HMAC
      * preimage so a replayed body with a fresh id can't pass as the original.
      * MUST match the server verifier (SiteHostKey::verifySignatureV2):
      *   preimage = timestamp + "\n" + id + "\n" + body
@@ -18,7 +18,7 @@ class Bynli_Connect_Signer {
     }
 
     /**
-     * Inbound verify — the reverse direction of sign(), for requests bynli.com
+     * Inbound verify — the reverse direction of sign(), for requests bynefit.com
      * makes INTO this site's bynli/v1 control plane. Same scheme as the server
      * verifier (SiteHostKey::verifySignature): reject timestamps outside the
      * replay window, constant-time compare. Returns false on any failure.

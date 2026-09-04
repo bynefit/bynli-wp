@@ -5,7 +5,7 @@ use Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodTyp
 
 /**
  * WC_Blocks_Bynefit — Cart/Checkout **Blocks** integration for the Bynefit
- * gateway (#2164).
+ * gateway.
  *
  * WooCommerce's block-based Checkout does NOT render classic WC_Payment_Gateway
  * classes: it builds its payment list from methods registered through the Blocks

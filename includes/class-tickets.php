@@ -509,7 +509,7 @@ class Bynli_Connect_Tickets {
                             <button type="submit" class="bcn-btn primary" data-role="submit">
                                 <?php esc_html_e('Send reply', 'bynli-connect'); ?>
                             </button>
-                            <a class="bcn-btn" href="<?php echo esc_url('https://bynli.com/dash/support/center'); ?>" target="_blank" rel="noopener">
+                            <a class="bcn-btn" href="<?php echo esc_url('https://bynefit.com/dash/support/center'); ?>" target="_blank" rel="noopener">
                                 <?php esc_html_e('Open on Bynefit', 'bynli-connect'); ?>
                                 <span class="dashicons dashicons-external"></span>
                             </a>
@@ -592,7 +592,7 @@ class Bynli_Connect_Tickets {
             );
         ?></p>
         <p>
-            <a class="bcn-btn" href="<?php echo esc_url('https://bynli.com/dash/support/center'); ?>" target="_blank" rel="noopener">
+            <a class="bcn-btn" href="<?php echo esc_url('https://bynefit.com/dash/support/center'); ?>" target="_blank" rel="noopener">
                 <?php esc_html_e('Open on Bynefit', 'bynli-connect'); ?>
                 <span class="dashicons dashicons-external"></span>
             </a>

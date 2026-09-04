@@ -35,7 +35,7 @@ if (!defined('ABSPATH')) { exit; }
  */
 class Bynli_Connect_Shortcodes {
 
-    const LOADER_URL = 'https://bynli.com/sites/bynli.js';
+    const LOADER_URL = 'https://bynefit.com/sites/bynli.js';
 
     private static $loader_needed = false;
 
@@ -177,7 +177,7 @@ class Bynli_Connect_Shortcodes {
         // The legacy widget.js loads independently — it is NOT the same
         // file as bynli.js. We do not flag self::$loader_needed here
         // because this widget brings its own loader.
-        $attrs  = ' src="' . esc_url('https://bynli.com/widget.js') . '"';
+        $attrs  = ' src="' . esc_url('https://bynefit.com/widget.js') . '"';
         $attrs .= ' data-team="' . esc_attr($a['team']) . '"';
         if ($a['position'] !== '') $attrs .= ' data-position="' . esc_attr($a['position']) . '"';
         if ($a['label']    !== '') $attrs .= ' data-label="'    . esc_attr($a['label'])    . '"';

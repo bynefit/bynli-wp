@@ -107,7 +107,7 @@ class Bynli_Connect_Api {
 
     /**
      * Signed POST with an idempotency key (signer v2). Used by the WooCommerce
-     * gateway (#2164) — the key is sent as X-Bynli-Idempotency-Key AND folded
+     * gateway — the key is sent as X-Bynli-Idempotency-Key AND folded
      * into the signature preimage so a retry can't be forged. Response handling
      * mirrors post().
      */

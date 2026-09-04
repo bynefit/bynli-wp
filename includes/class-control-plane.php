@@ -6,15 +6,15 @@ if (!defined('ABSPATH')) {
 /**
  * Bynli_Connect_Control_Plane — the bynli/v1 REST namespace.
  *
- * The authenticated control plane bynli.com drives to build/update this site
+ * The authenticated control plane bynefit.com drives to build/update this site
  * without ever touching raw WP or the owner's login.
  *
  * Auth is HMAC-authoritative: an HMAC over a DEDICATED per-site control-plane
  * secret (NOT the site-host key) — sig = sha256(hmac(secret, ts + "\n" +
  * rawBody)), timestamps outside a 300s window rejected, constant-time compare.
  * The secret is baked into THIS install's mu-plugin loader as
- * BYNLI_CONTROL_PLANE_SECRET and held only by bynli.com, so a valid signature
- * proves the caller is bynli.com. On a valid signature the request acts as the
+ * BYNLI_CONTROL_PLANE_SECRET and held only by bynefit.com, so a valid signature
+ * proves the caller is bynefit.com. On a valid signature the request acts as the
  * site administrator (unless an optional Application Password already
  * established a capable identity) so theme/page writes have the capability they
  * need. Until the secret is provisioned the namespace is fail-closed — every
@@ -106,8 +106,8 @@ class Bynli_Connect_Control_Plane {
     /**
      * Grant Bynefit app editing.
      *
-     * We generate the secret here and hand it to bynli.com over the existing
-     * signed site-host channel — bynli.com cannot push one in, because until a
+     * We generate the secret here and hand it to bynefit.com over the existing
+     * signed site-host channel — bynefit.com cannot push one in, because until a
      * secret exists this namespace is fail-closed and there is nothing to
      * authenticate an inbound push with.
      *
@@ -155,7 +155,7 @@ class Bynli_Connect_Control_Plane {
             // Only roll back on a DEFINITE refusal (a 4xx we actually received).
             // On a timeout, transport error or 5xx we cannot know whether the
             // server committed — and if it did, deleting our copy would leave
-            // bynli.com holding a credential this site no longer has: it would
+            // bynefit.com holding a credential this site no longer has: it would
             // show the site as app-editable while every control-plane call fails
             // closed, and the admin would have no reason to retry because we
             // told them it failed. Keeping the secret is the recoverable side of
@@ -180,7 +180,7 @@ class Bynli_Connect_Control_Plane {
         wp_send_json_success(['message' => 'App editing is on. You can now design this site from the Bynefit app.']);
     }
 
-    /** Revoke app editing — clears the local secret and tells bynli.com to drop it. */
+    /** Revoke app editing — clears the local secret and tells bynefit.com to drop it. */
     public function handle_unpair(): void {
         if (!current_user_can('manage_options')) {
             wp_send_json_error(['message' => 'Forbidden.'], 403);
@@ -192,7 +192,7 @@ class Bynli_Connect_Control_Plane {
             wp_send_json_error(['message' => 'This is a Bynefit-managed site — app editing cannot be turned off here.'], 409);
         }
 
-        // Local first: revocation must take effect on THIS site even if bynli.com
+        // Local first: revocation must take effect on THIS site even if bynefit.com
         // is unreachable. Once the option is gone every route fails closed, so a
         // failed server call can only leave a stale credential that authorizes
         // nothing.
@@ -311,7 +311,7 @@ class Bynli_Connect_Control_Plane {
         // attempts only: a request that carries a valid signature is admitted
         // even over the cap (checked below), so a burst of junk from a shared
         // egress IP — e.g. a CDN-fronted bring-your-own site where REMOTE_ADDR
-        // is the edge, not the caller — can never lock bynli.com out of its own
+        // is the edge, not the caller — can never lock bynefit.com out of its own
         // control plane. Transient-backed; works without an object cache.
         $rate_ok = self::rate_limit_ok();
 
@@ -342,9 +342,9 @@ class Bynli_Connect_Control_Plane {
             return $unauthorized;
         }
 
-        // The HMAC over the dedicated per-site secret authenticates bynli.com as
+        // The HMAC over the dedicated per-site secret authenticates bynefit.com as
         // the caller: the secret is baked only into THIS install's mu-plugin
-        // loader and held only by bynli.com, so a valid signature is proof of
+        // loader and held only by bynefit.com, so a valid signature is proof of
         // origin. If a request already carries a capable identity (an optional
         // Application Password), keep it; otherwise act as the site's
         // administrator so the theme/page writes have the required capability.
