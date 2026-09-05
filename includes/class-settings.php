@@ -411,7 +411,7 @@ class Bynli_Connect_Settings {
         <?php endif;
         if ($ctx['cleared']): ?>
             <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-update"></span>
-                <span>Update cache cleared. WordPress will re-check on the next page load.</span></div>
+                <span>Version readout refreshed.</span></div>
         <?php endif;
         if ($ctx['discon']): ?>
             <div class="bcn-notice bcn-notice-warn"><span class="dashicons dashicons-info-outline"></span>
@@ -431,7 +431,14 @@ class Bynli_Connect_Settings {
         // "Nothing for you to do" rather than "nothing pending": on a managed site an
         // available update is real but not the admin's to apply, so the rail reads calm
         // and the Updates panel explains the queue.
-        $up_to_date = !$ctx['update_actionable'];
+        // The rail has to answer the same question the panel does, or it contradicts it
+        // 200px away — which is #156 again, on the surface that is visible from every
+        // tab. 'Up to date' is a claim, and it needs a reading behind it: no version and
+        // no error means we have not looked, and an error means the reading failed.
+        $rail_no_readout = empty($ctx['upd']['version']) && empty($ctx['upd']['error']);
+        $rail_failed     = !empty($ctx['upd']['error']);
+        $rail_unsettled  = $rail_no_readout || $rail_failed;
+        $up_to_date      = !$ctx['update_actionable'] && !$rail_unsettled;
         ?>
         <nav class="bcn-rail" aria-label="Bynefit Connect sections">
             <?php foreach ($items as $key => [$icon, $label]):
@@ -451,7 +458,12 @@ class Bynli_Connect_Settings {
             <div class="bcn-rail-foot">
                 <span class="bcn-rail-ver">v<?php echo esc_html(BYNLI_CONNECT_VERSION); ?></span>
                 <span class="bcn-dot <?php echo $up_to_date ? 'ok' : 'acc'; ?>" aria-hidden="true"></span>
-                <span class="bcn-rail-ver-label"><?php echo $up_to_date ? 'Up to date' : 'Update ready'; ?></span>
+                <span class="bcn-rail-ver-label"><?php
+                    if ($rail_failed)          { echo 'Check failed'; }
+                    elseif ($rail_no_readout)  { echo 'Not checked'; }
+                    elseif ($up_to_date)       { echo 'Up to date'; }
+                    else                       { echo 'Update ready'; }
+                ?></span>
             </div>
         </nav>
         <?php
@@ -1038,7 +1050,9 @@ class Bynli_Connect_Settings {
                 <div class="bcn-up-row">
                     <span class="bcn-up-label">Latest</span>
                     <span class="bcn-up-value">
-                        <?php if (!empty($upd['version'])): ?>
+                        <?php if ($readout_failed): ?>
+                            <span class="bcn-stat-value-em">check failed</span>
+                        <?php elseif (!empty($upd['version'])): ?>
                             <code>v<?php echo esc_html($upd['version']); ?></code>
                             <?php if ($update_available && $managed): ?>
                                 <?php /* On a managed site the update is real but is not the
@@ -1105,7 +1119,7 @@ class Bynli_Connect_Settings {
                             you; this affects what this panel can tell you, not whether the site is
                             kept current.
                         <?php else: ?>
-                            <strong>Up to date.</strong> Bynefit applies updates for you.
+                            <strong>Up to date.</strong>
                         <?php endif; ?>
                         <?php if ($checkin_at === 0): ?>
                             This site has never checked in, so that may not be happening &mdash; contact
@@ -1123,9 +1137,8 @@ class Bynli_Connect_Settings {
                             <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
                             <button type="submit" class="bcn-btn ink">Refresh this readout</button>
                         </form>
-                        <span class="bcn-action-hint">This site runs the plugin from WordPress&rsquo;s
-                            must-use directory, which has no update button &mdash; that is why it is not
-                            on your Plugins screen and why Bynefit applies the update instead.
+                        <span class="bcn-action-hint">Not on your Plugins screen because the plugin
+                            runs from WordPress&rsquo;s must-use directory, which has no update button.
                             Refreshing re-reads the version above; it installs nothing.</span>
                     </div>
                 <?php else: ?>

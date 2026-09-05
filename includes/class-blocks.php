@@ -99,6 +99,10 @@ class Bynli_Connect_Blocks {
     const GALLERY_COLS_SM_DEFAULT = 2;
     const GALLERY_COLS_LG_DEFAULT = 3;
 
+    /** The bounds icon_svg() clamps to. Named for the same reason as the grid bounds. */
+    const ICON_SIZE_MIN = 8;
+    const ICON_SIZE_MAX = 96;
+
     /**
      * Does this value reach grid_int() as the integer it is written as?
      *
@@ -226,7 +230,7 @@ class Bynli_Connect_Blocks {
         if (!isset($paths[$name])) {
             return null;
         }
-        $size = max(8, min(96, $size));
+        $size = max(self::ICON_SIZE_MIN, min(self::ICON_SIZE_MAX, $size));
         $a11y = $label !== ''
             ? 'role="img" aria-label="' . esc_attr($label) . '"'
             : 'aria-hidden="true" focusable="false"';

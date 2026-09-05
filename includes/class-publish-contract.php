@@ -361,6 +361,15 @@ class Bynli_Connect_Publish_Contract {
                     if (Bynli_Connect_Blocks::icon_svg($iname) === null) {
                         $v[] = self::vio('icon_unknown', "$bpath.name", "Icon '$iname' is not in the icon set.");
                     }
+                    // icon_svg() clamps size to 8..96, so an out-of-range value published
+                    // clean and rendered at a size the author did not choose — the same
+                    // silent clamp the grid gates exist to refuse, in the branch beside them.
+                    self::check_bounded_int(
+                        $v, "$bpath.size", $block['size'] ?? null,
+                        Bynli_Connect_Blocks::ICON_SIZE_MIN,
+                        Bynli_Connect_Blocks::ICON_SIZE_MAX,
+                        'Icon size'
+                    );
                     self::check_token_ref($v, "$bpath.color", $block['color'] ?? null, 'color', $vocab, false);
                 } elseif ($type === 'list') {
                     $litems = is_array($block['items'] ?? null) ? $block['items'] : [];
@@ -465,8 +474,13 @@ class Bynli_Connect_Publish_Contract {
                     if (isset($block['scope']) && !in_array((string) $block['scope'], ['upcoming', 'past'], true)) {
                         $v[] = self::vio('events_scope', "$bpath.scope", 'Events scope must be upcoming or past.');
                     }
-                    if (isset($block['limit']) && (!is_numeric($block['limit']) || $block['limit'] < 1 || $block['limit'] > 50)) {
-                        $v[] = self::vio('events_limit', "$bpath.limit", 'Events limit must be 1–50.');
+                    // isIntLike, not is_numeric: 2.9 passed and rendered as 2, which is the
+                    // truncation every other gate in this file refuses.
+                    if (isset($block['limit'])
+                        && (!Bynli_Connect_Blocks::isIntLike($block['limit'])
+                            || (int) $block['limit'] < 1
+                            || (int) $block['limit'] > 50)) {
+                        $v[] = self::vio('events_limit', "$bpath.limit", 'Events limit must be a whole number, 1–50.');
                     }
                 } elseif ($type === 'card') {
                     self::check_token_ref($v, "$bpath.padding", $block['padding'] ?? null, 'space', $vocab, false);
@@ -530,10 +544,11 @@ class Bynli_Connect_Publish_Contract {
      * row after col — the same arithmetic cell_vars() uses, so nothing this accepts is
      * clamped or coerced afterwards.
      *
-     * The converse is NOT claimed: a non-integer numeric such as 2.9, 4.0 or 1e2 does
-     * render, as a truncated or clamped integer, and is refused here on purpose —
-     * publishing it would lay out a page the author did not describe. Refusing it is
-     * the gate working, not the gate over-reaching. It runs only for a
+     * The converse is NOT claimed. A non-integer numeric is refused on purpose, and the
+     * reason differs by value: 2.9 renders as 2, which is a layout the author did not
+     * describe, while 4.0 and 1e2 render exactly as written. Those two are refused for
+     * consistency rather than for damage — one rule an author can hold in their head
+     * beats a rule that admits whichever floats happen to be integral. It runs only for a
      * block whose placement a renderer actually reads: a card child's place map is
      * never emitted, and refusing one would refuse the whole page for a value that has
      * no effect on it.
@@ -606,6 +621,34 @@ class Bynli_Connect_Publish_Contract {
      * Rejects non-integer numerics too. grid_int() casts "2.9" to 2, so accepting it
      * here would publish a layout the author did not describe.
      */
+    /**
+     * A bounded whole number, refused rather than clamped.
+     *
+     * The same shape as check_grid_cols, generalised so a fourth bound does not become
+     * a fourth copy. Uses the shared int-like predicate, so what the gate accepts is
+     * what the renderer accepts on whatever PHP version is running.
+     */
+    private static function check_bounded_int(
+        array &$v,
+        string $path,
+        $value,
+        int $min,
+        int $max,
+        string $noun
+    ): void {
+        if ($value === null) {
+            return;
+        }
+        if (!Bynli_Connect_Blocks::isIntLike($value)) {
+            $v[] = self::vio('bounded_int_type', $path, $noun . ' must be a whole number.');
+            return;
+        }
+        $n = (int) $value;
+        if ($n < $min || $n > $max) {
+            $v[] = self::vio('bounded_int_range', $path, "$noun must be between $min and $max.");
+        }
+    }
+
     private static function check_grid_cols(array &$v, string $path, $value, int $max): void {
         if ($value === null) {
             return;

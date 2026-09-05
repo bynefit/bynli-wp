@@ -290,11 +290,18 @@ class Bynli_Connect_Updater {
         }
         if (!preg_match('/^[a-f0-9]{64}$/', $expected)) {
             // A field that is present and unusable is a release-process defect, and it
-            // silently downgrades every install to unverified. The value is truncated
-            // because it is attacker-influencable in the case that matters.
+            // silently downgrades every install to unverified.
+            //
+            // The value reached this line BECAUSE it failed the hex check, so it is
+            // arbitrary bytes by definition. Truncating it was not enough: a newline
+            // inside it forges a second line in the site's error log, and the line an
+            // attacker would forge is one that reads like a successful verification —
+            // in the log whose only purpose here is to record that verification did not
+            // happen. Hex-encoded, so whatever it contains lands as one field on one
+            // line and is still identifiable to whoever is debugging the release.
             error_log('[Bynli Connect] update: manifest carries an unusable'
                 . ' download_sha256, so this package is being installed WITHOUT checksum'
-                . ' verification — got ' . substr($expected, 0, 16)
+                . ' verification — got 0x' . bin2hex(substr($expected, 0, 16))
                 . ' (' . strlen($expected) . ' chars)');
             return $reply;
         }
@@ -409,7 +416,12 @@ class Bynli_Connect_Updater {
 
     private function get_remote_manifest(): ?array {
         $cached = get_transient(self::TRANSIENT_KEY);
-        if (is_array($cached) && !empty($cached['version'])) {
+        // A cached ERROR counts as an answer. Short-circuiting only on a version meant
+        // a failed check was re-attempted on the very next read, so one press of Refresh
+        // against a dead endpoint cost two blocking 8s fetches — the handler's, then the
+        // redirected page's. The transient is what bounds that, and it only bounds it if
+        // the failure is allowed to occupy it.
+        if (is_array($cached) && (!empty($cached['version']) || !empty($cached['error']))) {
             return $cached;
         }
 
