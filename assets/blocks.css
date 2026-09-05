@@ -1,13 +1,11 @@
 :root {
     --bynefit-touch-min: 44px;
-
     --bynefit-fb-brand: #b5541f;
     --bynefit-fb-on-brand: #ffffff;
     --bynefit-fb-text: #110e0a;
     --bynefit-fb-muted: #6b6355;
     --bynefit-fb-surface-2: #f5f2ec;
     --bynefit-fb-border: #ddd6c9;
-
     --bynefit-fb-control-edge: #8a8272;
 }
 
@@ -32,7 +30,6 @@
         grid-template-columns: repeat(var(--bynefit-cols-lg, var(--bynefit-cols-sm, 12)), minmax(0, 1fr));
         padding: var(--bynefit-pad-lg, var(--bynefit-pad-sm, 0));
     }
-
     .bynefit-cell {
         grid-column: var(--bynefit-col-lg, var(--bynefit-col-sm, 1)) / span var(--bynefit-colspan-lg, var(--bynefit-colspan-sm, 12));
         grid-row: var(--bynefit-row-lg, var(--bynefit-row-sm, auto)) / span var(--bynefit-rowspan-lg, var(--bynefit-rowspan-sm, 1));
@@ -334,7 +331,6 @@
     justify-content: center;
     text-decoration: none;
     font-weight: 500;
-
     min-height: var(--bynefit-touch-min, 44px);
     min-width: var(--bynefit-touch-min, 44px);
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--50, 1.5rem);
@@ -411,7 +407,6 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-
     gap: min(var(--wp--preset--spacing--40, 1rem), 1.5rem);
 }
 
@@ -547,7 +542,6 @@
     font: inherit;
     font-weight: 600;
     color: var(--wp--preset--color--muted);
-
     min-height: var(--bynefit-touch-min, 44px);
     min-width: var(--bynefit-touch-min, 44px);
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--40, 1rem);
@@ -588,7 +582,6 @@
     grid-row: 2;
     grid-column: 1;
     display: block;
-
     padding: 0 calc(var(--bynefit-touch-min, 44px) + 0.25rem);
 }
 
@@ -682,30 +675,25 @@
         gap: 0;
         flex-wrap: wrap;
     }
-
     .bynefit-carousel__dot,
     .bynefit-carousel__dot[aria-current="true"] {
         flex: none;
         width: var(--bynefit-touch-min, 44px);
         height: var(--bynefit-touch-min, 44px);
-
         background: transparent;
         box-shadow: none;
         display: inline-flex;
         align-items: center;
         justify-content: center;
     }
-
     .bynefit-carousel__dot::before {
         content: "";
         width: 0.5rem;
         height: 0.5rem;
         border-radius: 999px;
-
         background: transparent;
         box-shadow: 0 0 0 1px var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     }
-
     .bynefit-carousel__dot[aria-current="true"]::before {
         background: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
         box-shadow: 0 0 0 1px var(--wp--preset--color--brand, var(--bynefit-fb-brand));

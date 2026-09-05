@@ -90,12 +90,19 @@ class Bynli_Connect_Publish_Contract {
                 'color', $vocab, false
             );
             self::check_token_ref($v, "$spath.grid.gap", self::deep($section, ['grid', 'gap']), 'space', $vocab, false);
-            foreach (['sm', 'lg'] as $bp) {
+            // The section's effective track count per breakpoint, resolved the same way
+            // the emitter resolves it — including its defaults, because a section that
+            // declares no cols still renders on 4 at sm and 12 at lg, and a block's
+            // placement is bounded by whichever number applies.
+            $tracks = [];
+            foreach (['sm' => 4, 'lg' => self::GRID_COLS_MAX] as $bp => $fallback) {
                 self::check_grid_cols(
                     $v, "$spath.grid.cols.$bp",
                     self::deep($section, ['grid', 'cols', $bp]),
                     self::GRID_COLS_MAX
                 );
+                $declared = self::deep($section, ['grid', 'cols', $bp]);
+                $tracks[$bp] = is_numeric($declared) ? (int) $declared : $fallback;
             }
             foreach (['sm', 'lg'] as $bp) {
                 self::check_token_ref($v, "$spath.padding.$bp", self::deep($section, ['padding', $bp]), 'space', $vocab, false);
@@ -141,7 +148,7 @@ class Bynli_Connect_Publish_Contract {
                 continue;
             }
             foreach ($blocks as $bi => $block) {
-                self::validate_block($block, "$spath.blocks[$bi]", $v, $vocab, $media, $bg_slug, $heading_levels, $priority_images);
+                self::validate_block($block, "$spath.blocks[$bi]", $v, $vocab, $media, $bg_slug, $heading_levels, $priority_images, $tracks);
             }
         }
 
@@ -173,7 +180,7 @@ class Bynli_Connect_Publish_Contract {
      * the page's one-H1 / one-LCP rules. $bg_slug is the effective background
      * (section, or the card's own) used for the block's contrast check.
      */
-    private static function validate_block($block, string $bpath, array &$v, array $vocab, array $media, ?string $bg_slug, array &$heading_levels, int &$priority_images): void {
+    private static function validate_block($block, string $bpath, array &$v, array $vocab, array $media, ?string $bg_slug, array &$heading_levels, int &$priority_images, array $tracks = []): void {
                 if (!is_array($block)) {
                     $v[] = self::vio('block_shape', $bpath, 'Block is not an object.');
                     return;
@@ -184,7 +191,7 @@ class Bynli_Connect_Publish_Contract {
                     return;
                 }
 
-                self::check_place($v, "$bpath.place", $block['place'] ?? null);
+                self::check_place($v, "$bpath.place", $block['place'] ?? null, $tracks);
 
                 $style = is_array($block['style'] ?? null) ? $block['style'] : [];
                 // Only the style keys a block's emitter actually consumes are part
@@ -462,7 +469,7 @@ class Bynli_Connect_Publish_Contract {
                                 $v[] = self::vio('card_nesting', "$bpath.blocks[$ci]", 'A card can hold content blocks, not sections or other cards.');
                                 continue;
                             }
-                            self::validate_block($cb, "$bpath.blocks[$ci]", $v, $vocab, $media, $card_bg, $heading_levels, $priority_images);
+                            self::validate_block($cb, "$bpath.blocks[$ci]", $v, $vocab, $media, $card_bg, $heading_levels, $priority_images, $tracks);
                         }
                     }
                 } elseif ($type === 'logos') {
@@ -507,8 +514,9 @@ class Bynli_Connect_Publish_Contract {
      *
      * Rejects non-integer numerics too. grid_int() casts "2.9" to 2, so accepting it
      * here would publish a layout the author did not describe.
-     */
-    /**
+     *
+     * ---
+     *
      * The five placement properties render clamps alongside the track count.
      *
      * cell_vars() puts col, colSpan, row, rowSpan and order through the same
@@ -520,7 +528,7 @@ class Bynli_Connect_Publish_Contract {
      * computation; the gate checks it against the track maximum, which is the widest it
      * can ever legitimately be.
      */
-    private static function check_place(array &$v, string $path, $place): void {
+    private static function check_place(array &$v, string $path, $place, array $tracks = []): void {
         if (!is_array($place)) {
             return;
         }
@@ -535,13 +543,28 @@ class Bynli_Connect_Publish_Contract {
             if (!isset($place[$bp]) || !is_array($place[$bp])) {
                 continue;
             }
+            // The SECTION'S track count, not the maximum one. render bounds col by it
+            // and colSpan by what is left of the row after col, so bounding either by
+            // 12 lets a value through that render then clamps in silence.
+            $track = isset($tracks[$bp]) ? (int) $tracks[$bp] : Bynli_Connect_Blocks::GRID_COLS_MAX;
+            $track = max(Bynli_Connect_Blocks::GRID_COLS_MIN, min(Bynli_Connect_Blocks::GRID_COLS_MAX, $track));
+            $col   = isset($place[$bp]['col']) && is_numeric($place[$bp]['col'])
+                ? (int) $place[$bp]['col']
+                : 1;
+            $bounds['col'][1]     = $track;
+            $bounds['colSpan'][1] = max(1, $track - max(1, min($track, $col)) + 1);
             foreach ($bounds as $key => [$min, $max]) {
                 if (!array_key_exists($key, $place[$bp]) || $place[$bp][$key] === null) {
                     continue;
                 }
                 $val = $place[$bp][$key];
                 $ipath = "$path.$bp.$key";
-                if (!is_int($val) && !(is_string($val) && ctype_digit($val))) {
+                $is_int_string = is_string($val)
+                    && $val !== ''
+                    && ctype_digit(ltrim($val, '-'))
+                    && substr_count($val, '-') <= 1
+                    && ($val[0] === '-' || ctype_digit($val[0]));
+                if (!is_int($val) && !$is_int_string) {
                     $v[] = self::vio('place_type', $ipath, ucfirst($key) . ' must be a whole number.');
                     continue;
                 }

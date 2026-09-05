@@ -1113,8 +1113,10 @@ class Bynli_Connect_Settings {
                             <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
                             <button type="submit" class="bcn-btn ink">Refresh this readout</button>
                         </form>
-                        <span class="bcn-action-hint">Clears the cached readout above. It does not
-                            install anything &mdash; updates arrive from Bynefit.</span>
+                        <span class="bcn-action-hint">This site runs the plugin from WordPress&rsquo;s
+                            must-use directory, which has no update button &mdash; that is why it is not
+                            on your Plugins screen and why Bynefit applies the update instead.
+                            Refreshing re-reads the version above; it installs nothing.</span>
                     </div>
                 <?php else: ?>
                     <div class="bcn-actions bcn-pad-top">

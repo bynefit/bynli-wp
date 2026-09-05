@@ -73,7 +73,6 @@ class Bynli_Connect_Blocks {
         return 'var(' . $map[$group] . $slug . $tail . ')';
     }
 
-    /** Clamp a numeric grid coordinate to a sane bounded integer. */
     /**
      * Grid bounds, declared once. The publish gate reads these rather than restating
      * them: the gate exists to refuse precisely the values this layer would otherwise
@@ -89,6 +88,7 @@ class Bynli_Connect_Blocks {
     const ORDER_MIN        = 0;
     const ORDER_MAX        = 999;
 
+    /** Clamp a numeric grid coordinate to a sane bounded integer. */
     public static function grid_int($value, int $min, int $max, int $default): int {
         if (!is_numeric($value)) {
             return $default;

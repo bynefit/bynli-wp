@@ -284,7 +284,7 @@ class Bynli_Connect_Updater {
             // silently downgrades every install to unverified. The value is truncated
             // because it is attacker-influencable in the case that matters.
             error_log('[Bynli Connect] update: manifest carries an unusable'
-                . ' download_sha256, so this package was installed WITHOUT checksum'
+                . ' download_sha256, so this package is being installed WITHOUT checksum'
                 . ' verification — got ' . substr($expected, 0, 16)
                 . ' (' . strlen($expected) . ' chars)');
             return $reply;
