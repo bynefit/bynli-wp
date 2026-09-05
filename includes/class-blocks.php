@@ -54,7 +54,7 @@ class Bynli_Connect_Blocks {
      * generated custom property; rejects anything else so block attributes
      * can never inject arbitrary CSS.
      */
-    public static function token(string $group, ?string $slug): ?string {
+    public static function token(string $group, ?string $slug, ?string $fallback = null): ?string {
         if ($slug === null || $slug === '' || !preg_match('/^[a-z0-9\-]{1,40}$/', $slug)) {
             return null;
         }
@@ -67,7 +67,10 @@ class Bynli_Connect_Blocks {
         if (!isset($map[$group])) {
             return null;
         }
-        return 'var(' . $map[$group] . $slug . ')';
+        $tail = ($fallback !== null && preg_match('/^[a-zA-Z0-9(),#%.\- ]{1,120}$/', $fallback))
+            ? ', ' . $fallback
+            : '';
+        return 'var(' . $map[$group] . $slug . $tail . ')';
     }
 
     /** Clamp a numeric grid coordinate to a sane bounded integer. */
