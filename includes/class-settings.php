@@ -610,7 +610,7 @@ class Bynli_Connect_Settings {
                 <span class="bcn-tile-value"><?php echo !empty($last['at']) ? esc_html(human_time_diff((int)$last['at']) . ' ago') : 'never'; ?></span>
             </div>
             <?php
-                // The same three-state derivation the rail uses. Keying on the actionable
+                // The same derivation the rail uses, all five states of it. Keying on the actionable
                 // flag alone rendered a GREEN tile when there was no readout at all, in the
                 // same viewport as a rail correctly reading "Not checked".
                 $tile_failed     = $ctx['readout_failed'];
@@ -1035,7 +1035,7 @@ class Bynli_Connect_Settings {
         // to where it happens. No transient at all IS the not-checked state: on a fresh
         // install, or right after an upgrade clears the cache, the rail, the tile and
         // the panel all say so and only this surface stayed silent.
-        if (empty($upd['has'])) {
+        if ($ctx['no_readout']) {
             $update_event = ['state' => 'warn', 'ico' => 'dashicons-clock', 'title' => 'Not checked yet', 'detail' => 'no version readout'];
         } elseif ($ctx['readout_failed']) {
             $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];

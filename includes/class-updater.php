@@ -200,7 +200,7 @@ class Bynli_Connect_Updater {
         $info->version       = (string)$remote['version'];
         $info->author        = '<a href="https://bynefit.org">Bynefit</a>';
         $info->homepage      = 'https://bynefit.com/help/wordpress';
-        $info->requires      = $remote['requires']      ?? '6.0';
+        $info->requires      = $remote['requires']      ?? '6.1';
         $info->tested        = $remote['tested']        ?? '6.6';
         $info->requires_php  = $remote['requires_php']  ?? '7.4';
         $info->last_updated  = $remote['last_updated']  ?? '';
@@ -270,15 +270,23 @@ class Bynli_Connect_Updater {
         // already near max_execution_time, and reset the error window each time so it
         // never settled.
         //
-        // So: read the cache to establish ownership, and only bypass it once we know the
-        // package is ours — which is the only case the bypass was added for.
+        // So: resolve the manifest through the cache to establish ownership, and only
+        // bypass once we know the package is ours — which is the only case the bypass was
+        // added for. Note this call is read-or-fetch, not a pure cache read: on a cold
+        // transient it does go to the network, once, bounded thereafter by the hour-long
+        // error entry.
         $cached_manifest = $this->get_remote_manifest();
         $our_url = is_array($cached_manifest) ? (string) ($cached_manifest['download_url'] ?? '') : '';
         if ($plugin === '' && ($our_url === '' || $package !== $our_url)) {
             return $reply;
         }
 
-        $remote = $this->get_remote_manifest(true);
+        // Only bypass a cached error this request did NOT write. Bypassing one we just
+        // wrote means two 8-second fetches inside download_package for a single answer —
+        // which is worse than what the bypass was added to fix.
+        $remote = $this->fetched_this_request
+            ? $cached_manifest
+            : $this->get_remote_manifest(true);
         $expected = is_array($remote) && isset($remote['download_sha256'])
             ? strtolower(trim((string) $remote['download_sha256']))
             : '';
@@ -445,12 +453,15 @@ class Bynli_Connect_Updater {
         $entry->package       = (string)($remote['download_url'] ?? '');
         $entry->tested        = $remote['tested']       ?? '6.6';
         $entry->requires_php  = $remote['requires_php'] ?? '7.4';
-        $entry->requires      = $remote['requires']     ?? '6.0';
+        $entry->requires      = $remote['requires']     ?? '6.1';
         $entry->icons         = $remote['icons']        ?? [];
         $entry->banners       = $remote['banners']      ?? [];
         $entry->compatibility = new stdClass();
         return $entry;
     }
+
+    /** True once this request has actually gone to the network for the manifest. */
+    private $fetched_this_request = false;
 
     /**
      * @param bool $bypass_error_cache Re-fetch when the cached answer is an error with no
@@ -481,25 +492,38 @@ class Bynli_Connect_Updater {
             'site'      => wp_parse_url(home_url(), PHP_URL_HOST),
         ], $url);
 
+        // Recorded so verify_download() can tell a STALE cached error from one this
+        // request just wrote. The bypass exists to defeat the former; re-fetching after
+        // the latter is two 8-second stalls inside download_package for one answer.
+        $this->fetched_this_request = true;
         $res = wp_remote_get($url, [
             'timeout'    => 8,
             'user-agent' => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
             'headers'    => ['Accept' => 'application/json'],
         ]);
+        // Each failure path RETURNS the entry it just cached rather than null. The
+        // asymmetry — array on success, null on failure — has now produced the same
+        // defect twice: a caller reads the reason off the return value, the failure
+        // shape is not an array, and the log that exists to record the failure carries
+        // no reason. Both existing callers test empty($remote['version']), which absorbs
+        // this with no behaviour change.
         if (is_wp_error($res)) {
-            set_transient(self::TRANSIENT_KEY, ['version' => '', 'error' => $res->get_error_message()], HOUR_IN_SECONDS);
-            return null;
+            $entry = ['version' => '', 'error' => $res->get_error_message()];
+            set_transient(self::TRANSIENT_KEY, $entry, HOUR_IN_SECONDS);
+            return $entry;
         }
         $code = (int)wp_remote_retrieve_response_code($res);
         if ($code < 200 || $code >= 300) {
-            set_transient(self::TRANSIENT_KEY, ['version' => '', 'error' => "HTTP $code"], HOUR_IN_SECONDS);
-            return null;
+            $entry = ['version' => '', 'error' => "HTTP $code"];
+            set_transient(self::TRANSIENT_KEY, $entry, HOUR_IN_SECONDS);
+            return $entry;
         }
         $body = (string)wp_remote_retrieve_body($res);
         $data = json_decode($body, true);
         if (!is_array($data) || empty($data['version']) || empty($data['download_url'])) {
-            set_transient(self::TRANSIENT_KEY, ['version' => '', 'error' => 'bad manifest'], HOUR_IN_SECONDS);
-            return null;
+            $entry = ['version' => '', 'error' => 'bad manifest'];
+            set_transient(self::TRANSIENT_KEY, $entry, HOUR_IN_SECONDS);
+            return $entry;
         }
 
         set_transient(self::TRANSIENT_KEY, $data, self::TRANSIENT_TTL);

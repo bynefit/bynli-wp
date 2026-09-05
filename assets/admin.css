@@ -194,10 +194,10 @@
 .bcn-rail-label { font-family: var(--bcn-mono); font-size: 11.5px; letter-spacing: 0.02em; flex: 1 1 auto; }
 .bcn-nav-item.active { background: var(--bcn-ink); color: #fff; }
 .bcn-nav-item.active .dashicons { color: rgba(255,255,255,0.9); }
-.bcn-nav-count {
-    font-family: var(--bcn-mono); font-size: 10px; line-height: 1;
-    padding: 3px 6px; border-radius: 999px;
-}
+/* Its one call site also carries .bcn-chip, which is declared later at equal
+   specificity and sets font-family, font-size, padding and border-radius — so of the
+   five declarations here only line-height ever applied. */
+.bcn-nav-count { line-height: 1; }
 .bcn-rail-foot {
     display: flex; align-items: center; gap: 7px;
     margin-top: 8px; padding: 9px 11px 3px; border-top: 1px solid var(--bcn-rule-2);
