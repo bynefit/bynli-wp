@@ -95,7 +95,11 @@ class Bynli_Connect_Publish_Contract {
             // declares no cols still renders on 4 at sm and 12 at lg, and a block's
             // placement is bounded by whichever number applies.
             $tracks = [];
-            foreach (['sm' => 4, 'lg' => self::GRID_COLS_MAX] as $bp => $fallback) {
+            $defaults = [
+                'sm' => Bynli_Connect_Blocks::GRID_COLS_SM_DEFAULT,
+                'lg' => Bynli_Connect_Blocks::GRID_COLS_LG_DEFAULT,
+            ];
+            foreach ($defaults as $bp => $fallback) {
                 self::check_grid_cols(
                     $v, "$spath.grid.cols.$bp",
                     self::deep($section, ['grid', 'cols', $bp]),
@@ -515,8 +519,9 @@ class Bynli_Connect_Publish_Contract {
      * for, on the same block, decided one function away.
      *
      * col is bounded by the SECTION'S track count and colSpan by what is left of the
-     * row after col — the same arithmetic cell_vars() uses, so nothing this accepts is
-     * clamped afterwards and nothing it refuses would have rendered. It runs only for a
+     * row after col — the same arithmetic cell_vars() uses, and the type test accepts
+     * exactly what grid_int() accepts, so nothing this accepts is clamped afterwards
+     * and nothing it refuses would have rendered. It runs only for a
      * block whose placement a renderer actually reads: a card child's place map is
      * never emitted, and refusing one would refuse the whole page for a value that has
      * no effect on it.
@@ -555,16 +560,20 @@ class Bynli_Connect_Publish_Contract {
                 }
                 $val = $place[$bp][$key];
                 $ipath = "$path.$bp.$key";
-                $is_int_string = is_string($val)
-                    && $val !== ''
-                    && ctype_digit(ltrim($val, '-'))
-                    && substr_count($val, '-') <= 1
-                    && ($val[0] === '-' || ctype_digit($val[0]));
+                // Matched to what grid_int() actually accepts, which is is_numeric()
+                // after PHP's own whitespace tolerance — so a padded or signed integer
+                // string renders as that integer and must be RANGE-checked here, not
+                // type-rejected. Rejecting it refused the whole page for a value the
+                // renderer would have laid out exactly as written.
+                $trimmed = is_string($val) ? trim($val) : $val;
+                $is_int_string = is_string($trimmed)
+                    && $trimmed !== ''
+                    && preg_match('/^[+-]?\d+$/', $trimmed) === 1;
                 if (!is_int($val) && !$is_int_string) {
                     $v[] = self::vio('place_type', $ipath, ucfirst($key) . ' must be a whole number.');
                     continue;
                 }
-                $n = (int) $val;
+                $n = (int) $trimmed;
                 if ($n < $min || $n > $max) {
                     $v[] = self::vio('place_range', $ipath,
                         ucfirst($key) . " must be between $min and $max.");

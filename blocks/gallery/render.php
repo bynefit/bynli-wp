@@ -17,8 +17,18 @@ if (!$items) {
 
 $cols = is_array($attributes['columns'] ?? null) ? $attributes['columns'] : [];
 $vars = [
-    '--bynefit-gcols-sm' => (string) Bynli_Connect_Blocks::grid_int($cols['sm'] ?? null, 1, 6, 2),
-    '--bynefit-gcols-lg' => (string) Bynli_Connect_Blocks::grid_int($cols['lg'] ?? null, 1, 6, 3),
+    '--bynefit-gcols-sm' => (string) Bynli_Connect_Blocks::grid_int(
+        $cols['sm'] ?? null,
+        Bynli_Connect_Blocks::GRID_COLS_MIN,
+        Bynli_Connect_Blocks::GALLERY_COLS_MAX,
+        2
+    ),
+    '--bynefit-gcols-lg' => (string) Bynli_Connect_Blocks::grid_int(
+        $cols['lg'] ?? null,
+        Bynli_Connect_Blocks::GRID_COLS_MIN,
+        Bynli_Connect_Blocks::GALLERY_COLS_MAX,
+        3
+    ),
 ];
 $gap = Bynli_Connect_Blocks::token('spacing', $attributes['gap'] ?? null);
 if ($gap !== null) {

@@ -88,6 +88,15 @@ class Bynli_Connect_Blocks {
     const ORDER_MIN        = 0;
     const ORDER_MAX        = 999;
 
+    /**
+     * The track count a section renders on when it declares none. Named for the same
+     * reason as the bounds above: the publish gate has to resolve a section's tracks
+     * exactly as the renderer does, and a default that drifts between them is a false
+     * rejection in one direction and a silent clamp in the other.
+     */
+    const GRID_COLS_SM_DEFAULT = 4;
+    const GRID_COLS_LG_DEFAULT = 12;
+
     /** Clamp a numeric grid coordinate to a sane bounded integer. */
     public static function grid_int($value, int $min, int $max, int $default): int {
         if (!is_numeric($value)) {
@@ -125,7 +134,8 @@ class Bynli_Connect_Blocks {
             $col       = self::grid_int($p['col'] ?? null, self::GRID_COLS_MIN, $track_max, 1);
             $span_max  = max(1, $track_max - $col + 1);
             $out["--bynefit-col-$bp"]     = (string) $col;
-            $out["--bynefit-colspan-$bp"] = (string) self::grid_int($p['colSpan'] ?? null, self::GRID_COLS_MIN, $span_max, min(($bp === 'sm' ? 4 : self::GRID_COLS_MAX), $span_max));
+            $colspan_default = $bp === 'sm' ? self::GRID_COLS_SM_DEFAULT : self::GRID_COLS_LG_DEFAULT;
+            $out["--bynefit-colspan-$bp"] = (string) self::grid_int($p['colSpan'] ?? null, self::GRID_COLS_MIN, $span_max, min($colspan_default, $span_max));
             $out["--bynefit-row-$bp"]     = (string) self::grid_int($p['row'] ?? null, self::PLACE_MIN, self::PLACE_MAX, 1);
             $out["--bynefit-rowspan-$bp"] = (string) self::grid_int($p['rowSpan'] ?? null, self::PLACE_MIN, self::PLACE_MAX, 1);
             if (isset($p['order']) && is_numeric($p['order'])) {
