@@ -205,6 +205,7 @@
 .bcn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bcn-faint); }
 .bcn-dot.ok  { background: var(--bcn-ok); }
 .bcn-dot.acc { background: var(--bcn-accent); }
+.bcn-dot.warn { background: var(--bcn-warn); }
 
 /* Panels */
 .bcn-main { min-width: 0; }

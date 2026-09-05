@@ -414,14 +414,17 @@ class Bynli_Connect_Settings {
             // before redirecting, so a failed re-read printed a green "refreshed"
             // directly above the panel's own "check failed" — the same un-earned green
             // verdict this release fixes, reintroduced one element above it by the fix.
+            // Two states, not three: get_remote_manifest() writes a transient on every
+            // exit path, so after a refresh either a version or an error is always set
+            // and a 'no version and no error' notice could never render.
+            //
+            // 'Could not be reached' was also wrong for two of the three failure stubs —
+            // a bad manifest and an HTTP 4xx/5xx both mean Bynefit WAS reached and the
+            // answer was unusable.
             $refresh_failed = !empty($ctx['upd']['error']);
-            $refresh_empty  = empty($ctx['upd']['version']) && !$refresh_failed;
             if ($refresh_failed): ?>
                 <div class="bcn-notice bcn-notice-err"><span class="dashicons dashicons-warning"></span>
-                    <span>Refresh failed &mdash; Bynefit could not be reached. The version below is unchanged.</span></div>
-            <?php elseif ($refresh_empty): ?>
-                <div class="bcn-notice bcn-notice-warn"><span class="dashicons dashicons-info-outline"></span>
-                    <span>Refreshed, but Bynefit returned no version to compare against.</span></div>
+                    <span>Refresh failed &mdash; could not read a version from Bynefit. The version below is unchanged.</span></div>
             <?php else: ?>
                 <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-update"></span>
                     <span>Version readout refreshed.</span></div>
@@ -442,17 +445,23 @@ class Bynli_Connect_Settings {
             'activity'   => ['dashicons-backup',        'Activity'],
             'updates'    => ['dashicons-update',        'Updates'],
         ];
-        // "Nothing for you to do" rather than "nothing pending": on a managed site an
-        // available update is real but not the admin's to apply, so the rail reads calm
-        // and the Updates panel explains the queue.
         // The rail has to answer the same question the panel does, or it contradicts it
-        // 200px away — which is #156 again, on the surface that is visible from every
-        // tab. 'Up to date' is a claim, and it needs a reading behind it: no version and
-        // no error means we have not looked, and an error means the reading failed.
+        // 200px away — on the surface that is visible from every tab. 'Up to date' is a
+        // claim and it needs a reading behind it: no version and no error means we have
+        // not looked, and an error means the reading failed.
+        //
+        // FOUR states, not three. An earlier version of this block reasoned that a
+        // managed site should 'read calm' because the update is not the admin's to
+        // apply — but update_actionable is false BY CONSTRUCTION on a managed install,
+        // so 'calm' meant printing a green 'Up to date' while the Updates panel said
+        // 'Update queued' on the same screen. Whether the reader can ACT is a different
+        // question from whether an update EXISTS, and only the second one belongs in a
+        // status label.
         $rail_no_readout = empty($ctx['upd']['version']) && empty($ctx['upd']['error']);
         $rail_failed     = !empty($ctx['upd']['error']);
         $rail_unsettled  = $rail_no_readout || $rail_failed;
-        $up_to_date      = !$ctx['update_actionable'] && !$rail_unsettled;
+        $rail_queued     = !$ctx['update_actionable'] && !empty($ctx['update_available']);
+        $up_to_date      = !$ctx['update_actionable'] && !$rail_queued && !$rail_unsettled;
         ?>
         <nav class="bcn-rail" aria-label="Bynefit Connect sections">
             <?php foreach ($items as $key => [$icon, $label]):
@@ -471,10 +480,18 @@ class Bynli_Connect_Settings {
             <?php endforeach; ?>
             <div class="bcn-rail-foot">
                 <span class="bcn-rail-ver">v<?php echo esc_html(BYNLI_CONNECT_VERSION); ?></span>
-                <span class="bcn-dot <?php echo $up_to_date ? 'ok' : 'acc'; ?>" aria-hidden="true"></span>
+                <?php
+                    // Three labels shared two colours, so a FAILED check rendered in the
+                    // same accent as a pending update — the wrong end of the scale.
+                    if ($rail_unsettled)  { $rail_dot = 'warn'; }
+                    elseif ($up_to_date)  { $rail_dot = 'ok'; }
+                    else                  { $rail_dot = 'acc'; }
+                ?>
+                <span class="bcn-dot <?php echo esc_attr($rail_dot); ?>" aria-hidden="true"></span>
                 <span class="bcn-rail-ver-label"><?php
                     if ($rail_failed)          { echo 'Check failed'; }
                     elseif ($rail_no_readout)  { echo 'Not checked'; }
+                    elseif ($rail_queued)      { echo 'Update queued'; }
                     elseif ($up_to_date)       { echo 'Up to date'; }
                     else                       { echo 'Update ready'; }
                 ?></span>
@@ -595,6 +612,10 @@ class Bynli_Connect_Settings {
                     $tile_state = 'warn'; $tile_value = 'Not checked';
                 } elseif ($update_actionable) {
                     $tile_state = 'acc';  $tile_value = 'Update ready';
+                } elseif (!empty($ctx['update_available'])) {
+                    // Managed: real, queued, and not this admin's to apply. It is still
+                    // not 'up to date', which is what the bare else used to print.
+                    $tile_state = 'acc';  $tile_value = 'Update queued';
                 } else {
                     $tile_state = 'ok';   $tile_value = 'v' . BYNLI_CONNECT_VERSION;
                 }
@@ -1003,8 +1024,6 @@ class Bynli_Connect_Settings {
         if (!empty($upd['has'])) {
             if (!empty($upd['error'])) {
                 $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
-            } elseif (empty($upd['version'])) {
-                $update_event = ['state' => 'warn', 'ico' => 'dashicons-minus', 'title' => 'Not checked yet', 'detail' => 'no version readout'];
             } elseif ($ctx['update_actionable']) {
                 $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
             } elseif (!empty($ctx['update_available'])) {
@@ -1164,7 +1183,8 @@ class Bynli_Connect_Settings {
                             you; this affects what this panel can tell you, not whether the site is
                             kept current.
                         <?php else: ?>
-                            <strong>Up to date.</strong>
+                            <strong>Up to date.</strong> Bynefit applies updates for you, so there is
+                            nothing to do here.
                         <?php endif; ?>
                         <?php if ($checkin_at === 0): ?>
                             This site has never checked in, so that may not be happening &mdash; contact

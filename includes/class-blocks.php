@@ -128,10 +128,21 @@ class Bynli_Connect_Blocks {
         if (is_int($value)) { return true; }
         if (!is_numeric($value)) { return false; }
         $f = (float) $value;
-        // NAN and INF are numeric and survive nothing; and a magnitude past the integer
-        // range casts to a wrapped value, so the comparison below would be comparing
-        // against nonsense rather than rejecting it.
-        if (!is_finite($f) || $f < (float) PHP_INT_MIN || $f > (float) PHP_INT_MAX) {
+        // NAN and INF are numeric and survive nothing. The magnitude bound is 2**53, not
+        // PHP_INT_MAX: a double cannot represent consecutive integers above 2**53, so the
+        // cast-and-compare below stops being able to tell 'reproduced exactly' from
+        // 'rounded to something nearby' and starts answering yes to both.
+        //
+        // Bounding on PHP_INT_MAX read as if it did this and did not: (float) PHP_INT_MAX
+        // rounds UP to 2**63, so '9223372036854775808' passed the test, saturated on the
+        // (int) cast, and compared equal — accepted, by the guard written to refuse it.
+        //
+        // This is the ONE place the predicate is deliberately stricter than grid_int():
+        // between 2**53 and PHP_INT_MAX there are integers the (int) cast does reproduce
+        // exactly and this refuses anyway, because it cannot prove it. No layout value
+        // lives there — every caller bounds to 999 or less — and refusing what we cannot
+        // verify is the right way round for a gate to be wrong.
+        if (!is_finite($f) || abs($f) > 9007199254740992.0) {
             return false;
         }
         return $f === (float) (int) $value;

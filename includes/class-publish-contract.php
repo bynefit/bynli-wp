@@ -136,10 +136,13 @@ class Bynli_Connect_Publish_Contract {
             }
             if (is_array($section['overlay'] ?? null)) {
                 self::check_token_ref($v, "$spath.overlay.color", $section['overlay']['color'] ?? null, 'color', $vocab, false);
-                $oop = $section['overlay']['opacity'] ?? null;
-                if ($oop !== null && (!is_numeric($oop) || $oop < 0 || $oop > 100)) {
-                    $v[] = self::vio('overlay_opacity', "$spath.overlay.opacity", 'Overlay opacity must be 0–100.');
-                }
+                // The emitter does (int) on this, so 42.7 published clean and rendered
+                // at 42 — the same silent truncation the events limit was converted away
+                // from three hundred lines up, in this file, in the same change.
+                self::check_bounded_int(
+                    $v, "$spath.overlay.opacity", $section['overlay']['opacity'] ?? null,
+                    0, 100, 'Overlay opacity', 'overlay_opacity'
+                );
             }
             if (isset($section['minHeight']) && !in_array((string) $section['minHeight'], ['short', 'medium', 'tall', 'full'], true)) {
                 $v[] = self::vio('section_minheight', "$spath.minHeight", 'Section minHeight must be short, medium, tall, or full.');
@@ -562,11 +565,10 @@ class Bynli_Connect_Publish_Contract {
      * row after col — the same arithmetic cell_vars() uses, so nothing this accepts is
      * clamped or coerced afterwards.
      *
-     * The converse is NOT claimed. A non-integer numeric is refused on purpose, and the
-     * reason differs by value: 2.9 renders as 2, which is a layout the author did not
-     * describe, while 4.0 and 1e2 render exactly as written. Those two are refused for
-     * consistency rather than for damage — one rule an author can hold in their head
-     * beats a rule that admits whichever floats happen to be integral. It runs only for a
+     * Only a value the renderer would REWRITE is refused: 2.9 truncates to 2, which is a
+     * layout the author did not describe. 4.0 and '1e2' reproduce exactly, so they are
+     * range-checked rather than type-rejected — see isIntLike(), which derives that rule
+     * from grid_int() rather than restating it. It runs only for a
      * block whose placement a renderer actually reads: a card child's place map is
      * never emitted, and refusing one would refuse the whole page for a value that has
      * no effect on it.
