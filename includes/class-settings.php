@@ -75,11 +75,61 @@ class Bynli_Connect_Settings {
         }
         return (string)get_option(self::OPTION_KEY, '');
     }
+    /**
+     * Constrain an API base to an absolute https origin, or reject it.
+     *
+     * esc_url_raw alone is not enough here. It preserves a scheme-relative '//host'
+     * and it accepts 'http://', and this value now reaches two front-end <script src>
+     * tags on public pages, so a typo or a hostile option write becomes third-party
+     * script execution for every visitor. Applied on the way IN and again on the way
+     * OUT, because an option saved before this existed is still in the database.
+     */
+    public static function sanitize_api_base($value): string {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return '';
+        }
+        $url = esc_url_raw($raw, ['https']);
+        if ($url === '') {
+            return '';
+        }
+        $parts = wp_parse_url($url);
+        if (empty($parts['scheme']) || $parts['scheme'] !== 'https' || empty($parts['host'])) {
+            return '';
+        }
+        if (!empty($parts['user']) || !empty($parts['pass'])) {
+            return '';
+        }
+        $out = 'https://' . $parts['host'];
+        if (!empty($parts['port'])) {
+            $out .= ':' . (int) $parts['port'];
+        }
+        if (!empty($parts['path'])) {
+            $out .= rtrim($parts['path'], '/');
+        }
+        return $out;
+    }
+
+    /**
+     * Hosts a saved option may still name from before the rename, which must not be
+     * honoured. A site connected under the old brand has the old host persisted in
+     * the option, and the option beats the default — so changing the default alone
+     * left every already-connected site signing requests to the old origin, and now
+     * would point its front-end <script src> there too.
+     */
+    private const LEGACY_API_HOSTS = ['bynli.com', 'www.bynli.com'];
+
     public static function api_base(): string {
         if (defined('BYNLI_CONNECT_API_BASE') && BYNLI_CONNECT_API_BASE) {
             return (string) BYNLI_CONNECT_API_BASE;
         }
-        $v = (string)get_option(self::OPTION_BASE, '');
+        $v = self::sanitize_api_base((string)get_option(self::OPTION_BASE, ''));
+        if ($v !== '') {
+            $host = strtolower((string) (wp_parse_url($v, PHP_URL_HOST) ?: ''));
+            if (in_array($host, self::LEGACY_API_HOSTS, true)) {
+                $v = '';
+            }
+        }
         return $v !== '' ? $v : BYNLI_CONNECT_DEFAULT_API_BASE;
     }
     public static function site_slug(): string {
@@ -130,7 +180,7 @@ class Bynli_Connect_Settings {
         ]);
         register_setting(self::OPTION_GROUP, self::OPTION_BASE, [
             'type'              => 'string',
-            'sanitize_callback' => 'esc_url_raw',
+            'sanitize_callback' => [__CLASS__, 'sanitize_api_base'],
             'default'           => BYNLI_CONNECT_DEFAULT_API_BASE,
         ]);
         register_setting(self::OPTION_GROUP, self::OPTION_SLUG, [

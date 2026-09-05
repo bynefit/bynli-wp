@@ -11,6 +11,18 @@
        as 27.5px. Physical target, so it must not scale with the type ramp — which is
        why the avatars below deliberately keep rem. Containers derive from this. */
     --bynefit-touch-min: 44px;
+
+    /* Fallbacks for the theme presets this stylesheet reads. Every preset read below
+       resolves through one of these, because a bare var() on a theme that does not
+       declare the preset yields the INITIAL value, and for the carousel dots that
+       meant a transparent background and a transparent ring — the pagination simply
+       vanished. These are last-resort values only; any theme with the preset wins. */
+    --bynefit-fb-brand: #b5541f;
+    --bynefit-fb-on-brand: #ffffff;
+    --bynefit-fb-text: #110e0a;
+    --bynefit-fb-muted: #6b6355;
+    --bynefit-fb-surface-2: #f5f2ec;
+    --bynefit-fb-border: #ddd6c9;
 }
 
 .bynefit-section {
@@ -148,7 +160,7 @@
 }
 
 .bynefit-quote__role {
-    color: var(--wp--preset--color--muted);
+    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     font-size: var(--wp--preset--font-size--small);
 }
 
@@ -176,7 +188,7 @@
 }
 
 .bynefit-stat__caption {
-    color: var(--wp--preset--color--muted);
+    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     font-size: var(--wp--preset--font-size--small);
 }
 
@@ -186,7 +198,7 @@
 }
 
 .bynefit-accordion__item {
-    border-bottom: 1px solid var(--wp--preset--color--border);
+    border-bottom: 1px solid var(--wp--preset--color--border, var(--bynefit-fb-border));
 }
 
 .bynefit-accordion__q {
@@ -208,7 +220,7 @@
     content: "+";
     font-size: 1.25em;
     line-height: 1;
-    color: var(--wp--preset--color--muted);
+    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     transition: transform var(--wp--custom--motion--duration--base, 0.24s) var(--wp--custom--motion--easing--standard, ease);
 }
 
@@ -262,7 +274,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--wp--preset--spacing--30, 0.75rem);
-    color: var(--wp--preset--color--brand);
+    color: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
 }
 
 .bynefit-list__item {
@@ -280,7 +292,7 @@
 
 .bynefit-list__text {
     min-width: 0;
-    color: var(--wp--preset--color--text);
+    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
 }
 
 .bynefit-list--dot .bynefit-list__item {
@@ -326,7 +338,7 @@
 
 .bynefit-cta__text {
     margin: 0;
-    color: var(--wp--preset--color--muted);
+    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
 }
 
 .bynefit-cta__actions {
@@ -354,14 +366,14 @@
 }
 
 .bynefit-cta__btn--primary {
-    background: var(--wp--preset--color--brand);
-    color: var(--wp--preset--color--on-brand);
+    background: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
+    color: var(--wp--preset--color--on-brand, var(--bynefit-fb-on-brand));
 }
 
 .bynefit-cta__btn--secondary {
     background: transparent;
-    color: var(--wp--preset--color--text);
-    box-shadow: inset 0 0 0 1px var(--wp--preset--color--border);
+    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
+    box-shadow: inset 0 0 0 1px var(--wp--preset--color--border, var(--bynefit-fb-border));
 }
 
 .bynefit-callout {
@@ -369,23 +381,23 @@
     gap: var(--wp--preset--spacing--30, 0.75rem);
     padding: var(--wp--preset--spacing--40, 1rem);
     border-radius: var(--wp--custom--radius--md, 14px);
-    background: var(--wp--preset--color--surface-2);
-    border-inline-start: 3px solid var(--wp--preset--color--brand);
+    background: var(--wp--preset--color--surface-2, var(--bynefit-fb-surface-2));
+    border-inline-start: 3px solid var(--wp--preset--color--brand, var(--bynefit-fb-brand));
 }
 
 .bynefit-callout--warn {
-    border-inline-start-color: var(--wp--preset--color--text);
+    border-inline-start-color: var(--wp--preset--color--text, var(--bynefit-fb-text));
 }
 
 .bynefit-callout__icon {
     flex: none;
     line-height: 0;
     margin-top: 0.1em;
-    color: var(--wp--preset--color--brand);
+    color: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
 }
 
 .bynefit-callout--warn .bynefit-callout__icon {
-    color: var(--wp--preset--color--text);
+    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
 }
 
 .bynefit-callout__body {
@@ -406,7 +418,7 @@
     flex-direction: column;
     gap: var(--wp--preset--spacing--40, 1rem);
     height: 100%;
-    background-color: var(--bynefit-card-bg, var(--wp--preset--color--surface-2));
+    background-color: var(--bynefit-card-bg, var(--wp--preset--color--surface-2, var(--bynefit-fb-surface-2)));
     border-radius: var(--bynefit-card-radius, var(--wp--custom--radius--md, 14px));
     box-shadow: var(--bynefit-card-shadow, none);
     padding: var(--bynefit-card-pad, var(--wp--preset--spacing--50, 1.5rem));
@@ -522,7 +534,7 @@
 }
 
 .bynefit-form--card {
-    background-color: var(--wp--preset--color--surface-2);
+    background-color: var(--wp--preset--color--surface-2, var(--bynefit-fb-surface-2));
     border-radius: var(--wp--custom--radius--lg, 24px);
     padding: var(--wp--preset--spacing--60, 2rem);
     box-shadow: var(--wp--preset--shadow--card, 0 1px 2px rgba(17, 14, 10, 0.06), 0 8px 24px rgba(17, 14, 10, 0.08));
@@ -534,7 +546,7 @@
 
 .bynefit-form__noscript {
     display: block;
-    color: var(--wp--preset--color--muted);
+    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     font-size: var(--wp--preset--font-size--small);
 }
 
@@ -542,7 +554,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--wp--preset--spacing--20, 0.5rem);
-    border-bottom: 1px solid var(--wp--preset--color--border);
+    border-bottom: 1px solid var(--wp--preset--color--border, var(--bynefit-fb-border));
 }
 
 .bynefit-tabs:not(.is-enhanced) .bynefit-tabs__list {
@@ -556,7 +568,7 @@
     cursor: pointer;
     font: inherit;
     font-weight: 600;
-    color: var(--wp--preset--color--muted);
+    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     /* BOTH axes: min-height alone left a short tab label ("Pro", "All", "1") under the
    minimum on width, because the side padding is only 1rem. */
     min-height: var(--bynefit-touch-min, 44px);
@@ -567,12 +579,12 @@
 }
 
 .bynefit-tabs__tab[aria-selected="true"] {
-    color: var(--wp--preset--color--text);
-    border-bottom-color: var(--wp--preset--color--brand);
+    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
+    border-bottom-color: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
 }
 
 .bynefit-tabs__tab:focus-visible {
-    outline: 2px solid var(--wp--preset--color--brand);
+    outline: 2px solid var(--wp--preset--color--brand, var(--bynefit-fb-brand));
     outline-offset: 2px;
 }
 
@@ -600,17 +612,22 @@
    the arrows up to 40px inside the dots band. A floor is not a cap: a wrapped row
    grows the component and takes the midpoint down with it.
 
-   The min-height stays, reduced to what it is actually for — keeping a short
-   carousel tall enough that the arrows clear the top-right chip: chip bottom is
-   0.75rem + T and the arrows now centre on the track, so the track wants 2T. */
+   The pause toggle gets a row of its OWN above the track rather than being
+   absolutely positioned into the top-right corner. Sharing the track's cell, it
+   collided with the next arrow on any track under 3.5x the control size — a
+   one-line testimonial is about 100px — and the nav's stacking context put the
+   arrow on top, so the arrow took the hit test and the pause control became
+   unreachable. Giving it its own row makes the collision impossible at every
+   track height, which is what the min-height floor had been standing in for, so
+   the floor is gone. The row collapses to zero when autoplay is off and the
+   toggle is not rendered. */
 .bynefit-carousel.is-enhanced {
     display: grid;
-    grid-template-rows: auto auto;
-    min-height: calc(var(--bynefit-touch-min, 44px) * 2 + 1.5rem);
+    grid-template-rows: auto auto auto;
 }
 
 .bynefit-carousel.is-enhanced .bynefit-carousel__track {
-    grid-row: 1;
+    grid-row: 2;
     grid-column: 1;
     display: block;
     /* Sized FROM the control token so the gutter cannot drift from what it holds. */
@@ -651,12 +668,12 @@
 
 .bynefit-carousel__cite { font-weight: 600; }
 .bynefit-carousel__role {
-    color: var(--wp--preset--color--muted);
+    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     font-size: var(--wp--preset--font-size--small);
 }
 
 .bynefit-carousel__nav {
-    grid-row: 1;
+    grid-row: 2;
     grid-column: 1;
     align-self: center;
     z-index: 1;
@@ -665,8 +682,8 @@
     width: var(--bynefit-touch-min, 44px);
     height: var(--bynefit-touch-min, 44px);
     border-radius: 999px;
-    background: var(--wp--preset--color--surface-2);
-    color: var(--wp--preset--color--text);
+    background: var(--wp--preset--color--surface-2, var(--bynefit-fb-surface-2));
+    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
     box-shadow: 0 1px 3px rgba(17, 14, 10, 0.12);
     font-size: 1.25rem;
     line-height: 1;
@@ -677,7 +694,7 @@
 .bynefit-carousel__next { justify-self: end; }
 
 .bynefit-carousel__dots {
-    grid-row: 2;
+    grid-row: 3;
     grid-column: 1;
     display: flex;
     gap: 0.5rem;
@@ -700,15 +717,15 @@
     height: 0.5rem;
     border-radius: 999px;
     background: transparent;
-    box-shadow: 0 0 0 1px var(--wp--preset--color--muted);
+    box-shadow: 0 0 0 1px var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     cursor: pointer;
 }
 
 .bynefit-carousel__dot[aria-current="true"] {
     /* Ring matches the fill so the apparent diameter is the same in both states.
        (Not a layout concern — box-shadow never participates in layout.) */
-    background: var(--wp--preset--color--brand);
-    box-shadow: 0 0 0 1px var(--wp--preset--color--brand);
+    background: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
+    box-shadow: 0 0 0 1px var(--wp--preset--color--brand, var(--bynefit-fb-brand));
 }
 
 /* Touch pointers get a 44px hit box; the 8px dot stays the visual. any-pointer
@@ -743,12 +760,12 @@
         border-radius: 999px;
         /* Ring, not fill — same reason as above: the ::before is the visible dot. */
         background: transparent;
-        box-shadow: 0 0 0 1px var(--wp--preset--color--muted);
+        box-shadow: 0 0 0 1px var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     }
 
     .bynefit-carousel__dot[aria-current="true"]::before {
-        background: var(--wp--preset--color--brand);
-        box-shadow: 0 0 0 1px var(--wp--preset--color--brand);
+        background: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
+        box-shadow: 0 0 0 1px var(--wp--preset--color--brand, var(--bynefit-fb-brand));
     }
 }
 
@@ -759,23 +776,22 @@
 
 .bynefit-carousel__nav:focus-visible,
 .bynefit-carousel__dot:focus-visible {
-    outline: 2px solid var(--wp--preset--color--brand);
+    outline: 2px solid var(--wp--preset--color--brand, var(--bynefit-fb-brand));
     outline-offset: 2px;
 }
 
 .bynefit-carousel__toggle {
-    position: absolute;
-    top: 0.75rem;
-    /* Inset stays in rem; the gutter derives from the control token, so the two cannot
-       disagree the way a hardcoded 3rem did. */
-    right: 0.25rem;
+    grid-row: 1;
+    grid-column: 1;
+    justify-self: end;
+    margin: 0 0.25rem 0.75rem 0;
     appearance: none;
     border: 0;
     width: var(--bynefit-touch-min, 44px);
     height: var(--bynefit-touch-min, 44px);
     border-radius: 999px;
-    background: var(--wp--preset--color--surface-2);
-    color: var(--wp--preset--color--text);
+    background: var(--wp--preset--color--surface-2, var(--bynefit-fb-surface-2));
+    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
     box-shadow: 0 1px 3px rgba(17, 14, 10, 0.12);
     cursor: pointer;
     font-size: 0.7rem;
@@ -790,6 +806,6 @@
 }
 
 .bynefit-carousel__toggle:focus-visible {
-    outline: 2px solid var(--wp--preset--color--brand);
+    outline: 2px solid var(--wp--preset--color--brand, var(--bynefit-fb-brand));
     outline-offset: 2px;
 }

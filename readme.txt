@@ -174,7 +174,7 @@ Open a ticket from **Settings → Bynefit Tickets → Open new ticket**. It land
 * **Changed (internal):** The Bynefit Sites control-plane endpoints now authorize on the signed-request integrity check alone (a per-site secret only Bynefit holds), acting as the site administrator to make the requested change. No effect on manually connected sites — the control plane stays inert until Bynefit provisions the secret, and an unsigned request is still refused.
 
 = 0.16.0 =
-* **Added:** Two data-driven Bynefit Sites blocks — **Form** (embeds a form you built in the Bynli form builder by id, inside a clean token-styled card; the form renders and submits securely to Bynli, so no submission data touches this site) and **Events** (shows a team's upcoming or past Bynli events live). Both hydrate from Bynli at page load and only load the runtime on pages that use them.
+* **Added:** Two data-driven Bynefit Sites blocks — **Form** (embeds a form you built in the Bynefit form builder by id, inside a clean token-styled card; the form renders and submits securely to Bynefit, so no submission data touches this site) and **Events** (shows a team's upcoming or past Bynefit events live). Both hydrate from Bynefit at page load and only load the runtime on pages that use them.
 
 = 0.15.0 =
 * **Added:** Bynefit Sites **hero sections and full-width background video** — a section can now carry a background image or looping video with an overlay scrim, a chosen height, and vertically-centred content, so a full-bleed hero reads edge-to-edge with legible text over the image. Publishing requires the scrim when a background image/video is used, so overlaid text always stays readable.

@@ -6,8 +6,8 @@ if (!defined('ABSPATH')) {
 /**
  * Emit-time publish-contract gate for a Bynefit Sites scene-graph page.
  *
- * Runs the static, document-level half of the contract (bynefit-sites#3 §6):
- * things provable from the doc + the resolved token vocabulary before any WP
+ * Runs the static, document-level half of the contract: the things provable
+ * from the doc + the resolved token vocabulary before any WP
  * write. Runtime budgets (CWV timings, critical CSS) are measured post-publish
  * and are not this gate's job. A failing page is refused and every violation is
  * returned so the app can surface the exact fix — never a silent partial write.
