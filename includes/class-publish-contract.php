@@ -560,20 +560,16 @@ class Bynli_Connect_Publish_Contract {
                 }
                 $val = $place[$bp][$key];
                 $ipath = "$path.$bp.$key";
-                // Matched to what grid_int() actually accepts, which is is_numeric()
-                // after PHP's own whitespace tolerance — so a padded or signed integer
-                // string renders as that integer and must be RANGE-checked here, not
-                // type-rejected. Rejecting it refused the whole page for a value the
-                // renderer would have laid out exactly as written.
-                $trimmed = is_string($val) ? trim($val) : $val;
-                $is_int_string = is_string($trimmed)
-                    && $trimmed !== ''
-                    && preg_match('/^[+-]?\d+$/', $trimmed) === 1;
-                if (!is_int($val) && !$is_int_string) {
+                // The predicate lives on the class that owns grid_int(), so the gate and
+                // the renderer cannot drift on what counts as an integer. A padded or
+                // signed integer string renders as that integer and must be
+                // RANGE-checked here rather than type-rejected — rejecting it refused
+                // the whole page for a value the renderer lays out exactly as written.
+                if (!Bynli_Connect_Blocks::isIntLike($val)) {
                     $v[] = self::vio('place_type', $ipath, ucfirst($key) . ' must be a whole number.');
                     continue;
                 }
-                $n = (int) $trimmed;
+                $n = (int) $val;
                 if ($n < $min || $n > $max) {
                     $v[] = self::vio('place_range', $ipath,
                         ucfirst($key) . " must be between $min and $max.");
@@ -599,7 +595,7 @@ class Bynli_Connect_Publish_Contract {
         if ($value === null) {
             return;
         }
-        if (!is_int($value) && !(is_string($value) && ctype_digit($value))) {
+        if (!Bynli_Connect_Blocks::isIntLike($value)) {
             $v[] = self::vio('grid_cols_type', $path, 'Grid column count must be a whole number.');
             return;
         }

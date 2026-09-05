@@ -21,13 +21,13 @@ $vars = [
         $cols['sm'] ?? null,
         Bynli_Connect_Blocks::GRID_COLS_MIN,
         Bynli_Connect_Blocks::GALLERY_COLS_MAX,
-        2
+        Bynli_Connect_Blocks::GALLERY_COLS_SM_DEFAULT
     ),
     '--bynefit-gcols-lg' => (string) Bynli_Connect_Blocks::grid_int(
         $cols['lg'] ?? null,
         Bynli_Connect_Blocks::GRID_COLS_MIN,
         Bynli_Connect_Blocks::GALLERY_COLS_MAX,
-        3
+        Bynli_Connect_Blocks::GALLERY_COLS_LG_DEFAULT
     ),
 ];
 $gap = Bynli_Connect_Blocks::token('spacing', $attributes['gap'] ?? null);

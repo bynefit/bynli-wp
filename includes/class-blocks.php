@@ -96,8 +96,25 @@ class Bynli_Connect_Blocks {
      */
     const GRID_COLS_SM_DEFAULT = 4;
     const GRID_COLS_LG_DEFAULT = 12;
+    const GALLERY_COLS_SM_DEFAULT = 2;
+    const GALLERY_COLS_LG_DEFAULT = 3;
 
     /** Clamp a numeric grid coordinate to a sane bounded integer. */
+    /**
+     * Does this value reach grid_int() as the integer it is written as?
+     *
+     * The publish gate has to accept exactly what this class accepts, so the predicate
+     * lives beside it. PHP's numeric-string whitespace set is " \t\n\r\v\f" — which is
+     * NOT trim()'s charlist: trim strips \0 and leaves \f, and using it here rejected
+     * "\f5" (which renders as 5) while accepting "\0.5" (which does not).
+     */
+    public static function isIntLike($value): bool
+    {
+        if (is_int($value)) { return true; }
+        return is_string($value)
+            && preg_match('/^[ \t\n\r\v\f]*[+-]?\d+[ \t\n\r\v\f]*$/', $value) === 1;
+    }
+
     public static function grid_int($value, int $min, int $max, int $default): int {
         if (!is_numeric($value)) {
             return $default;
@@ -118,19 +135,29 @@ class Bynli_Connect_Blocks {
      * sm in CSS. Kept on the class so render.php can't redeclare it when a page
      * holds more than one section.
      *
-     * $cols carries the section's real per-breakpoint track counts (#51): col
-     * and colSpan are clamped against them so a span wider than the section
-     * can't overflow into implicit tracks. Defaults keep legacy callers on the
-     * old 1..12 behavior.
+     * $cols carries the section's real per-breakpoint track counts: col and colSpan
+     * are clamped against them so a span wider than the section cannot overflow into
+     * implicit tracks. The section renderer is the only caller and always passes real
+     * counts, so the defaults are a guard rather than a compatibility shim — they are
+     * the same per-breakpoint defaults the renderer and the publish gate resolve to,
+     * because a fourth answer to "how many tracks" is the drift the constants exist
+     * to end.
      */
-    public static function cell_vars(array $place, array $cols = ['sm' => 12, 'lg' => 12]): string {
+    public static function cell_vars(
+        array $place,
+        array $cols = [
+            'sm' => self::GRID_COLS_SM_DEFAULT,
+            'lg' => self::GRID_COLS_LG_DEFAULT,
+        ]
+    ): string {
         $out = [];
         foreach (['sm', 'lg'] as $bp) {
             $p = isset($place[$bp]) && is_array($place[$bp]) ? $place[$bp] : null;
             if ($p === null) {
                 continue;
             }
-            $track_max = self::grid_int($cols[$bp] ?? null, self::GRID_COLS_MIN, self::GRID_COLS_MAX, self::GRID_COLS_MAX);
+            $track_default = $bp === 'sm' ? self::GRID_COLS_SM_DEFAULT : self::GRID_COLS_LG_DEFAULT;
+            $track_max = self::grid_int($cols[$bp] ?? null, self::GRID_COLS_MIN, self::GRID_COLS_MAX, $track_default);
             $col       = self::grid_int($p['col'] ?? null, self::GRID_COLS_MIN, $track_max, 1);
             $span_max  = max(1, $track_max - $col + 1);
             $out["--bynefit-col-$bp"]     = (string) $col;
