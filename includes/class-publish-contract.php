@@ -180,7 +180,7 @@ class Bynli_Connect_Publish_Contract {
      * the page's one-H1 / one-LCP rules. $bg_slug is the effective background
      * (section, or the card's own) used for the block's contrast check.
      */
-    private static function validate_block($block, string $bpath, array &$v, array $vocab, array $media, ?string $bg_slug, array &$heading_levels, int &$priority_images, array $tracks = []): void {
+    private static function validate_block($block, string $bpath, array &$v, array $vocab, array $media, ?string $bg_slug, array &$heading_levels, int &$priority_images, ?array $tracks): void {
                 if (!is_array($block)) {
                     $v[] = self::vio('block_shape', $bpath, 'Block is not an object.');
                     return;
@@ -191,7 +191,9 @@ class Bynli_Connect_Publish_Contract {
                     return;
                 }
 
-                self::check_place($v, "$bpath.place", $block['place'] ?? null, $tracks);
+                if ($tracks !== null) {
+                    self::check_place($v, "$bpath.place", $block['place'] ?? null, $tracks);
+                }
 
                 $style = is_array($block['style'] ?? null) ? $block['style'] : [];
                 // Only the style keys a block's emitter actually consumes are part
@@ -469,7 +471,9 @@ class Bynli_Connect_Publish_Contract {
                                 $v[] = self::vio('card_nesting', "$bpath.blocks[$ci]", 'A card can hold content blocks, not sections or other cards.');
                                 continue;
                             }
-                            self::validate_block($cb, "$bpath.blocks[$ci]", $v, $vocab, $media, $card_bg, $heading_levels, $priority_images, $tracks);
+                            // null, not the section's tracks: a card child's place map is
+                            // never emitted, so nothing clamps it and nothing may refuse it.
+                            self::validate_block($cb, "$bpath.blocks[$ci]", $v, $vocab, $media, $card_bg, $heading_levels, $priority_images, null);
                         }
                     }
                 } elseif ($type === 'logos') {
@@ -503,20 +507,6 @@ class Bynli_Connect_Publish_Contract {
     }
 
     /**
-     * A grid track count must be an integer inside the range render will accept.
-     *
-     * null/absent is fine — every consumer has a documented default. A value that is
-     * present but out of range is a violation rather than something to clamp: the
-     * phone breakpoint is the one that matters here, because a large cols.sm produces
-     * unusable slivers on a phone (the grids stay overflow-SAFE thanks to
-     * minmax(0, 1fr), so nothing breaks visibly — it just becomes unreadable, which
-     * is worse to diagnose from a screenshot).
-     *
-     * Rejects non-integer numerics too. grid_int() casts "2.9" to 2, so accepting it
-     * here would publish a layout the author did not describe.
-     *
-     * ---
-     *
      * The five placement properties render clamps alongside the track count.
      *
      * cell_vars() puts col, colSpan, row, rowSpan and order through the same
@@ -524,11 +514,17 @@ class Bynli_Connect_Publish_Contract {
      * published clean and rendered as 999. Same defect as the one this gate was added
      * for, on the same block, decided one function away.
      *
-     * colSpan's real ceiling depends on col and the track count, which is a render-time
-     * computation; the gate checks it against the track maximum, which is the widest it
-     * can ever legitimately be.
+     * col is bounded by the SECTION'S track count and colSpan by what is left of the
+     * row after col — the same arithmetic cell_vars() uses, so nothing this accepts is
+     * clamped afterwards and nothing it refuses would have rendered. It runs only for a
+     * block whose placement a renderer actually reads: a card child's place map is
+     * never emitted, and refusing one would refuse the whole page for a value that has
+     * no effect on it.
+     *
+     * $tracks has no default on purpose. An omitted argument would silently restore the
+     * 12-track bound, which is the defect this parameter exists to end.
      */
-    private static function check_place(array &$v, string $path, $place, array $tracks = []): void {
+    private static function check_place(array &$v, string $path, $place, array $tracks): void {
         if (!is_array($place)) {
             return;
         }
@@ -577,6 +573,19 @@ class Bynli_Connect_Publish_Contract {
         }
     }
 
+    /**
+     * A grid track count must be an integer inside the range render will accept.
+     *
+     * null/absent is fine — every consumer has a documented default. A value that is
+     * present but out of range is a violation rather than something to clamp: the phone
+     * breakpoint is the one that matters, because a large cols.sm produces unusable
+     * slivers on a phone (the grids stay overflow-SAFE thanks to minmax(0, 1fr), so
+     * nothing breaks visibly — it just becomes unreadable, which is worse to diagnose
+     * from a screenshot).
+     *
+     * Rejects non-integer numerics too. grid_int() casts "2.9" to 2, so accepting it
+     * here would publish a layout the author did not describe.
+     */
     private static function check_grid_cols(array &$v, string $path, $value, int $max): void {
         if ($value === null) {
             return;

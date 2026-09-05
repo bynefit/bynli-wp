@@ -75,15 +75,6 @@ class Bynli_Connect_Settings {
         }
         return (string)get_option(self::OPTION_KEY, '');
     }
-    /**
-     * Constrain an API base to an absolute https origin, or reject it.
-     *
-     * esc_url_raw alone is not enough here. It preserves a scheme-relative '//host'
-     * and it accepts 'http://', and this value now reaches two front-end <script src>
-     * tags on public pages, so a typo or a hostile option write becomes third-party
-     * script execution for every visitor. Applied on the way IN and again on the way
-     * OUT, because an option saved before this existed is still in the database.
-     */
     /** True only while the Settings API is running this as a save-path callback. */
     private static $sanitising_save = false;
 
@@ -97,6 +88,15 @@ class Bynli_Connect_Settings {
         }
     }
 
+    /**
+     * Constrain an API base to an absolute https origin, or reject it.
+     *
+     * esc_url_raw alone is not enough here. It preserves a scheme-relative '//host'
+     * and it accepts 'http://', and this value now reaches two front-end <script src>
+     * tags on public pages, so a typo or a hostile option write becomes third-party
+     * script execution for every visitor. Applied on the way IN and again on the way
+     * OUT, because an option saved before this existed is still in the database.
+     */
     public static function sanitize_api_base($value, bool $allow_http = false): string
     {
         $raw = trim((string) $value);

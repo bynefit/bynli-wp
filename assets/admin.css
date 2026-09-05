@@ -1,16 +1,16 @@
-/* Bynefit Connect  "Relay" console
+/* Bynefit Connect — "Relay" console
  * Scoped to .bcn-wrap. Cool signal-teal *instrument* aesthetic; monospace is
  * the personality (telemetry values), not a display face. Light theme only.
  *
- * All colors flow through the tokens below  style components THROUGH tokens.
- * Semantic (ok/warn/down) is separate from --accent  teal never signals
+ * All colors flow through the tokens below — style components THROUGH tokens.
+ * Semantic (ok/warn/down) is separate from --accent — teal never signals
  * health. The hero is a fixed dark "ink" slab; --bcn-accent-on-ink /
  * --bcn-warn-on-ink are the readout colors that sit on it. Token contract
  * (bynli_sh_ / X-Bynli-* / [bynli-*]) is unchanged.
  */
 
 .bcn-wrap {
-    /*  Color  light (defaults) */
+    /* Color — light (defaults) */
     --bcn-canvas:      #eef1f5;   /* page ground (cool slate-tinted) */
     --bcn-panel:       #ffffff;   /* card surface */
     --bcn-panel-2:     #f5f7fa;   /* sub-surface / inputs */
@@ -49,7 +49,7 @@
     --bcn-pill-urgent-bg:      var(--bcn-down-soft);
     --bcn-pill-urgent-fg:      var(--bcn-down);
 
-    /*  Radii / shadow / motion */
+    /* Radii / shadow / motion */
     --bcn-r-sm: 7px;  --bcn-r-md: 11px;  --bcn-r-lg: 16px;  --bcn-r-xl: 22px;
     --bcn-shadow-1:   0 1px 2px rgba(13, 20, 32, 0.06), 0 1px 1px rgba(13, 20, 32, 0.04);
     --bcn-shadow-2:   0 6px 22px rgba(13, 20, 32, 0.10), 0 2px 6px rgba(13, 20, 32, 0.05);
@@ -57,7 +57,7 @@
     --bcn-t:   120ms;
     --bcn-t-2: 150ms;
 
-    /*  Type  monospace-as-instrument */
+    /* Type — monospace-as-instrument */
     --bcn-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --bcn-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
@@ -72,7 +72,7 @@
 }
 
 
-/*  Reset within scope (defend against WP form-table + .button bleed) */
+/* Reset within scope (defend against WP form-table + .button bleed) */
 .bcn-wrap * {
     box-sizing: border-box;
 }
@@ -114,12 +114,12 @@
 .bcn-wrap .notice,
 .bcn-wrap .error,
 .bcn-wrap .updated { display: none; }
-/* ↑ WP injects .notice nodes around forms after settings_errors()  we render
+/* ↑ WP injects .notice nodes around forms after settings_errors() — we render
    our own .bcn-notice and don't want WP's stacked above it. */
 
 
 /*
-   Relay console shell  topbar · rail · panels · theme
+   Relay console shell — topbar · rail · panels · theme
    toggle · chips · notes · buttons · fields. All token-driven so light/dark
    flow from the token layers above. Surface-specific components (hero,
    sparkline, shortcode previewer, tickets, activity log) land in later
@@ -128,7 +128,7 @@
 
 .bcn-wrap { background: transparent; }
 
-/*  Topbar */
+/* Topbar */
 .bcn-topbar {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 16px; margin-bottom: 16px;
@@ -161,7 +161,7 @@
 }
 .bcn-signal-pill[data-state="on"]   { color: var(--bcn-ok);   background: var(--bcn-ok-soft);   border-color: var(--bcn-ok-line); }
 .bcn-signal-pill[data-state="off"]  { color: var(--bcn-warn); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
-/* Fresh/unconfigured install  neutral, not an error. Red is reserved for
+/* Fresh/unconfigured install — neutral, not an error. Red is reserved for
    actual failures; a brand-new site reading "Not connected" in red over-alarms. */
 .bcn-signal-pill[data-state="warn"] { color: var(--bcn-muted); background: var(--bcn-sunk); border-color: var(--bcn-rule); }
 .bcn-beacon { position: relative; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
@@ -172,7 +172,7 @@
 .bcn-signal-pill[data-state="on"] .bcn-beacon::after { opacity: 1; }
 @keyframes bcn-ping { 0% { transform: scale(0.6); opacity: 0.7; } 100% { transform: scale(1.9); opacity: 0; } }
 
-/*  Shell grid + rail */
+/* Shell grid + rail */
 .bcn-shell { display: grid; grid-template-columns: 232px 1fr; gap: 16px; align-items: start; }
 .bcn-rail {
     position: sticky; top: 22px;
@@ -206,14 +206,14 @@
 .bcn-dot.ok  { background: var(--bcn-ok); }
 .bcn-dot.acc { background: var(--bcn-accent); }
 
-/*  Panels */
+/* Panels */
 .bcn-main { min-width: 0; }
 .bcn-panel { display: none; animation: bcn-rise var(--bcn-t-2) ease both; }
 .bcn-panel.active { display: block; }
 .bcn-panel[hidden] { display: none; }
 @keyframes bcn-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-/*  Chips */
+/* Chips */
 .bcn-chip {
     display: inline-flex; align-items: center; gap: 5px;
     font-family: var(--bcn-mono); font-size: 10.5px; font-weight: 600;
@@ -226,7 +226,7 @@
 .bcn-chip.acc  { color: var(--bcn-accent-ink); background: var(--bcn-accent-soft); border-color: var(--bcn-accent-line); }
 .bcn-chip.mute { color: var(--bcn-muted); background: var(--bcn-sunk); border-color: var(--bcn-rule); }
 
-/*  Notes */
+/* Notes */
 .bcn-note {
     display: flex; align-items: flex-start; gap: 9px;
     padding: 12px 14px; border-radius: var(--bcn-r-md);
@@ -257,7 +257,7 @@
 .bcn-spin { animation: bcn-spin 0.9s linear infinite; }
 @keyframes bcn-spin { to { transform: rotate(360deg); } }
 
-/* Shortcode previewer  list · detail · code · preview */
+/* Shortcode previewer — list · detail · code · preview */
 .bcn-sc-layout { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: start; }
 .bcn-sc-list { display: flex; flex-direction: column; gap: 4px; }
 .bcn-sc-item {
@@ -283,7 +283,7 @@
     background: var(--bcn-ink); color: var(--bcn-canvas);
     border-radius: var(--bcn-r-md); overflow-x: auto; white-space: pre;
 }
-/* Tokens on the inverted ink ground  teal tag + steps of canvas so both themes read. */
+/* Tokens on the inverted ink ground — teal tag + steps of canvas so both themes read. */
 .bcn-cb-b { color: color-mix(in srgb, var(--bcn-canvas) 40%, transparent); }
 .bcn-cb-t { color: var(--bcn-accent); }
 .bcn-cb-a { color: color-mix(in srgb, var(--bcn-canvas) 92%, transparent); }
@@ -318,7 +318,7 @@
 .bcn-attr-table tr:last-child td { border-bottom: none; }
 .bcn-attr-table td:first-child { white-space: nowrap; }
 
-/* Live form picker  load the team's real forms, click to insert the id */
+/* Live form picker — load the team's real forms, click to insert the id */
 .bcn-sc-picker { margin-bottom: 14px; padding: 12px 14px; background: var(--bcn-panel-2); border: 1px solid var(--bcn-rule); border-radius: var(--bcn-r-md); }
 .bcn-sc-picker .bcn-hint { display: inline; margin-left: 8px; }
 .bcn-form-list { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
@@ -334,7 +334,7 @@
     .bcn-sc-item { flex: 1 1 auto; }
 }
 
-/* Tickets  head · tabs (with unread counts) · table · thread */
+/* Tickets — head · tabs (with unread counts) · table · thread */
 .bcn-tk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .bcn-tk-title { font-size: 17px; font-weight: 700; color: var(--bcn-ink); }
 .bcn-tk-sub { font-size: 13px; color: var(--bcn-muted); margin-top: 2px; }
@@ -435,7 +435,7 @@
 .bcn-cl-body h3, .bcn-cl-body h4 { font-size: 13px; font-weight: 700; color: var(--bcn-ink); margin: 12px 0 4px; }
 .bcn-cl-body code { font-family: var(--bcn-mono); font-size: 0.9em; }
 
-/*  Buttons (token variants; independent of WP .button) */
+/* Buttons (token variants; independent of WP .button) */
 .bcn-btn {
     display: inline-flex; align-items: center; gap: 7px;
     font: inherit; font-size: 13px; font-weight: 600; line-height: 1;
@@ -455,7 +455,7 @@
 .bcn-btn[disabled], .bcn-btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 .bcn-wrap :focus-visible { outline: 2px solid var(--bcn-accent); outline-offset: 2px; border-radius: 3px; }
 
-/*  Fields */
+/* Fields */
 .bcn-field { margin-bottom: 16px; }
 .bcn-label { display: block; font-size: 12px; font-weight: 600; color: var(--bcn-ink-2); margin-bottom: 6px; }
 .bcn-input {
@@ -488,7 +488,7 @@
 .bcn-action-hint { font-size: 12px; color: var(--bcn-muted); }
 .bcn-pad-top { margin-top: 14px; }
 
-/*  Card + stats restyle to tokens (carried surfaces) */
+/* Card + stats restyle to tokens (carried surfaces) */
 .bcn-card {
     background: var(--bcn-panel); border: 1px solid var(--bcn-rule);
     border-radius: var(--bcn-r-lg); box-shadow: var(--bcn-shadow-1);
@@ -528,7 +528,7 @@
 .bcn-sc-copy { font-family: var(--bcn-mono); font-size: 11px; cursor: pointer; padding: 4px 9px; color: var(--bcn-accent-ink); background: var(--bcn-panel); border: 1px solid var(--bcn-accent-line); border-radius: var(--bcn-r-sm); }
 .bcn-sc-copy.bcn-copied { color: var(--bcn-ok); border-color: var(--bcn-ok-line); }
 
-/*  Responsive */
+/* Responsive */
 @media (max-width: 860px) {
     .bcn-shell { grid-template-columns: 1fr; }
     .bcn-rail { position: static; flex-direction: row; flex-wrap: wrap; }
@@ -540,9 +540,9 @@
     .bcn-site-chip { display: none; }
 }
 
-/* Overview  hero instrument · sparkline · metrics · tiles
+/* Overview — hero instrument · sparkline · metrics · tiles
    The hero is the INVERTED surface (ground = --ink, text = --canvas), so it
-   reads as a dark slab on light and a bright slab on dark  the token spec's
+   reads as a dark slab on light and a bright slab on dark — the token spec's
    deliberate inversion. Single radial teal wash top-right, no saturated block. */
 .bcn-hero {
     position: relative; overflow: hidden;
@@ -605,7 +605,7 @@
 .bcn-portal-quick { margin-bottom: 16px; }
 .bcn-hero-name { font-size: 26px; }
 
-/*  Client Portal: content sections + support */
+/* Client Portal: content sections + support */
 .bcn-portal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); gap: 14px; margin: 16px 0; }
 .bcn-portal-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .bcn-portal-support-card { grid-column: 1 / -1; }
@@ -621,7 +621,7 @@
     .bcn-hero-spark { display: none; }
 }
 
-/*  Reduced motion */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
     .bcn-panel { animation: none; }
     .bcn-beacon::after { animation: none; }
@@ -629,7 +629,7 @@
     .bcn-wrap *, .bcn-wrap *::before, .bcn-wrap *::after { transition: none !important; }
 }
 
-/*  Client mode: roster manager */
+/* Client mode: roster manager */
 .bcn-client-manager { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--bcn-rule); }
 .bcn-client-title { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--bcn-ink); }
 .bcn-client-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 6px; }

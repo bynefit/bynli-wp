@@ -277,6 +277,15 @@ class Bynli_Connect_Updater {
         // installable. But the two ways of getting here are not the same event, and
         // only one of them is expected, so they are not recorded the same way.
         if ($expected === '') {
+            // Two ways to get here and they are not the same event. A manifest that
+            // simply predates the field is the legitimate case the permissive default
+            // exists for. A manifest we could not fetch AT ALL, on a package this
+            // function has already concluded is ours, means the control did not run
+            // and nothing else would ever say so.
+            if (!is_array($remote)) {
+                error_log('[Bynli Connect] update: release manifest unavailable, so this'
+                    . ' package is being installed WITHOUT checksum verification');
+            }
             return $reply;
         }
         if (!preg_match('/^[a-f0-9]{64}$/', $expected)) {
