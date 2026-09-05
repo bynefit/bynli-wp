@@ -409,10 +409,24 @@ class Bynli_Connect_Settings {
             <div class="bcn-notice bcn-notice-err"><span class="dashicons dashicons-warning"></span>
                 <span>Heartbeat failed. Check the key + API base, then try again.</span></div>
         <?php endif;
-        if ($ctx['cleared']): ?>
-            <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-update"></span>
-                <span>Version readout refreshed.</span></div>
-        <?php endif;
+        if ($ctx['cleared']):
+            // The notice reports the OUTCOME, not the button press. Refresh re-reads
+            // before redirecting, so a failed re-read printed a green "refreshed"
+            // directly above the panel's own "check failed" — the same un-earned green
+            // verdict this release fixes, reintroduced one element above it by the fix.
+            $refresh_failed = !empty($ctx['upd']['error']);
+            $refresh_empty  = empty($ctx['upd']['version']) && !$refresh_failed;
+            if ($refresh_failed): ?>
+                <div class="bcn-notice bcn-notice-err"><span class="dashicons dashicons-warning"></span>
+                    <span>Refresh failed &mdash; Bynefit could not be reached. The version below is unchanged.</span></div>
+            <?php elseif ($refresh_empty): ?>
+                <div class="bcn-notice bcn-notice-warn"><span class="dashicons dashicons-info-outline"></span>
+                    <span>Refreshed, but Bynefit returned no version to compare against.</span></div>
+            <?php else: ?>
+                <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-update"></span>
+                    <span>Version readout refreshed.</span></div>
+            <?php endif;
+        endif;
         if ($ctx['discon']): ?>
             <div class="bcn-notice bcn-notice-warn"><span class="dashicons dashicons-info-outline"></span>
                 <span>Site disconnected. The API key was cleared from this WordPress install. Revoke it on Bynefit at <code>/dash/sites/host-keys</code> to invalidate it server-side too.</span></div>
@@ -569,10 +583,26 @@ class Bynli_Connect_Settings {
                 <span class="bcn-tile-label">Daily report</span>
                 <span class="bcn-tile-value"><?php echo !empty($last['at']) ? esc_html(human_time_diff((int)$last['at']) . ' ago') : 'never'; ?></span>
             </div>
-            <div class="bcn-tile" data-state="<?php echo $update_actionable ? 'acc' : 'ok'; ?>">
+            <?php
+                // The same three-state derivation the rail uses. Keying on the actionable
+                // flag alone rendered a GREEN tile when there was no readout at all, in the
+                // same viewport as a rail correctly reading "Not checked".
+                $tile_failed     = !empty($ctx['upd']['error']);
+                $tile_no_readout = empty($ctx['upd']['version']) && !$tile_failed;
+                if ($tile_failed) {
+                    $tile_state = 'warn'; $tile_value = 'Check failed';
+                } elseif ($tile_no_readout) {
+                    $tile_state = 'warn'; $tile_value = 'Not checked';
+                } elseif ($update_actionable) {
+                    $tile_state = 'acc';  $tile_value = 'Update ready';
+                } else {
+                    $tile_state = 'ok';   $tile_value = 'v' . BYNLI_CONNECT_VERSION;
+                }
+            ?>
+            <div class="bcn-tile" data-state="<?php echo esc_attr($tile_state); ?>">
                 <span class="dashicons dashicons-update" aria-hidden="true"></span>
                 <span class="bcn-tile-label">Plugin</span>
-                <span class="bcn-tile-value"><?php echo $update_actionable ? 'Update ready' : 'v' . esc_html(BYNLI_CONNECT_VERSION); ?></span>
+                <span class="bcn-tile-value"><?php echo esc_html($tile_value); ?></span>
             </div>
             <div class="bcn-tile" data-state="ok">
                 <span class="dashicons dashicons-lock" aria-hidden="true"></span>
@@ -973,8 +1003,17 @@ class Bynli_Connect_Settings {
         if (!empty($upd['has'])) {
             if (!empty($upd['error'])) {
                 $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
+            } elseif (empty($upd['version'])) {
+                $update_event = ['state' => 'warn', 'ico' => 'dashicons-minus', 'title' => 'Not checked yet', 'detail' => 'no version readout'];
             } elseif ($ctx['update_actionable']) {
                 $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
+            } elseif (!empty($ctx['update_available'])) {
+                // An update EXISTS but is not this admin's to apply, which is why the
+                // actionable flag is false on a managed install. Falling through to
+                // "Up to date" made the log assert something FALSE — the Updates panel
+                // says "Update queued" on the same screen. Gate on whether an update
+                // exists, not on whether the reader can act on it.
+                $update_event = ['state' => 'ok', 'ico' => 'dashicons-clock', 'title' => 'Update queued', 'detail' => 'v' . (string)$upd['version']];
             } else {
                 $update_event = ['state' => 'ok', 'ico' => 'dashicons-yes-alt', 'title' => 'Up to date', 'detail' => 'v' . BYNLI_CONNECT_VERSION];
             }

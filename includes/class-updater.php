@@ -277,21 +277,28 @@ class Bynli_Connect_Updater {
         // installable. But the two ways of getting here are not the same event, and
         // only one of them is expected, so they are not recorded the same way.
         if ($expected === '') {
-            // Two ways to get here and they are not the same event. A manifest that
-            // simply predates the field is the legitimate case the permissive default
-            // exists for. A manifest we could not fetch AT ALL, on a package this
-            // function has already concluded is ours, means the control did not run
-            // and nothing else would ever say so.
-            // USABLE, not merely present. Caching a failed check made this return an
-            // array — ['version' => '', 'error' => …] — so a test for is_array() stopped
-            // firing and the skip went unrecorded for the hour that failure is cached.
-            // Two fixes on this branch, each right on its own, cancelling each other on
-            // the log that exists to prove the control did not run.
+            // Two ways to get here and they are not the same event, but BOTH of them
+            // install a package without verifying it, so both are recorded. The release
+            // note promises a skip is always recorded, and for one release that was
+            // false: a manifest that simply predates the field skipped SILENTLY, which is
+            // the commoner of the two paths and the one an auditor looks for first.
+            //
+            // The unavailable test is for a USABLE manifest, not merely a present one.
+            // Caching a failed check made this return an array — ['version' => '',
+            // 'error' => …] — so an is_array() test stopped firing and the skip went
+            // unrecorded for the hour that failure is cached. Two fixes on this branch,
+            // each right alone, cancelling each other on the log whose only job is to
+            // prove the control did not run.
             if (!is_array($remote) || empty($remote['version'])) {
                 error_log('[Bynli Connect] update: release manifest unavailable'
                     . (is_array($remote) && !empty($remote['error'])
                         ? ' (' . preg_replace('/[^\x20-\x7E]/', '', substr((string) $remote['error'], 0, 60)) . ')'
                         : '')
+                    . ', so this package is being installed WITHOUT checksum verification');
+            } else {
+                error_log('[Bynli Connect] update: release manifest carries no'
+                    . ' download_sha256 for v'
+                    . preg_replace('/[^\x20-\x7E]/', '', substr((string) $remote['version'], 0, 32))
                     . ', so this package is being installed WITHOUT checksum verification');
             }
             return $reply;

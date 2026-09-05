@@ -106,23 +106,35 @@ class Bynli_Connect_Blocks {
     /**
      * Does this value reach grid_int() as the integer it is written as?
      *
-     * The publish gate has to accept exactly what this class accepts, so the predicate
-     * lives beside it — and it defers to is_numeric() rather than restating its rules,
-     * because those rules are VERSION-DEPENDENT. Trailing whitespace is numeric from
-     * PHP 8.0 and not on 7.4, which this plugin still declares as its floor, so a
-     * hand-written character class agreed with the renderer on one version and not the
-     * other. Deferring means it cannot disagree on any version.
+     * ONE rule, and it is derived from grid_int() rather than restated alongside it:
+     * that function accepts anything is_numeric() accepts and then casts with (int).
+     * So the question this predicate answers is exactly "does the (int) cast lose
+     * anything" — and the way to answer it is to perform the cast and compare, not to
+     * enumerate the shapes that survive it.
      *
-     * The regex adds only the INTEGER shape, which is version-stable: is_numeric() also
-     * accepts floats and exponents, and those the gate refuses on purpose because
-     * grid_int() would truncate them into a layout the author did not describe.
+     * Enumerating is what went wrong twice. A hand-written character class disagreed
+     * with the renderer by PHP version, because trailing whitespace is numeric from 8.0
+     * and not on 7.4, which this plugin still declares as its floor. Then a type-by-type
+     * test accepted the float 24.0 and refused the string '24.0', though grid_int()
+     * reproduces both as 24 exactly. Deferring to is_numeric() and comparing the cast
+     * cannot disagree with the renderer on any version or any type.
+     *
+     * What is still refused is what the renderer would genuinely REWRITE: 24.5 and '2.9'
+     * truncate, so publishing them lays out a page the author did not describe. That is
+     * the whole purpose of the gate, and the only thing it should refuse.
      */
     public static function isIntLike($value): bool
     {
         if (is_int($value)) { return true; }
-        return is_string($value)
-            && is_numeric($value)
-            && preg_match('/^[ \t\n\r\v\f]*[+-]?\d+[ \t\n\r\v\f]*$/', $value) === 1;
+        if (!is_numeric($value)) { return false; }
+        $f = (float) $value;
+        // NAN and INF are numeric and survive nothing; and a magnitude past the integer
+        // range casts to a wrapped value, so the comparison below would be comparing
+        // against nonsense rather than rejecting it.
+        if (!is_finite($f) || $f < (float) PHP_INT_MIN || $f > (float) PHP_INT_MAX) {
+            return false;
+        }
+        return $f === (float) (int) $value;
     }
 
     /** Clamp a numeric grid coordinate to a sane bounded integer. */

@@ -696,7 +696,6 @@ class Bynli_Connect_Publish_Contract {
         }
     }
 
-
     private static function vio(string $code, string $path, string $message): array {
         return ['code' => $code, 'path' => $path, 'message' => $message];
     }
