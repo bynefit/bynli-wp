@@ -459,7 +459,7 @@ class Bynli_Connect_Settings {
         // claim and it needs a reading behind it: no version and no error means we have
         // not looked, and an error means the reading failed.
         //
-        // FOUR states, not three. An earlier version of this block reasoned that a
+        // FIVE states. An earlier version of this block reasoned that a
         // managed site should 'read calm' because the update is not the admin's to
         // apply — but update_actionable is false BY CONSTRUCTION on a managed install,
         // so 'calm' meant printing a green 'Up to date' while the Updates panel said
@@ -1194,7 +1194,7 @@ class Bynli_Connect_Settings {
                     ?>
                     <?php
                         // Queued is not the settled state, so it must not borrow the
-                        // settled colour. Four surfaces, one fact, one colour.
+                        // settled colour. Five surfaces, one fact, one colour.
                         if ($unsettled)              { $notice_tone = 'bcn-notice-warn'; }
                         elseif ($update_available)   { $notice_tone = 'bcn-notice-acc'; }
                         else                         { $notice_tone = 'bcn-notice-ok'; }

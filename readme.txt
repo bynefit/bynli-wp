@@ -136,6 +136,11 @@ Yes. **Settings → Bynefit Connect → Disconnect** clears the saved key from t
 
 Open a ticket from **Settings → Bynefit Tickets → Open new ticket**. It lands in front of Bynefit support the same moment it's filed.
 
+== Upgrade Notice ==
+
+= 0.23.0 =
+Some designs that publish today will be refused after this update. Publishing now checks icon size, alignment, embed ratio, events limit, overlay opacity, gallery gap, gallery columns and block position, and refuses values it used to accept and then quietly change. Most likely to affect you: a block set to span more columns than its section has. Nothing already published changes — you will see this the next time you save that page.
+
 == Changelog ==
 
 = 0.23.0 =
