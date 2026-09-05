@@ -282,9 +282,17 @@ class Bynli_Connect_Updater {
             // exists for. A manifest we could not fetch AT ALL, on a package this
             // function has already concluded is ours, means the control did not run
             // and nothing else would ever say so.
-            if (!is_array($remote)) {
-                error_log('[Bynli Connect] update: release manifest unavailable, so this'
-                    . ' package is being installed WITHOUT checksum verification');
+            // USABLE, not merely present. Caching a failed check made this return an
+            // array — ['version' => '', 'error' => …] — so a test for is_array() stopped
+            // firing and the skip went unrecorded for the hour that failure is cached.
+            // Two fixes on this branch, each right on its own, cancelling each other on
+            // the log that exists to prove the control did not run.
+            if (!is_array($remote) || empty($remote['version'])) {
+                error_log('[Bynli Connect] update: release manifest unavailable'
+                    . (is_array($remote) && !empty($remote['error'])
+                        ? ' (' . preg_replace('/[^\x20-\x7E]/', '', substr((string) $remote['error'], 0, 60)) . ')'
+                        : '')
+                    . ', so this package is being installed WITHOUT checksum verification');
             }
             return $reply;
         }

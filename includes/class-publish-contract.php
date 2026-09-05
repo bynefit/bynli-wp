@@ -25,6 +25,8 @@ class Bynli_Connect_Publish_Contract {
     const LIST_MARKERS      = ['check', 'arrow', 'dot', 'none'];
     const CALLOUT_VARIANTS  = ['info', 'success', 'warn', 'tip'];
     const CTA_BG_TOKENS     = ['surface', 'surface-2'];
+    const BLOCK_ALIGNS      = ['start', 'center'];
+    const EMBED_RATIOS      = ['16-9', '4-3', '1-1', '21-9'];
     const MAX_LIST_ITEMS    = 60;
 
     // Grid track bounds, READ FROM the render layer rather than restated here. The
@@ -344,6 +346,12 @@ class Bynli_Connect_Publish_Contract {
                 } elseif ($type === 'embed') {
                     $provider = (string) ($block['provider'] ?? '');
                     $eid = (string) ($block['id'] ?? '');
+                    // An unrecognised ratio is not emitted at all, so the block falls
+                    // back to 16-9 and the author sees a shape they did not pick.
+                    self::check_enum(
+                        $v, "$bpath.ratio", $block['ratio'] ?? null,
+                        self::EMBED_RATIOS, 'Embed ratio', 'embed_ratio'
+                    );
                     if (!in_array($provider, self::EMBED_PROVIDERS, true)) {
                         $v[] = self::vio('embed_provider', "$bpath.provider", 'Embed provider must be youtube, vimeo, or map.');
                     } elseif ($provider === 'youtube' && !preg_match('/^[A-Za-z0-9_-]{6,20}$/', $eid)) {
@@ -356,7 +364,16 @@ class Bynli_Connect_Publish_Contract {
                     if (trim((string) ($block['title'] ?? '')) === '') {
                         $v[] = self::vio('embed_title', "$bpath.title", 'Embed needs a title for accessibility.');
                     }
-                } elseif ($type === 'icon') {
+                }
+                if (in_array($type, ['quote', 'stat', 'cta'], true)) {
+                    // The emitter rewrites anything that is not exactly 'center' to
+                    // 'start', so "end" or a typo renders left-aligned with no complaint.
+                    self::check_enum(
+                        $v, "$bpath.align", $block['align'] ?? null,
+                        self::BLOCK_ALIGNS, 'Alignment', 'block_align'
+                    );
+                }
+                if ($type === 'icon') {
                     $iname = (string) ($block['name'] ?? '');
                     if (Bynli_Connect_Blocks::icon_svg($iname) === null) {
                         $v[] = self::vio('icon_unknown', "$bpath.name", "Icon '$iname' is not in the icon set.");
@@ -368,7 +385,8 @@ class Bynli_Connect_Publish_Contract {
                         $v, "$bpath.size", $block['size'] ?? null,
                         Bynli_Connect_Blocks::ICON_SIZE_MIN,
                         Bynli_Connect_Blocks::ICON_SIZE_MAX,
-                        'Icon size'
+                        'Icon size',
+                        'icon_size'
                     );
                     self::check_token_ref($v, "$bpath.color", $block['color'] ?? null, 'color', $vocab, false);
                 } elseif ($type === 'list') {
@@ -621,6 +639,34 @@ class Bynli_Connect_Publish_Contract {
      * Rejects non-integer numerics too. grid_int() casts "2.9" to 2, so accepting it
      * here would publish a layout the author did not describe.
      */
+    private static function check_grid_cols(array &$v, string $path, $value, int $max): void {
+        self::check_bounded_int($v, $path, $value, self::GRID_COLS_MIN, $max, 'Grid column count', 'grid_cols');
+    }
+
+    /**
+     * One of a fixed set, refused rather than rewritten.
+     *
+     * The emitter coerces an unrecognised value to a default — align becomes 'start',
+     * an unknown embed ratio falls back to 16-9 — so the page publishes clean and
+     * renders something the author did not choose. Same class as the numeric clamps,
+     * different primitive.
+     */
+    private static function check_enum(
+        array &$v,
+        string $path,
+        $value,
+        array $allowed,
+        string $noun,
+        string $code
+    ): void {
+        if ($value === null) {
+            return;
+        }
+        if (!is_string($value) || !in_array($value, $allowed, true)) {
+            $v[] = self::vio($code, $path, $noun . ' must be one of: ' . implode(', ', $allowed) . '.');
+        }
+    }
+
     /**
      * A bounded whole number, refused rather than clamped.
      *
@@ -634,37 +680,22 @@ class Bynli_Connect_Publish_Contract {
         $value,
         int $min,
         int $max,
-        string $noun
+        string $noun,
+        string $code_prefix
     ): void {
         if ($value === null) {
             return;
         }
         if (!Bynli_Connect_Blocks::isIntLike($value)) {
-            $v[] = self::vio('bounded_int_type', $path, $noun . ' must be a whole number.');
+            $v[] = self::vio($code_prefix . '_type', $path, $noun . ' must be a whole number.');
             return;
         }
         $n = (int) $value;
         if ($n < $min || $n > $max) {
-            $v[] = self::vio('bounded_int_range', $path, "$noun must be between $min and $max.");
+            $v[] = self::vio($code_prefix . '_range', $path, "$noun must be between $min and $max.");
         }
     }
 
-    private static function check_grid_cols(array &$v, string $path, $value, int $max): void {
-        if ($value === null) {
-            return;
-        }
-        if (!Bynli_Connect_Blocks::isIntLike($value)) {
-            $v[] = self::vio('grid_cols_type', $path, 'Grid column count must be a whole number.');
-            return;
-        }
-        $n = (int) $value;
-        if ($n < self::GRID_COLS_MIN || $n > $max) {
-            $v[] = self::vio(
-                'grid_cols_range', $path,
-                'Grid column count must be between ' . self::GRID_COLS_MIN . ' and ' . $max . '.'
-            );
-        }
-    }
 
     private static function vio(string $code, string $path, string $message): array {
         return ['code' => $code, 'path' => $path, 'message' => $message];

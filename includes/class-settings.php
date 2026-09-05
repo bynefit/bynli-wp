@@ -1047,6 +1047,13 @@ class Bynli_Connect_Settings {
                     <span class="bcn-up-label">Installed</span>
                     <span class="bcn-up-value"><code>v<?php echo esc_html(BYNLI_CONNECT_VERSION); ?></code></span>
                 </div>
+                <?php
+                    // Derived once, above BOTH readers. It was assigned inside the managed
+                    // branch and read above it, so a self-hosted install hit an undefined
+                    // variable and reproduced the exact row this was meant to fix.
+                    $readout_failed = !empty($upd['error']);
+                    $no_readout     = empty($upd['version']) && !$readout_failed;
+                ?>
                 <div class="bcn-up-row">
                     <span class="bcn-up-label">Latest</span>
                     <span class="bcn-up-value">
@@ -1092,13 +1099,12 @@ class Bynli_Connect_Settings {
                     $checkin_stale = $checkin_at === 0 || (time() - $checkin_at) > DAY_IN_SECONDS;
                     ?>
                     <?php
-                        $readout_failed = !empty($upd['error']);
-                        // No version AND no error is a THIRD state: we have not looked.
-                        // It fell through to the up-to-date branch, so the panel printed a
-                        // green verdict it had no basis for — and the Refresh button was
-                        // the quickest way to reach it.
-                        $no_readout = empty($upd['version']) && !$readout_failed;
-                        $unsettled  = $checkin_stale || $readout_failed || $no_readout;
+                        // $readout_failed and $no_readout are derived above, before the
+                        // Latest row, because both surfaces read them. No version AND no
+                        // error is a THIRD state — we have not looked — and it used to fall
+                        // through to the up-to-date branch and print a green verdict with
+                        // no basis.
+                        $unsettled = $checkin_stale || $readout_failed || $no_readout;
                     ?>
                     <div class="bcn-notice <?php echo $unsettled ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
                         <span class="dashicons <?php
