@@ -521,6 +521,7 @@
 }
 .bcn-notice-ok   { color: var(--bcn-ok);   background: var(--bcn-ok-soft);   border-color: var(--bcn-ok-line); }
 .bcn-notice-warn { color: var(--bcn-warn); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
+.bcn-notice-acc  { color: var(--bcn-accent-ink); background: var(--bcn-accent-soft); border-color: var(--bcn-accent-line); }
 .bcn-notice-err  { color: var(--bcn-down); background: var(--bcn-down-soft); border-color: var(--bcn-down-line); }
 .bcn-shortcodes { display: flex; flex-direction: column; gap: 8px; }
 .bcn-shortcode-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bcn-sunk); border-radius: var(--bcn-r-sm); }

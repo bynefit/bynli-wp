@@ -378,7 +378,7 @@ class Bynli_Connect_Emitter {
         if ($role !== '') {
             $attrs['role'] = $role;
         }
-        $attrs['align'] = ($block['align'] ?? '') === 'center' ? 'center' : 'start';
+        $attrs['align'] = self::align_or_default($block['align'] ?? null);
 
         if (is_array($block['avatar'] ?? null)) {
             $av = self::media_entry($block['avatar'], $media);
@@ -411,7 +411,7 @@ class Bynli_Connect_Emitter {
         if ($caption !== '') {
             $attrs['caption'] = $caption;
         }
-        $attrs['align'] = ($block['align'] ?? '') === 'center' ? 'center' : 'start';
+        $attrs['align'] = self::align_or_default($block['align'] ?? null);
 
         return self::wrap('bynefit/stat', $attrs, null);
     }
@@ -451,7 +451,7 @@ class Bynli_Connect_Emitter {
             'title'    => (string) ($block['title'] ?? ''),
         ];
         $ratio = (string) ($block['ratio'] ?? '16-9');
-        if (in_array($ratio, ['16-9', '4-3', '1-1', '21-9'], true)) {
+        if (in_array($ratio, Bynli_Connect_Blocks::EMBED_RATIOS, true)) {
             $attrs['ratio'] = $ratio;
         }
 
@@ -546,7 +546,7 @@ class Bynli_Connect_Emitter {
         if ($text !== '') {
             $attrs['text'] = $text;
         }
-        $attrs['align'] = ($block['align'] ?? '') === 'center' ? 'center' : 'start';
+        $attrs['align'] = self::align_or_default($block['align'] ?? null);
         if ($buttons) {
             $attrs['buttons'] = $buttons;
         }
@@ -787,6 +787,21 @@ class Bynli_Connect_Emitter {
     }
 
     /** Serialize a dynamic (save:null) block: void form when there is no inner content. */
+    /**
+     * The align coercion, in one place, reading the shared vocabulary.
+     *
+     * It was written out three times with the accepted values inline. The publish gate
+     * refuses anything this would rewrite, so the gate and these three lines had to
+     * agree by convention — and a second copy that agrees by convention is the one
+     * arrangement that cannot hold. Drift here re-admits the silent fallback the gate
+     * exists to refuse.
+     */
+    private static function align_or_default($align): string {
+        return in_array($align, Bynli_Connect_Blocks::BLOCK_ALIGNS, true)
+            ? (string) $align
+            : Bynli_Connect_Blocks::BLOCK_ALIGNS[0];
+    }
+
     private static function wrap(string $name, array $attrs, ?string $inner): string {
         $json = $attrs ? ' ' . serialize_block_attributes($attrs) : '';
         if ($inner === null) {

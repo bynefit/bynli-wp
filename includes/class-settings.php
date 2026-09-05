@@ -1020,22 +1020,32 @@ class Bynli_Connect_Settings {
 
         // Update-check event as the newest log entry (it has no per-check
         // timestamp; last_updated is the release date, shown when present).
+        // Five states, and the log has to carry all five. The 'not checked' event was
+        // previously written INSIDE the has-guard, where it could never fire, and then
+        // deleted for being unreachable — which removed the state instead of moving it
+        // to where it happens. No transient at all IS the not-checked state: on a fresh
+        // install, or right after an upgrade clears the cache, the rail, the tile and
+        // the panel all say so and only this surface stayed silent.
         $update_event = null;
-        if (!empty($upd['has'])) {
-            if (!empty($upd['error'])) {
-                $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
-            } elseif ($ctx['update_actionable']) {
-                $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
-            } elseif (!empty($ctx['update_available'])) {
-                // An update EXISTS but is not this admin's to apply, which is why the
-                // actionable flag is false on a managed install. Falling through to
-                // "Up to date" made the log assert something FALSE — the Updates panel
-                // says "Update queued" on the same screen. Gate on whether an update
-                // exists, not on whether the reader can act on it.
-                $update_event = ['state' => 'ok', 'ico' => 'dashicons-clock', 'title' => 'Update queued', 'detail' => 'v' . (string)$upd['version']];
-            } else {
-                $update_event = ['state' => 'ok', 'ico' => 'dashicons-yes-alt', 'title' => 'Up to date', 'detail' => 'v' . BYNLI_CONNECT_VERSION];
-            }
+        if (empty($upd['has'])) {
+            $update_event = ['state' => 'warn', 'ico' => 'dashicons-clock', 'title' => 'Not checked yet', 'detail' => 'no version readout'];
+        } elseif (!empty($upd['error'])) {
+            $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
+        } elseif ($ctx['update_actionable']) {
+            $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
+        } elseif (!empty($ctx['update_available'])) {
+            // An update EXISTS but is not this admin's to apply, which is why the
+            // actionable flag is false on a managed install. Falling through to
+            // "Up to date" made the log assert something FALSE. Gate on whether an
+            // update exists, not on whether the reader can act on it.
+            //
+            // Accent, not ok: this is the same fact the rail and the tile render, and it
+            // was shipping green here while they rendered it accent. Green is also the
+            // settled, nothing-pending verdict this release exists to stop printing
+            // unearned.
+            $update_event = ['state' => 'acc', 'ico' => 'dashicons-clock', 'title' => 'Update queued', 'detail' => 'v' . (string)$upd['version']];
+        } else {
+            $update_event = ['state' => 'ok', 'ico' => 'dashicons-yes-alt', 'title' => 'Up to date', 'detail' => 'v' . BYNLI_CONNECT_VERSION];
         }
         ?>
         <section class="bcn-card">
@@ -1044,7 +1054,16 @@ class Bynli_Connect_Settings {
                 <span class="bcn-card-sub">Recent uplink signals &amp; checks<?php echo $next ? ' · next report in ' . esc_html(human_time_diff(time(), (int)$next)) : ''; ?></span>
             </div>
             <div class="bcn-card-body">
-                <?php if (empty($history) && $update_event === null): ?>
+                <?php
+                    // A genuinely fresh install still gets the empty state — its copy
+                    // ('the first daily report lands within 24 hours') is the right thing
+                    // to say there. Testing $update_event === null would have made this
+                    // unreachable the moment the not-checked event started being built,
+                    // which is how the branch this replaces became dead in the first
+                    // place. The not-checked ROW is for a site that has history and has
+                    // lost its readout — after an upgrade clears the cache, say.
+                ?>
+                <?php if (empty($history) && empty($upd['has'])): ?>
                     <div class="bcn-empty" role="status">
                         <span class="dashicons dashicons-backup bcn-empty-icon" aria-hidden="true"></span>
                         <p class="bcn-empty-title">No activity yet.</p>
@@ -1109,14 +1128,20 @@ class Bynli_Connect_Settings {
                     // Derived once, above BOTH readers. It was assigned inside the managed
                     // branch and read above it, so a self-hosted install hit an undefined
                     // variable and reproduced the exact row this was meant to fix.
-                    $readout_failed = !empty($upd['error']);
+                    // A manifest carrying BOTH an error and a version would split the
+                    // surfaces again — the Latest row tests failure first, the notice
+                    // below tests availability first. The success path stores the raw
+                    // decoded body, so that shape is the server's to produce, not ours
+                    // to assume away. A readout that produced a version is not a failed
+                    // readout, whatever else came with it.
+                    $readout_failed = !empty($upd['error']) && empty($upd['version']);
                     $no_readout     = empty($upd['version']) && !$readout_failed;
                 ?>
                 <div class="bcn-up-row">
                     <span class="bcn-up-label">Latest</span>
                     <span class="bcn-up-value">
                         <?php if ($readout_failed): ?>
-                            <span class="bcn-stat-value-em">check failed</span>
+                            <span class="bcn-chip warn">check failed</span>
                         <?php elseif (!empty($upd['version'])): ?>
                             <code>v<?php echo esc_html($upd['version']); ?></code>
                             <?php if ($update_available && $managed): ?>
@@ -1164,7 +1189,14 @@ class Bynli_Connect_Settings {
                         // no basis.
                         $unsettled = $checkin_stale || $readout_failed || $no_readout;
                     ?>
-                    <div class="bcn-notice <?php echo $unsettled ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
+                    <?php
+                        // Queued is not the settled state, so it must not borrow the
+                        // settled colour. Four surfaces, one fact, one colour.
+                        if ($unsettled)              { $notice_tone = 'bcn-notice-warn'; }
+                        elseif ($update_available)   { $notice_tone = 'bcn-notice-acc'; }
+                        else                         { $notice_tone = 'bcn-notice-ok'; }
+                    ?>
+                    <div class="bcn-notice <?php echo esc_attr($notice_tone); ?> bcn-pad-top">
                         <span class="dashicons <?php
                             echo $unsettled ? 'dashicons-warning'
                                 : ($update_available ? 'dashicons-update' : 'dashicons-yes-alt');

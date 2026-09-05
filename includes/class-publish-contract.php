@@ -25,8 +25,6 @@ class Bynli_Connect_Publish_Contract {
     const LIST_MARKERS      = ['check', 'arrow', 'dot', 'none'];
     const CALLOUT_VARIANTS  = ['info', 'success', 'warn', 'tip'];
     const CTA_BG_TOKENS     = ['surface', 'surface-2'];
-    const BLOCK_ALIGNS      = ['start', 'center'];
-    const EMBED_RATIOS      = ['16-9', '4-3', '1-1', '21-9'];
     const MAX_LIST_ITEMS    = 60;
 
     // Grid track bounds, READ FROM the render layer rather than restated here. The
@@ -353,7 +351,7 @@ class Bynli_Connect_Publish_Contract {
                     // back to 16-9 and the author sees a shape they did not pick.
                     self::check_enum(
                         $v, "$bpath.ratio", $block['ratio'] ?? null,
-                        self::EMBED_RATIOS, 'Embed ratio', 'embed_ratio'
+                        Bynli_Connect_Blocks::EMBED_RATIOS, 'Embed ratio', 'embed_ratio'
                     );
                     if (!in_array($provider, self::EMBED_PROVIDERS, true)) {
                         $v[] = self::vio('embed_provider', "$bpath.provider", 'Embed provider must be youtube, vimeo, or map.');
@@ -373,7 +371,7 @@ class Bynli_Connect_Publish_Contract {
                     // 'start', so "end" or a typo renders left-aligned with no complaint.
                     self::check_enum(
                         $v, "$bpath.align", $block['align'] ?? null,
-                        self::BLOCK_ALIGNS, 'Alignment', 'block_align'
+                        Bynli_Connect_Blocks::BLOCK_ALIGNS, 'Alignment', 'block_align'
                     );
                 }
                 if ($type === 'icon') {

@@ -99,6 +99,10 @@ class Bynli_Connect_Blocks {
     const GALLERY_COLS_SM_DEFAULT = 2;
     const GALLERY_COLS_LG_DEFAULT = 3;
 
+    /** The alignments the emitter coerces to, and the embed ratios it keeps. */
+    const BLOCK_ALIGNS  = ['start', 'center'];
+    const EMBED_RATIOS  = ['16-9', '4-3', '1-1', '21-9'];
+
     /** The bounds icon_svg() clamps to. Named for the same reason as the grid bounds. */
     const ICON_SIZE_MIN = 8;
     const ICON_SIZE_MAX = 96;
@@ -137,12 +141,20 @@ class Bynli_Connect_Blocks {
         // rounds UP to 2**63, so '9223372036854775808' passed the test, saturated on the
         // (int) cast, and compared equal — accepted, by the guard written to refuse it.
         //
-        // This is the ONE place the predicate is deliberately stricter than grid_int():
-        // between 2**53 and PHP_INT_MAX there are integers the (int) cast does reproduce
-        // exactly and this refuses anyway, because it cannot prove it. No layout value
-        // lives there — every caller bounds to 999 or less — and refusing what we cannot
+        // Two consequences, both deliberate, both stated because neither is obvious.
+        //
+        // First: between 2**53 and PHP_INT_MAX there are integers the (int) cast does
+        // reproduce exactly and this refuses anyway, because it cannot prove it. That is
+        // the predicate being stricter than grid_int(), and refusing what we cannot
         // verify is the right way round for a gate to be wrong.
-        if (!is_finite($f) || abs($f) > 9007199254740992.0) {
+        //
+        // Second: the bound applies to STRINGS AND FLOATS ONLY. A real PHP int short-
+        // circuits above, because (int) on an int is the identity and there is nothing
+        // to lose. So PHP_INT_MAX as an int is accepted and '9223372036854775807' as a
+        // string is refused — the same number, answered differently depending on whether
+        // json_decode produced an int or a string. Neither can reach a layout value,
+        // since every caller bounds to 999 or less.
+        if (!is_finite($f) || abs($f) >= 9007199254740992.0) {
             return false;
         }
         return $f === (float) (int) $value;

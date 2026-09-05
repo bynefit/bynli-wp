@@ -260,7 +260,7 @@ class Bynli_Connect_Updater {
             return $reply;
         }
 
-        $remote = $this->get_remote_manifest();
+        $remote = $this->get_remote_manifest(true);
         $expected = is_array($remote) && isset($remote['download_sha256'])
             ? strtolower(trim((string) $remote['download_sha256']))
             : '';
@@ -326,6 +326,14 @@ class Bynli_Connect_Updater {
         }
         $tmp = download_url($package);
         if (is_wp_error($tmp)) {
+            // Returning $reply hands the package back to WordPress, which fetches it
+            // itself and may well succeed — so this is not "WordPress reports the
+            // failure", it is an install that proceeds with no checksum check and, until
+            // now, no record. The readme makes a Security-headed promise that a skip is
+            // always recorded; this was the path that made it false.
+            error_log('[Bynli Connect] update: could not fetch the package for'
+                . ' verification (' . preg_replace('/[^\x20-\x7E]/', '', (string) $tmp->get_error_code())
+                . '), so this package is being installed WITHOUT checksum verification');
             // Let WordPress report its own download failure.
             return $reply;
         }
@@ -429,8 +437,19 @@ class Bynli_Connect_Updater {
         return $entry;
     }
 
-    private function get_remote_manifest(): ?array {
+    /**
+     * @param bool $bypass_error_cache Re-fetch when the cached answer is an error with no
+     *   version. The cache exists to stop the SETTINGS PAGE making two blocking fetches
+     *   per refresh; letting it govern checksum verification means one blip widens into
+     *   an hour in which every install skips the check. The UI can wait an hour for a
+     *   version number. The control cannot.
+     */
+    private function get_remote_manifest(bool $bypass_error_cache = false): ?array {
         $cached = get_transient(self::TRANSIENT_KEY);
+        if ($bypass_error_cache && is_array($cached)
+            && empty($cached['version']) && !empty($cached['error'])) {
+            $cached = false;
+        }
         // A cached ERROR counts as an answer. Short-circuiting only on a version meant
         // a failed check was re-attempted on the very next read, so one press of Refresh
         // against a dead endpoint cost two blocking 8s fetches — the handler's, then the
