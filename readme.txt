@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.22.1
+Stable tag:        0.23.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -137,6 +137,15 @@ Yes. **Settings → Bynefit Connect → Disconnect** clears the saved key from t
 Open a ticket from **Settings → Bynefit Tickets → Open new ticket**. It lands in front of Bynefit support the same moment it's filed.
 
 == Changelog ==
+
+= 0.23.0 =
+* **Fixed — a page could be refused for a value that lays out fine.** Publishing from the Bynefit app checks your layout numbers before it saves. Several ways of writing a perfectly good number were being rejected, and because the check refuses the whole page, one of them anywhere in your design meant nothing published. Card contents were affected worst: a value there has no effect on the layout at all, and was still enough to block the save.
+* **Fixed — gallery columns were being ignored and quietly changed.** The check meant to catch an out-of-range column count on a gallery had never actually run, so a gallery asking for more columns than we support saved cleanly and then rendered with a different number than you chose. It is now caught at save time and told to you, instead of appearing later as a layout you did not design.
+* **Fixed — the Updates panel could show a green "Up to date" it had not earned.** With no version reading to compare against, the panel reported everything was current. Clicking **Refresh this readout** was the quickest way to reach that state, because it cleared the reading without taking a new one. It now takes the reading, and says plainly when it has not got one.
+* **Fixed — the Updates panel said the same thing three times** and, on a Bynefit-hosted site, showed an error next to a claim that everything was fine.
+* **Fixed — accordion headings and short buttons were too small to tap reliably** on a theme that scales its text down. Both now meet the 44px minimum whatever the theme does.
+* **Faster pages:** the stylesheet published sites load is 15% smaller. It was carrying developer commentary that every visitor downloaded.
+* **Fixed:** the plugin's own help link pointed at a page that only redirected; it now goes straight to the guide.
 
 = 0.22.1 =
 * **New — App editing:** Settings → Bynefit Connect → Connection now shows an **App editing** card. Turning it on lets you design this site from the Bynefit app, and while it is on Bynefit can change this site's pages and design on your behalf. On a site you host yourself it is **off until an administrator turns it on**, nothing on your site changes until someone does, and the same card turns it back off at any time. On a site **Bynefit hosts for you** it is on by design — that is part of the hosting rather than something new, and the card now says so on the screen. We are calling this out rather than listing it as a feature because it grants us write access to your site: you should know the control appeared even if you never use it.
