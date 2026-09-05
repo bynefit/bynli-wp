@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       Bynefit Connect
- * Plugin URI:        https://bynefit.com/guides/wordpress
+ * Plugin URI:        https://bynefit.com/help/wordpress
  * Description:       Connect a WordPress site to Bynefit — reports daily usage and exposes Bynefit shortcodes for forms, modals, toasts, confirms, and the floating widget.
  * Version:           0.22.1
  * Requires at least: 6.1

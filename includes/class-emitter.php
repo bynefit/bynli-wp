@@ -73,8 +73,8 @@ class Bynli_Connect_Emitter {
 
         $attrs = [
             'cols' => [
-                'sm' => Bynli_Connect_Blocks::grid_int($cols['sm'] ?? null, 1, 12, 4),
-                'lg' => Bynli_Connect_Blocks::grid_int($cols['lg'] ?? null, 1, 12, 12),
+                'sm' => Bynli_Connect_Blocks::grid_int($cols['sm'] ?? null, Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GRID_COLS_MAX, 4),
+                'lg' => Bynli_Connect_Blocks::grid_int($cols['lg'] ?? null, Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GRID_COLS_MAX, Bynli_Connect_Blocks::GRID_COLS_MAX),
             ],
         ];
         $gap = self::resolve_token('space', $grid['gap'] ?? null);
@@ -348,8 +348,8 @@ class Bynli_Connect_Emitter {
         $attrs = [
             'items'   => $items,
             'columns' => [
-                'sm' => Bynli_Connect_Blocks::grid_int($cols['sm'] ?? null, 1, 6, 2),
-                'lg' => Bynli_Connect_Blocks::grid_int($cols['lg'] ?? null, 1, 6, 3),
+                'sm' => Bynli_Connect_Blocks::grid_int($cols['sm'] ?? null, Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GALLERY_COLS_MAX, 2),
+                'lg' => Bynli_Connect_Blocks::grid_int($cols['lg'] ?? null, Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GALLERY_COLS_MAX, 3),
             ],
         ];
         $gap = self::resolve_token('space', $block['gap'] ?? null);

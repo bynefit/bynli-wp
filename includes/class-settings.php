@@ -926,7 +926,7 @@ class Bynli_Connect_Settings {
                         <?php endforeach; ?>
                     </div>
                 </div>
-                <p class="bcn-hint bcn-pad-top">Full reference at <a href="https://bynefit.com/guides/wordpress" target="_blank" rel="noopener">/guides/wordpress</a>.</p>
+                <p class="bcn-hint bcn-pad-top">Full reference at <a href="https://bynefit.com/help/wordpress" target="_blank" rel="noopener">/help/wordpress</a>.</p>
             </div>
         </section>
         <?php
@@ -1065,7 +1065,7 @@ class Bynli_Connect_Settings {
                         <span class="bcn-up-value"><?php echo esc_html($upd['last_updated']); ?></span>
                     </div>
                 <?php endif; ?>
-                <?php if (!empty($upd['error'])): ?>
+                <?php if (!empty($upd['error']) && !$managed): ?>
                     <div class="bcn-up-row">
                         <span class="bcn-up-label">Last error</span>
                         <span class="bcn-up-value"><code><?php echo esc_html($upd['error']); ?></code></span>
@@ -1077,15 +1077,22 @@ class Bynli_Connect_Settings {
                     $checkin_at    = !empty($last['at']) ? (int) $last['at'] : 0;
                     $checkin_stale = $checkin_at === 0 || (time() - $checkin_at) > DAY_IN_SECONDS;
                     ?>
-                    <div class="bcn-notice <?php echo $checkin_stale ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
+                    <?php $readout_failed = !empty($upd['error']); ?>
+                    <div class="bcn-notice <?php echo ($checkin_stale || $readout_failed) ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
                         <span class="dashicons <?php
-                            echo $checkin_stale ? 'dashicons-warning'
+                            echo ($checkin_stale || $readout_failed) ? 'dashicons-warning'
                                 : ($update_available ? 'dashicons-update' : 'dashicons-yes-alt');
                         ?>" aria-hidden="true"></span>
                         <?php if ($update_available): ?>
                             <strong>Update queued.</strong> Bynefit keeps this site&rsquo;s plugin up to
                             date for you, and will apply v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
                             on this site&rsquo;s next check-in.
+                        <?php elseif ($readout_failed): ?>
+                            <strong>Version check failed.</strong> The last attempt to read the release
+                            manifest returned <code><?php echo esc_html($upd['error']); ?></code>, so the
+                            version shown above may be out of date. Bynefit still applies updates for
+                            you; this affects what this panel can tell you, not whether the site is
+                            kept current.
                         <?php else: ?>
                             <strong>Up to date.</strong> Bynefit keeps this site&rsquo;s plugin up to date
                             for you &mdash; updates arrive automatically, with no action from you.
@@ -1106,13 +1113,9 @@ class Bynli_Connect_Settings {
                             <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
                             <button type="submit" class="bcn-btn ink">Refresh this readout</button>
                         </form>
+                        <span class="bcn-action-hint">Clears the cached readout above. It does not
+                            install anything &mdash; updates arrive from Bynefit.</span>
                     </div>
-                    <p class="bcn-hint">
-                        This site runs the plugin from WordPress&rsquo;s must-use directory, which
-                        WordPress offers no update button for. That is why Bynefit applies the
-                        update instead of it appearing on your Plugins screen. Refreshing clears the
-                        cached readout above; it does not install anything.
-                    </p>
                 <?php else: ?>
                     <div class="bcn-actions bcn-pad-top">
                         <?php if ($update_available): ?>

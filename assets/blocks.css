@@ -1,34 +1,13 @@
-/*
- * Front-end styles for the wp:bynefit/* dynamic blocks (Bynefit Sites).
- * Instance data (grid tracks, placement, focal, radius) arrives as CSS custom
- * properties set inline by each block's render.php; these static rules consume
- * them. Phone-first: sm values apply by default, lg values win at >=1024px and
- * fall back to sm when a block didn't override that breakpoint.
- */
-
 :root {
-    /* Touch minimum, in PX not rem: a theme at `html{font-size:62.5%}` renders 2.75rem
-       as 27.5px. Physical target, so it must not scale with the type ramp — which is
-       why the avatars below deliberately keep rem. Containers derive from this. */
     --bynefit-touch-min: 44px;
 
-    /* A bare var() on a theme that does not declare the preset yields the initial
-       value, which for the dots meant a transparent ring on a transparent background:
-       the pagination vanished. A theme declaring the preset still wins.
-
-       A LIGHT set, so it is read only on non-inherited properties, and every surface
-       the plugin paints pins its own text colour. A `color:` on a theme-painted
-       surface keeps a bare var(): the inherited value is already that theme's
-       correct text colour, so a fallback would replace a right answer with a wrong
-       one. */
     --bynefit-fb-brand: #b5541f;
     --bynefit-fb-on-brand: #ffffff;
     --bynefit-fb-text: #110e0a;
     --bynefit-fb-muted: #6b6355;
     --bynefit-fb-surface-2: #f5f2ec;
     --bynefit-fb-border: #ddd6c9;
-    /* Separate from -border: a hairline between rows may be faint, but a boundary
-       that is a control's only affordance needs 3:1. -border measures 1.44:1. */
+
     --bynefit-fb-control-edge: #8a8272;
 }
 
@@ -69,14 +48,6 @@
     overflow: hidden;
 }
 
-/*
- * Fill the cell so object-fit:cover + the focal object-position are active:
- * when a cell stretches (a taller grid sibling, or a fixed row/rowSpan) the
- * image crops around its focal point instead of letter-boxing. The explicit
- * width/height attributes give the intrinsic aspect-ratio (CLS-safe) and, when
- * the cell isn't height-constrained, define the natural height. Emitter
- * contract: bynefit/media MUST carry width+height — the emitter guarantees it.
- */
 .bynefit-media__el {
     display: block;
     width: 100%;
@@ -85,8 +56,6 @@
     object-position: var(--bynefit-focal, 50% 50%);
 }
 
-/* Dimensionless media: no width/height attrs means no intrinsic ratio, so the box is
-   pinned here to stop the reflow. */
 .bynefit-media--nodims { aspect-ratio: 3 / 2; }
 .bynefit-media--nodims .bynefit-media__el { aspect-ratio: 3 / 2; height: auto; }
 
@@ -212,6 +181,7 @@
     cursor: pointer;
     list-style: none;
     padding: var(--wp--preset--spacing--40, 1rem) 0;
+    min-height: var(--bynefit-touch-min, 44px);
     font-weight: 600;
     display: flex;
     justify-content: space-between;
@@ -364,10 +334,9 @@
     justify-content: center;
     text-decoration: none;
     font-weight: 500;
-    /* Padding alone lands at ~43px on a typical line-height, and a theme can set
-       the spacing slug smaller still. No min-width here on purpose: the side padding
-       is 1.5rem a side = 48px, so this button clears 44px for any label at all. */
+
     min-height: var(--bynefit-touch-min, 44px);
+    min-width: var(--bynefit-touch-min, 44px);
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--50, 1.5rem);
     border-radius: var(--wp--custom--radius--md, 14px);
 }
@@ -442,8 +411,7 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    /* Capped: two 6:1 marks only fit a 326px phone box while the gap stays under
-       ~38px, and a theme is free to define this spacing slug as anything. */
+
     gap: min(var(--wp--preset--spacing--40, 1rem), 1.5rem);
 }
 
@@ -579,8 +547,7 @@
     font: inherit;
     font-weight: 600;
     color: var(--wp--preset--color--muted);
-    /* BOTH axes: min-height alone left a short tab label ("Pro", "All", "1") under the
-   minimum on width, because the side padding is only 1rem. */
+
     min-height: var(--bynefit-touch-min, 44px);
     min-width: var(--bynefit-touch-min, 44px);
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--40, 1rem);
@@ -612,11 +579,6 @@
     gap: var(--wp--preset--spacing--50, 1.5rem);
 }
 
-/* Three rows — toggle, track, dots — so the nav centres on the TRACK and the toggle
-   cannot collide with it at any track height. Both used to be positioned against the
-   whole component: the arrows centred on track+dots, and the toggle shared the
-   arrows' corner. A min-height floor stood in for both and could fix neither, because
-   a floor is not a cap. Row 1 collapses to zero when autoplay renders no toggle. */
 .bynefit-carousel.is-enhanced {
     display: grid;
     grid-template-rows: auto auto auto;
@@ -626,7 +588,7 @@
     grid-row: 2;
     grid-column: 1;
     display: block;
-    /* Sized FROM the control token so the gutter cannot drift from what it holds. */
+
     padding: 0 calc(var(--bynefit-touch-min, 44px) + 0.25rem);
 }
 
@@ -698,13 +660,6 @@
     margin-top: var(--wp--preset--spacing--40, 1rem);
 }
 
-/*
- * INACTIVE = ring, ACTIVE = filled: the states differ by SHAPE, not hue, so they
- * survive greyscale and colour deficiency (1.4.1) while the ring edge holds 3:1
- * against surface (1.4.11). Hue alone failed both — brand against muted measures
- * 1.08:1, and this stylesheet cannot require a theme it does not own to keep those
- * two tokens apart in luminance.
- */
 .bynefit-carousel__dot {
     appearance: none;
     border: 0;
@@ -718,14 +673,10 @@
 }
 
 .bynefit-carousel__dot[aria-current="true"] {
-    /* Ring matches the fill so the apparent diameter is the same in both states.
-       (Not a layout concern — box-shadow never participates in layout.) */
     background: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
     box-shadow: 0 0 0 1px var(--wp--preset--color--brand, var(--bynefit-fb-brand));
 }
 
-/* Touch pointers get a 44px hit box; the 8px dot stays the visual. any-pointer
-   is included so touch laptops, whose primary pointer reports fine, still get it. */
 @media (pointer: coarse), (any-pointer: coarse) {
     .bynefit-carousel__dots {
         gap: 0;
@@ -737,9 +688,7 @@
         flex: none;
         width: var(--bynefit-touch-min, 44px);
         height: var(--bynefit-touch-min, 44px);
-        /* Both, not just background: the button became a hit box and the ::before
-           below is the visible dot, so any paint left on the button is a 44px
-           artifact. The ring arrived after this reset was written. */
+
         background: transparent;
         box-shadow: none;
         display: inline-flex;
@@ -747,14 +696,12 @@
         justify-content: center;
     }
 
-    /* The ::before is the visible dot here (the button goes transparent to become the
-       hit box), so the state treatment is repeated or touch users lose it. */
     .bynefit-carousel__dot::before {
         content: "";
         width: 0.5rem;
         height: 0.5rem;
         border-radius: 999px;
-        /* Ring, not fill — same reason as above: the ::before is the visible dot. */
+
         background: transparent;
         box-shadow: 0 0 0 1px var(--wp--preset--color--muted, var(--bynefit-fb-muted));
     }

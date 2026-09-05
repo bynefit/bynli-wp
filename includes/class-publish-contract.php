@@ -27,12 +27,13 @@ class Bynli_Connect_Publish_Contract {
     const CTA_BG_TOKENS     = ['surface', 'surface-2'];
     const MAX_LIST_ITEMS    = 60;
 
-    // Grid track bounds. These MIRROR the render layer's grid_int() calls — section
-    // 1..12, gallery 1..6 — so the gate refuses precisely the values render would
-    // otherwise have silently clamped. Change one, change both.
-    const GRID_COLS_MIN       = 1;
-    const GRID_COLS_MAX       = 12;
-    const GALLERY_COLS_MAX    = 6;
+    // Grid track bounds, READ FROM the render layer rather than restated here. The
+    // gate's whole job is to refuse the values render would otherwise clamp in
+    // silence, so a second copy that agrees by convention is the one arrangement that
+    // cannot hold. These aliases exist so the rest of this file reads unchanged.
+    const GRID_COLS_MIN       = Bynli_Connect_Blocks::GRID_COLS_MIN;
+    const GRID_COLS_MAX       = Bynli_Connect_Blocks::GRID_COLS_MAX;
+    const GALLERY_COLS_MAX    = Bynli_Connect_Blocks::GALLERY_COLS_MAX;
 
     const MAX_SECTIONS        = 200;
     const MAX_BLOCKS_SECTION  = 200;
@@ -182,6 +183,8 @@ class Bynli_Connect_Publish_Contract {
                     $v[] = self::vio('block_unsupported', $bpath, "Block type '$type' is not supported by the emitter yet.");
                     return;
                 }
+
+                self::check_place($v, "$bpath.place", $block['place'] ?? null);
 
                 $style = is_array($block['style'] ?? null) ? $block['style'] : [];
                 // Only the style keys a block's emitter actually consumes are part
@@ -505,6 +508,52 @@ class Bynli_Connect_Publish_Contract {
      * Rejects non-integer numerics too. grid_int() casts "2.9" to 2, so accepting it
      * here would publish a layout the author did not describe.
      */
+    /**
+     * The five placement properties render clamps alongside the track count.
+     *
+     * cell_vars() puts col, colSpan, row, rowSpan and order through the same
+     * grid_int() as cols, and the gate validated none of them — so `row: 5000`
+     * published clean and rendered as 999. Same defect as the one this gate was added
+     * for, on the same block, decided one function away.
+     *
+     * colSpan's real ceiling depends on col and the track count, which is a render-time
+     * computation; the gate checks it against the track maximum, which is the widest it
+     * can ever legitimately be.
+     */
+    private static function check_place(array &$v, string $path, $place): void {
+        if (!is_array($place)) {
+            return;
+        }
+        $bounds = [
+            'col'      => [Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GRID_COLS_MAX],
+            'colSpan'  => [Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GRID_COLS_MAX],
+            'row'      => [Bynli_Connect_Blocks::PLACE_MIN,     Bynli_Connect_Blocks::PLACE_MAX],
+            'rowSpan'  => [Bynli_Connect_Blocks::PLACE_MIN,     Bynli_Connect_Blocks::PLACE_MAX],
+            'order'    => [Bynli_Connect_Blocks::ORDER_MIN,     Bynli_Connect_Blocks::ORDER_MAX],
+        ];
+        foreach (['sm', 'lg'] as $bp) {
+            if (!isset($place[$bp]) || !is_array($place[$bp])) {
+                continue;
+            }
+            foreach ($bounds as $key => [$min, $max]) {
+                if (!array_key_exists($key, $place[$bp]) || $place[$bp][$key] === null) {
+                    continue;
+                }
+                $val = $place[$bp][$key];
+                $ipath = "$path.$bp.$key";
+                if (!is_int($val) && !(is_string($val) && ctype_digit($val))) {
+                    $v[] = self::vio('place_type', $ipath, ucfirst($key) . ' must be a whole number.');
+                    continue;
+                }
+                $n = (int) $val;
+                if ($n < $min || $n > $max) {
+                    $v[] = self::vio('place_range', $ipath,
+                        ucfirst($key) . " must be between $min and $max.");
+                }
+            }
+        }
+    }
+
     private static function check_grid_cols(array &$v, string $path, $value, int $max): void {
         if ($value === null) {
             return;

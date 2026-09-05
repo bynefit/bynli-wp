@@ -199,7 +199,7 @@ class Bynli_Connect_Updater {
         $info->slug          = self::PLUGIN_SLUG;
         $info->version       = (string)$remote['version'];
         $info->author        = '<a href="https://bynefit.org">Bynefit</a>';
-        $info->homepage      = 'https://bynefit.com/guides/wordpress';
+        $info->homepage      = 'https://bynefit.com/help/wordpress';
         $info->requires      = $remote['requires']      ?? '6.0';
         $info->tested        = $remote['tested']        ?? '6.6';
         $info->requires_php  = $remote['requires_php']  ?? '7.4';
@@ -272,8 +272,21 @@ class Bynli_Connect_Updater {
             return $reply;
         }
 
-        // Nothing to check against — proceed exactly as before.
-        if ($expected === '' || !preg_match('/^[a-f0-9]{64}$/', $expected)) {
+        // Nothing to check against — proceed exactly as before. The permissive default
+        // is deliberate: a manifest published before this field existed must still be
+        // installable. But the two ways of getting here are not the same event, and
+        // only one of them is expected, so they are not recorded the same way.
+        if ($expected === '') {
+            return $reply;
+        }
+        if (!preg_match('/^[a-f0-9]{64}$/', $expected)) {
+            // A field that is present and unusable is a release-process defect, and it
+            // silently downgrades every install to unverified. The value is truncated
+            // because it is attacker-influencable in the case that matters.
+            error_log('[Bynli Connect] update: manifest carries an unusable'
+                . ' download_sha256, so this package was installed WITHOUT checksum'
+                . ' verification — got ' . substr($expected, 0, 16)
+                . ' (' . strlen($expected) . ' chars)');
             return $reply;
         }
 
@@ -368,7 +381,7 @@ class Bynli_Connect_Updater {
         $entry->slug          = self::PLUGIN_SLUG;
         $entry->plugin        = $this->plugin_basename;
         $entry->new_version   = (string)$remote['version'];
-        $entry->url           = 'https://bynefit.com/guides/wordpress';
+        $entry->url           = 'https://bynefit.com/help/wordpress';
         $entry->package       = (string)($remote['download_url'] ?? '');
         $entry->tested        = $remote['tested']       ?? '6.6';
         $entry->requires_php  = $remote['requires_php'] ?? '7.4';

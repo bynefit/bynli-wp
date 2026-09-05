@@ -74,6 +74,21 @@ class Bynli_Connect_Blocks {
     }
 
     /** Clamp a numeric grid coordinate to a sane bounded integer. */
+    /**
+     * Grid bounds, declared once. The publish gate reads these rather than restating
+     * them: the gate exists to refuse precisely the values this layer would otherwise
+     * clamp in silence, so two numbers that agree by convention is the one arrangement
+     * that cannot hold — changing a literal here is a one-token edit that nothing
+     * detects, and its effect is to re-admit the clamp the gate was added to prevent.
+     */
+    const GRID_COLS_MIN    = 1;
+    const GRID_COLS_MAX    = 12;
+    const GALLERY_COLS_MAX = 6;
+    const PLACE_MIN        = 1;
+    const PLACE_MAX        = 999;
+    const ORDER_MIN        = 0;
+    const ORDER_MAX        = 999;
+
     public static function grid_int($value, int $min, int $max, int $default): int {
         if (!is_numeric($value)) {
             return $default;
@@ -106,15 +121,15 @@ class Bynli_Connect_Blocks {
             if ($p === null) {
                 continue;
             }
-            $track_max = self::grid_int($cols[$bp] ?? null, 1, 12, 12);
-            $col       = self::grid_int($p['col'] ?? null, 1, $track_max, 1);
+            $track_max = self::grid_int($cols[$bp] ?? null, self::GRID_COLS_MIN, self::GRID_COLS_MAX, self::GRID_COLS_MAX);
+            $col       = self::grid_int($p['col'] ?? null, self::GRID_COLS_MIN, $track_max, 1);
             $span_max  = max(1, $track_max - $col + 1);
             $out["--bynefit-col-$bp"]     = (string) $col;
-            $out["--bynefit-colspan-$bp"] = (string) self::grid_int($p['colSpan'] ?? null, 1, $span_max, min(($bp === 'sm' ? 4 : 12), $span_max));
-            $out["--bynefit-row-$bp"]     = (string) self::grid_int($p['row'] ?? null, 1, 999, 1);
-            $out["--bynefit-rowspan-$bp"] = (string) self::grid_int($p['rowSpan'] ?? null, 1, 999, 1);
+            $out["--bynefit-colspan-$bp"] = (string) self::grid_int($p['colSpan'] ?? null, self::GRID_COLS_MIN, $span_max, min(($bp === 'sm' ? 4 : self::GRID_COLS_MAX), $span_max));
+            $out["--bynefit-row-$bp"]     = (string) self::grid_int($p['row'] ?? null, self::PLACE_MIN, self::PLACE_MAX, 1);
+            $out["--bynefit-rowspan-$bp"] = (string) self::grid_int($p['rowSpan'] ?? null, self::PLACE_MIN, self::PLACE_MAX, 1);
             if (isset($p['order']) && is_numeric($p['order'])) {
-                $out["--bynefit-order-$bp"] = (string) self::grid_int($p['order'], 0, 999, 0);
+                $out["--bynefit-order-$bp"] = (string) self::grid_int($p['order'], self::ORDER_MIN, self::ORDER_MAX, 0);
             }
         }
         $s = '';

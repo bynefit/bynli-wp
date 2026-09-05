@@ -32,7 +32,7 @@ That's it. From here you can add any shortcode to any post or page.
 
 The `bynli.js` loader only enqueues on pages that actually use a shortcode — empty pages stay untouched.
 
-Full reference: [bynefit.com/guides/wordpress](https://bynefit.com/guides/wordpress).
+Full reference: [bynefit.com/help/wordpress](https://bynefit.com/help/wordpress).
 
 ## Tickets surface
 
