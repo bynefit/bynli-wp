@@ -20,7 +20,7 @@ if (trim($content) === '') {
 $vars = [];
 $bg = Bynli_Connect_Blocks::token('color', $attributes['bg'] ?? null);
 if ($bg !== null) {
-    $vars['--bynefit-card-bg'] = $bg;
+    $vars['--bynefit-card-bg'] = sprintf('var(%s, var(--bynefit-fb-surface-2))', $bg);
 }
 $radius = Bynli_Connect_Blocks::token('radius', $attributes['radius'] ?? null);
 if ($radius !== null) {

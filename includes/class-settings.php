@@ -84,15 +84,32 @@ class Bynli_Connect_Settings {
      * script execution for every visitor. Applied on the way IN and again on the way
      * OUT, because an option saved before this existed is still in the database.
      */
-    public static function sanitize_api_base($value): string
+    /** True only while the Settings API is running this as a save-path callback. */
+    private static $sanitising_save = false;
+
+    public static function sanitize_api_base_on_save($value): string
+    {
+        self::$sanitising_save = true;
+        try {
+            return self::sanitize_api_base($value);
+        } finally {
+            self::$sanitising_save = false;
+        }
+    }
+
+    public static function sanitize_api_base($value, bool $allow_http = false): string
     {
         $raw = trim((string) $value);
         if ($raw === '') {
             return '';
         }
-        $url   = esc_url_raw($raw, ['https']);
-        $parts = $url === '' ? [] : (array) wp_parse_url($url);
-        if (empty($parts['scheme']) || $parts['scheme'] !== 'https' || empty($parts['host'])) {
+        $schemes = $allow_http ? ['https', 'http'] : ['https'];
+        $url     = esc_url_raw($raw, $schemes);
+        $parts   = $url === '' ? [] : (array) wp_parse_url($url);
+        if (!empty($parts['host'])) {
+            $parts['host'] = rtrim($parts['host'], '.');
+        }
+        if (empty($parts['scheme']) || !in_array($parts['scheme'], $schemes, true) || empty($parts['host'])) {
             self::reject_api_base('The API base must be an absolute https:// URL, for example '
                 . BYNLI_CONNECT_DEFAULT_API_BASE . '.');
             return '';
@@ -101,7 +118,7 @@ class Bynli_Connect_Settings {
             self::reject_api_base('The API base must not carry a username or password.');
             return '';
         }
-        $out = 'https://' . $parts['host'];
+        $out = $parts['scheme'] . '://' . $parts['host'];
         if (!empty($parts['port'])) {
             $out .= ':' . (int) $parts['port'];
         }
@@ -128,28 +145,30 @@ class Bynli_Connect_Settings {
      */
     private static function reject_api_base(string $message): void
     {
-        if (!function_exists('add_settings_error') || !is_admin()) {
+        if (!self::$sanitising_save || !function_exists('add_settings_error')) {
             return;
         }
         add_settings_error(self::OPTION_BASE, 'bynli_connect_api_base_invalid', $message, 'error');
     }
 
     public static function api_base(): string {
-        static $memo = null;
-        if ($memo !== null) {
-            return $memo;
+        static $memo = [];
+        $blog = function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 0;
+        if (isset($memo[$blog])) {
+            return $memo[$blog];
         }
-        $raw = (defined('BYNLI_CONNECT_API_BASE') && BYNLI_CONNECT_API_BASE)
+        $from_constant = defined('BYNLI_CONNECT_API_BASE') && BYNLI_CONNECT_API_BASE;
+        $raw = $from_constant
             ? (string) BYNLI_CONNECT_API_BASE
             : (string) get_option(self::OPTION_BASE, '');
-        $v = self::sanitize_api_base($raw);
+        $v = self::sanitize_api_base($raw, $from_constant);
         if ($v !== '') {
             $host = strtolower((string) (wp_parse_url($v, PHP_URL_HOST) ?: ''));
             if (in_array($host, self::LEGACY_API_HOSTS, true)) {
                 $v = '';
             }
         }
-        return $memo = ($v !== '' ? $v : BYNLI_CONNECT_DEFAULT_API_BASE);
+        return $memo[$blog] = ($v !== '' ? $v : BYNLI_CONNECT_DEFAULT_API_BASE);
     }
     public static function site_slug(): string {
         return (string)get_option(self::OPTION_SLUG, '');
@@ -199,7 +218,7 @@ class Bynli_Connect_Settings {
         ]);
         register_setting(self::OPTION_GROUP, self::OPTION_BASE, [
             'type'              => 'string',
-            'sanitize_callback' => [__CLASS__, 'sanitize_api_base'],
+            'sanitize_callback' => [__CLASS__, 'sanitize_api_base_on_save'],
             'default'           => BYNLI_CONNECT_DEFAULT_API_BASE,
         ]);
         register_setting(self::OPTION_GROUP, self::OPTION_SLUG, [
@@ -997,6 +1016,7 @@ class Bynli_Connect_Settings {
 
     private function render_updates(array $ctx): void {
         $upd = $ctx['upd']; $update_available = $ctx['update_available'];
+        $last = $ctx['last'];
         // On a Bynefit-managed site this plugin is an mu-plugin, and WordPress cannot
         // apply a plugin update there at all. Offering the same buttons as a self-hosted
         // site meant an admin clicked "Check for updates now", was told a newer version
@@ -1058,7 +1078,10 @@ class Bynli_Connect_Settings {
                     $checkin_stale = $checkin_at === 0 || (time() - $checkin_at) > DAY_IN_SECONDS;
                     ?>
                     <div class="bcn-notice <?php echo $checkin_stale ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
-                        <span class="dashicons <?php echo $update_available ? 'dashicons-update' : 'dashicons-yes-alt'; ?>" aria-hidden="true"></span>
+                        <span class="dashicons <?php
+                            echo $checkin_stale ? 'dashicons-warning'
+                                : ($update_available ? 'dashicons-update' : 'dashicons-yes-alt');
+                        ?>" aria-hidden="true"></span>
                         <?php if ($update_available): ?>
                             <strong>Update queued.</strong> Bynefit keeps this site&rsquo;s plugin up to
                             date for you, and will apply v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
