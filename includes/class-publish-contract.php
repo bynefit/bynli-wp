@@ -268,10 +268,14 @@ class Bynli_Connect_Publish_Contract {
                 } elseif ($type === 'spacer') {
                     self::check_token_ref($v, "$bpath.size", $block['size'] ?? null, 'space', $vocab, false);
                 } elseif ($type === 'gallery') {
+                    // 'columns', not 'cols'. The emitter reads block['columns'] and
+                    // block.json declares it, so a gate on 'cols' validated a key the
+                    // gallery does not have — it has never run, and columns:{sm:99}
+                    // published clean and rendered clamped.
                     foreach (['sm', 'lg'] as $bp) {
                         self::check_grid_cols(
-                            $v, "$bpath.cols.$bp",
-                            self::deep($block, ['cols', $bp]),
+                            $v, "$bpath.columns.$bp",
+                            self::deep($block, ['columns', $bp]),
                             self::GALLERY_COLS_MAX
                         );
                     }
@@ -547,7 +551,10 @@ class Bynli_Connect_Publish_Contract {
             // The SECTION'S track count, not the maximum one. render bounds col by it
             // and colSpan by what is left of the row after col, so bounding either by
             // 12 lets a value through that render then clamps in silence.
-            $track = isset($tracks[$bp]) ? (int) $tracks[$bp] : Bynli_Connect_Blocks::GRID_COLS_MAX;
+            $track_default = $bp === 'sm'
+                ? Bynli_Connect_Blocks::GRID_COLS_SM_DEFAULT
+                : Bynli_Connect_Blocks::GRID_COLS_LG_DEFAULT;
+            $track = isset($tracks[$bp]) ? (int) $tracks[$bp] : $track_default;
             $track = max(Bynli_Connect_Blocks::GRID_COLS_MIN, min(Bynli_Connect_Blocks::GRID_COLS_MAX, $track));
             $col   = isset($place[$bp]['col']) && is_numeric($place[$bp]['col'])
                 ? (int) $place[$bp]['col']

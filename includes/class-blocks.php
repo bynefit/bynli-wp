@@ -99,22 +99,29 @@ class Bynli_Connect_Blocks {
     const GALLERY_COLS_SM_DEFAULT = 2;
     const GALLERY_COLS_LG_DEFAULT = 3;
 
-    /** Clamp a numeric grid coordinate to a sane bounded integer. */
     /**
      * Does this value reach grid_int() as the integer it is written as?
      *
      * The publish gate has to accept exactly what this class accepts, so the predicate
-     * lives beside it. PHP's numeric-string whitespace set is " \t\n\r\v\f" — which is
-     * NOT trim()'s charlist: trim strips \0 and leaves \f, and using it here rejected
-     * "\f5" (which renders as 5) while accepting "\0.5" (which does not).
+     * lives beside it — and it defers to is_numeric() rather than restating its rules,
+     * because those rules are VERSION-DEPENDENT. Trailing whitespace is numeric from
+     * PHP 8.0 and not on 7.4, which this plugin still declares as its floor, so a
+     * hand-written character class agreed with the renderer on one version and not the
+     * other. Deferring means it cannot disagree on any version.
+     *
+     * The regex adds only the INTEGER shape, which is version-stable: is_numeric() also
+     * accepts floats and exponents, and those the gate refuses on purpose because
+     * grid_int() would truncate them into a layout the author did not describe.
      */
     public static function isIntLike($value): bool
     {
         if (is_int($value)) { return true; }
         return is_string($value)
+            && is_numeric($value)
             && preg_match('/^[ \t\n\r\v\f]*[+-]?\d+[ \t\n\r\v\f]*$/', $value) === 1;
     }
 
+    /** Clamp a numeric grid coordinate to a sane bounded integer. */
     public static function grid_int($value, int $min, int $max, int $default): int {
         if (!is_numeric($value)) {
             return $default;

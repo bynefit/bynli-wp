@@ -1084,9 +1084,8 @@ class Bynli_Connect_Settings {
                                 : ($update_available ? 'dashicons-update' : 'dashicons-yes-alt');
                         ?>" aria-hidden="true"></span>
                         <?php if ($update_available): ?>
-                            <strong>Update queued.</strong> Bynefit keeps this site&rsquo;s plugin up to
-                            date for you, and will apply v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
-                            on this site&rsquo;s next check-in.
+                            <strong>Update queued.</strong> v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
+                            arrives on this site&rsquo;s next check-in.
                         <?php elseif ($readout_failed): ?>
                             <strong>Version check failed.</strong> The last attempt to read the release
                             manifest returned <code><?php echo esc_html($upd['error']); ?></code>, so the
