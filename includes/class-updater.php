@@ -110,6 +110,12 @@ class Bynli_Connect_Updater {
         add_filter('upgrader_source_selection',             [$this, 'rename_source'], 10, 4);
         add_action('upgrader_process_complete',             [$this, 'clear_cache'], 10, 2);
         add_action('admin_post_bynli_connect_clear_update_cache', [$this, 'handle_clear_cache']);
+        // wp_plugin_update_row() does NOT read $entry->upgrade_notice — that is the theme
+        // path. For a plugin it fires this action after the update message, which is the
+        // documented way to put text inline under the row. 0.23.0 starts refusing designs
+        // that publish today, so the warning has to reach an admin who bulk-updates and
+        // never opens the lightbox.
+        add_action('in_plugin_update_message-' . $this->plugin_basename, [$this, 'update_message'], 10, 2);
     }
 
     public function inject_update($transient) {
@@ -210,6 +216,12 @@ class Bynli_Connect_Updater {
             'description' => $remote['description'] ?? 'Connect a WordPress site to Bynefit — daily usage reporting and Bynefit shortcodes.',
             'changelog'   => $remote['changelog']   ?? '',
         ];
+        // The lightbox renders any sections key as a tab, and this is the .org-shaped
+        // place a plugin's upgrade notice lives. Only added when there is one, so an
+        // ordinary release does not grow an empty tab.
+        if (!empty($remote['upgrade_notice'])) {
+            $info->sections['upgrade_notice'] = (string) $remote['upgrade_notice'];
+        }
         if (!empty($remote['banners']) && is_array($remote['banners'])) {
             $info->banners = $remote['banners'];
         }
@@ -231,6 +243,9 @@ class Bynli_Connect_Updater {
      * Contract, deliberately asymmetric:
      *   hash present and MATCHES   -> proceed with the file we already downloaded
      *   hash present and MISMATCHES -> hard stop, WP_Error, nothing is unpacked
+     *   package on a host our manifest does not publish from -> hard stop, WP_Error
+     *   package on OUR host that the manifest does not describe (a release landed between
+     *     WordPress's transient and ours) -> unverifiable, logged, allowed
      *   hash ABSENT or empty        -> proceed, unverified
      *
      * The absent case is permissive on purpose. Older manifests do not carry the field,
@@ -247,6 +262,21 @@ class Bynli_Connect_Updater {
      * @param array         $hook_extra
      * @return bool|string|WP_Error
      */
+    /**
+     * Inline breaking-change warning under the plugin row on the Plugins screen.
+     *
+     * Reads the same manifest field the lightbox tab does, so the two cannot drift.
+     */
+    public function update_message($plugin_data, $response): void
+    {
+        $notice = is_object($response) ? (string) ($response->upgrade_notice ?? '') : '';
+        if ($notice === '') {
+            return;
+        }
+        echo '<br><strong>' . esc_html__('Please read before updating:', 'bynli-connect') . '</strong> '
+            . esc_html($notice);
+    }
+
     public function verify_download($reply, $package, $upgrader = null, $hook_extra = []) {
         // Someone earlier in the chain already handled it.
         if ($reply !== false) {
@@ -292,18 +322,21 @@ class Bynli_Connect_Updater {
         // API host, during a cached failure, is worth one fetch to identify.
         if ($plugin === '' && $our_url === ''
             && is_array($cached_manifest) && !empty($cached_manifest['error'])
-            && wp_parse_url($package, PHP_URL_HOST)
-               === wp_parse_url(Bynli_Connect_Settings::api_base(), PHP_URL_HOST)) {
+            && self::url_host($package) !== ''
+            && self::url_host($package) === self::url_host(Bynli_Connect_Settings::api_base())) {
             $cached_manifest = $this->get_remote_manifest(true);
             $our_url = is_array($cached_manifest) ? (string) ($cached_manifest['download_url'] ?? '') : '';
         }
 
         if ($plugin === '' && ($our_url === '' || $package !== $our_url)) {
-            if ($our_url === '' && wp_parse_url($package, PHP_URL_HOST)
-                === wp_parse_url(Bynli_Connect_Settings::api_base(), PHP_URL_HOST)) {
-                // Served from our host but unidentifiable, so we decline to claim it AND
-                // cannot verify it. Recorded rather than silent: the release note promises
-                // that a skip is always written down.
+            // Gated on the HOST, not on whether the manifest resolved. The previous
+            // version tested $our_url === '' as well, so the commoner case — manifest
+            // fine, package URL simply different, e.g. an admin reinstalling a pinned
+            // 0.22.1 zip while the manifest names 0.23.0 — was declined and installed
+            // unverified with nothing written down. That is the same shape as the defect
+            // this log was added for.
+            if (self::url_host($package) !== ''
+                && self::url_host($package) === self::url_host(Bynli_Connect_Settings::api_base())) {
                 error_log('[Bynli Connect] update: a package from our own host could not be'
                     . ' identified against the release manifest, so it is being installed'
                     . ' WITHOUT checksum verification');
@@ -324,18 +357,41 @@ class Bynli_Connect_Updater {
         // failure the admin sees is 'the download was corrupted or tampered with', on a
         // perfectly good package, with no self-service recovery.
         //
-        // So the hash is only authoritative for the package it describes. If the manifest
-        // is talking about a different download, we have nothing to check THIS one
-        // against, which is the unverifiable case and not the tampered case.
+        // That tolerance is scoped to OUR OWN HOST, and the scoping is the whole control.
+        // An earlier version of this branch skipped verification whenever the URLs merely
+        // differed, which meant anything able to filter site_transient_update_plugins —
+        // another plugin, a compromised one, a DB write — could point $package at its own
+        // ZIP, leave ->plugin correct, and have this function DOWNGRADE a checksum
+        // mismatch into a logged skip. WordPress would then unpack that archive over the
+        // live plugin directory. On main the same input was a hard stop, and this function
+        // exists precisely because WordPress checks nothing about an update archive.
+        //
+        // So: same host, different URL is the stale-release race and is unverifiable.
+        // Different host is a foreign package and is refused outright.
         $describes_this_package = is_array($remote)
             && (string) ($remote['download_url'] ?? '') === $package;
+        $manifest_url  = is_array($remote) ? (string) ($remote['download_url'] ?? '') : '';
+        $trusted_host  = self::url_host($manifest_url) !== ''
+            ? self::url_host($manifest_url)
+            : self::url_host(Bynli_Connect_Settings::api_base());
+
+        if (!$describes_this_package && $trusted_host !== ''
+            && self::url_host($package) !== $trusted_host) {
+            error_log('[Bynli Connect] update REFUSED: the package URL is not on the host'
+                . ' our release manifest publishes from, so it was not installed');
+            return new WP_Error(
+                'bynli_connect_foreign_package',
+                __('This update was going to be downloaded from somewhere other than Bynefit, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
+            );
+        }
+
         $expected = $describes_this_package && isset($remote['download_sha256'])
             ? strtolower(trim((string) $remote['download_sha256']))
             : '';
-        if (is_array($remote) && !$describes_this_package && !empty($remote['download_url'])) {
+        if (is_array($remote) && !$describes_this_package && $manifest_url !== '') {
             error_log('[Bynli Connect] update: the release manifest describes a different'
-                . ' package than the one being installed, so this package is being installed'
-                . ' WITHOUT checksum verification');
+                . ' package on the same host, so this package is being installed WITHOUT'
+                . ' checksum verification');
         }
 
         // Nothing to check against — proceed exactly as before. The permissive default
@@ -505,11 +561,31 @@ class Bynli_Connect_Updater {
         // it is not a wordpress.org-only field. This release deliberately starts refusing
         // designs that publish today, and without this the warning is reachable only by
         // clicking through to View version details, which a bulk update never does.
+        // Kept because WordPress carries it through the update object, but it is NOT what
+        // renders the notice for a plugin — wp_theme_update_row() reads this field;
+        // wp_plugin_update_row() fires in_plugin_update_message-{file} instead, and the
+        // .org lightbox reads sections['upgrade_notice']. Both of those are wired below,
+        // because a warning that renders nowhere is the same as no warning.
         $entry->upgrade_notice = (string) ($remote['upgrade_notice'] ?? '');
         $entry->icons         = $remote['icons']        ?? [];
         $entry->banners       = $remote['banners']      ?? [];
         $entry->compatibility = new stdClass();
         return $entry;
+    }
+
+    /**
+     * Lowercased host of a URL, or '' when it has none.
+     *
+     * Host comparison was written inline and case-SENSITIVE. sanitize_api_base() rebuilds
+     * the URL from the host as typed and never lowercases it, so an api_base saved as
+     * https://Staging.Bynefit.com compared unequal to its own package URLs — which
+     * silently reinstated the very defect the comparison was added to fix, on that install
+     * only, with nothing failing and nothing logged.
+     */
+    private static function url_host(string $url): string
+    {
+        $host = wp_parse_url($url, PHP_URL_HOST);
+        return is_string($host) ? strtolower($host) : '';
     }
 
     /** True once this request has actually gone to the network for the manifest. */
