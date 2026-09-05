@@ -6,7 +6,7 @@
     "title": "Bynefit Form",
     "category": "embed",
     "icon": "feedback",
-    "description": "Embeds a form built in the Bynli form builder, by id. The form renders and submits securely to Bynli — no submission data touches this site — inside a token-styled card.",
+    "description": "Embeds a form built in the Bynefit form builder, by id. The form renders and submits securely to Bynefit — no submission data touches this site — inside a token-styled card.",
     "textdomain": "bynli-connect",
     "supports": {
         "html": false,

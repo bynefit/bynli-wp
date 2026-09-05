@@ -1,20 +1,20 @@
-# Bynli Connect for WordPress
+# Bynefit Connect for WordPress
 
-Hook a WordPress site up to your Bynli team. One key, and the rest of Bynli shows up where you already are.
+Hook a WordPress site up to your Bynefit team. One key, and the rest of Bynefit shows up where you already are.
 
 This is the plugin that runs on customer WordPress installs. Small surface, no nonsense:
 
 - **Your support tickets, in wp-admin.** Read the thread, reply, mark resolved, open a new one — without leaving WordPress. Replies and resolutions land instantly with no page reload.
-- **Daily usage reports to Bynli.** Storage bytes and WP/PHP versions. No user data, no post content, no visitor info. Bytes and version strings, that's it.
-- **Bynli features inside posts.** Drop a shortcode in any page and it renders live from your Bynli team's data.
-- **Auto-updates from Bynli.** New version lands on Bynli, WordPress sees it on Plugins → Updates. No more swapping zips by hand.
+- **Daily usage reports to Bynefit.** Storage bytes and WP/PHP versions. No user data, no post content, no visitor info. Bytes and version strings, that's it.
+- **Bynefit features inside posts.** Drop a shortcode in any page and it renders live from your Bynefit team's data.
+- **Auto-updates from Bynefit.** New version lands on Bynefit, WordPress sees it on Plugins → Updates. No more swapping zips by hand.
 
 ## Install
 
 1. Grab the latest `bynli-connect.zip` from [Releases](https://github.com/bynefit/bynli-wp/releases).
 2. WP admin → **Plugins → Add New → Upload Plugin** → pick the zip → **Activate**.
-3. Open [bynli.com/dash/sites/host-keys](https://bynli.com/dash/sites/host-keys) (you'll need to be signed in as a team admin), generate a key for this site, and copy it once — Bynli won't show it again.
-4. WP admin → **Settings → Bynli Connect** → paste the key → **Save** → **Send heartbeat** to confirm Bynli is hearing you.
+3. Open [bynefit.com/dash/sites/host-keys](https://bynefit.com/dash/sites/host-keys) (you'll need to be signed in as a team admin), generate a key for this site, and copy it once — Bynefit won't show it again.
+4. WP admin → **Settings → Bynefit Connect** → paste the key → **Save** → **Send heartbeat** to confirm Bynefit is hearing you.
 
 That's it. From here you can add any shortcode to any post or page.
 
@@ -32,29 +32,29 @@ That's it. From here you can add any shortcode to any post or page.
 
 The `bynli.js` loader only enqueues on pages that actually use a shortcode — empty pages stay untouched.
 
-Full reference: [bynli.com/guides/wordpress](https://bynli.com/guides/wordpress).
+Full reference: [bynefit.com/guides/wordpress](https://bynefit.com/guides/wordpress).
 
 ## Tickets surface
 
-Once you're connected, **Settings → Bynli Tickets** lights up:
+Once you're connected, **Settings → Bynefit Tickets** lights up:
 
 - See every open, in-progress, or resolved ticket for your team.
 - Click a row to read the full thread, see attachments, and answer in place.
 - Mark a ticket resolved with an optional closing note.
-- Open a brand new ticket without bouncing to bynli.com.
+- Open a brand new ticket without bouncing to bynefit.com.
 
-Replies and resolves are attributed to the WordPress user who clicked send — Bynli labels the thread accordingly and routes any follow-up email to the same address.
+Replies and resolves are attributed to the WordPress user who clicked send — Bynefit labels the thread accordingly and routes any follow-up email to the same address.
 
 ## What this plugin does NOT do
 
 - It does **not** modify your site's content, change permalinks, or override other plugins.
-- It does **not** send anything visitor-related to Bynli. Storage and version numbers only.
+- It does **not** send anything visitor-related to Bynefit. Storage and version numbers only.
 - It does **not** load `bynli.js` on pages without a shortcode.
 - It does **not** store the API key in plaintext anywhere visible — the settings page input is password-typed, with a deliberate one-tap reveal.
 
-## How it talks to Bynli
+## How it talks to Bynefit
 
-Every call is a signed HTTP request to `bynli.com`. Two pieces:
+Every call is a signed HTTP request to `bynefit.com`. Two pieces:
 
 ```text
 HMAC_SHA256( plaintext_key, timestamp + "\n" + body )
@@ -67,7 +67,7 @@ X-Bynli-Signature:  sha256=<hex>
 Content-Type:       application/json
 ```
 
-The Bynli server rejects timestamps outside a 5-minute window, so replay attacks need a tight clock.
+The Bynefit server rejects timestamps outside a 5-minute window, so replay attacks need a tight clock.
 
 ## Repo layout
 
@@ -80,7 +80,7 @@ includes/
   class-api.php               signed GET + POST helper
   class-reporter.php          daily report + heartbeat
   class-shortcodes.php        all seven shortcodes
-  class-tickets.php           Bynli Tickets submenu (list / detail / reply / resolve / new)
+  class-tickets.php           Bynefit Tickets submenu (list / detail / reply / resolve / new)
   class-updater.php           self-update from /api/site-host/version
 assets/
   admin.css                   bcn-* styles
@@ -99,7 +99,7 @@ cd bynli-wp
 ln -s "$(pwd)" /path/to/wordpress/wp-content/plugins/bynli-connect
 ```
 
-Then activate via WP admin and point its API base at your dev Bynli (Settings → Bynli Connect → API base).
+Then activate via WP admin and point its API base at your dev Bynefit (Settings → Bynefit Connect → API base).
 
 ## License
 

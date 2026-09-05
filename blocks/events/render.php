@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 /**
  * Server render for wp:bynefit/events.
  *
- * Emits the data-bynli="events" reference the Bynli loader hydrates from the
+ * Emits the data-bynli="events" reference the Bynefit loader hydrates from the
  * team's live event data. Same contract as the [bynli-events] shortcode.
  *
  * @var array    $attributes

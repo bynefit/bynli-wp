@@ -6,8 +6,8 @@ if (!defined('ABSPATH')) {
 /**
  * Emit-time publish-contract gate for a Bynefit Sites scene-graph page.
  *
- * Runs the static, document-level half of the contract (bynefit-sites#3 §6):
- * things provable from the doc + the resolved token vocabulary before any WP
+ * Runs the static, document-level half of the contract: the things provable
+ * from the doc + the resolved token vocabulary before any WP
  * write. Runtime budgets (CWV timings, critical CSS) are measured post-publish
  * and are not this gate's job. A failing page is refused and every violation is
  * returned so the app can surface the exact fix — never a silent partial write.
@@ -26,6 +26,13 @@ class Bynli_Connect_Publish_Contract {
     const CALLOUT_VARIANTS  = ['info', 'success', 'warn', 'tip'];
     const CTA_BG_TOKENS     = ['surface', 'surface-2'];
     const MAX_LIST_ITEMS    = 60;
+
+    // Grid track bounds. These MIRROR the render layer's grid_int() calls — section
+    // 1..12, gallery 1..6 — so the gate refuses precisely the values render would
+    // otherwise have silently clamped. Change one, change both.
+    const GRID_COLS_MIN       = 1;
+    const GRID_COLS_MAX       = 12;
+    const GALLERY_COLS_MAX    = 6;
 
     const MAX_SECTIONS        = 200;
     const MAX_BLOCKS_SECTION  = 200;
@@ -82,6 +89,13 @@ class Bynli_Connect_Publish_Contract {
                 'color', $vocab, false
             );
             self::check_token_ref($v, "$spath.grid.gap", self::deep($section, ['grid', 'gap']), 'space', $vocab, false);
+            foreach (['sm', 'lg'] as $bp) {
+                self::check_grid_cols(
+                    $v, "$spath.grid.cols.$bp",
+                    self::deep($section, ['grid', 'cols', $bp]),
+                    self::GRID_COLS_MAX
+                );
+            }
             foreach (['sm', 'lg'] as $bp) {
                 self::check_token_ref($v, "$spath.padding.$bp", self::deep($section, ['padding', $bp]), 'space', $vocab, false);
             }
@@ -238,6 +252,13 @@ class Bynli_Connect_Publish_Contract {
                 } elseif ($type === 'spacer') {
                     self::check_token_ref($v, "$bpath.size", $block['size'] ?? null, 'space', $vocab, false);
                 } elseif ($type === 'gallery') {
+                    foreach (['sm', 'lg'] as $bp) {
+                        self::check_grid_cols(
+                            $v, "$bpath.cols.$bp",
+                            self::deep($block, ['cols', $bp]),
+                            self::GALLERY_COLS_MAX
+                        );
+                    }
                     $gitems = is_array($block['items'] ?? null) ? $block['items'] : [];
                     if (count($gitems) === 0) {
                         $v[] = self::vio('gallery_empty', "$bpath.items", 'Gallery has no images.');
@@ -402,7 +423,7 @@ class Bynli_Connect_Publish_Contract {
                     }
                 } elseif ($type === 'form') {
                     if (!preg_match('/^frm_[A-Za-z0-9_\-]{6,40}$/', (string) ($block['formId'] ?? ''))) {
-                        $v[] = self::vio('form_id', "$bpath.formId", 'Form needs a valid Bynli form id (frm_…).');
+                        $v[] = self::vio('form_id', "$bpath.formId", 'Form needs a valid Bynefit form id (frm_…).');
                     }
                     if (isset($block['style']) && !in_array((string) $block['style'], ['default', 'bootstrap', 'bare'], true)) {
                         $v[] = self::vio('form_style', "$bpath.style", 'Form style must be default, bootstrap, or bare.');
@@ -469,6 +490,36 @@ class Bynli_Connect_Publish_Contract {
                         }
                     }
                 }
+    }
+
+    /**
+     * A grid track count must be an integer inside the range render will accept.
+     *
+     * null/absent is fine — every consumer has a documented default. A value that is
+     * present but out of range is a violation rather than something to clamp: the
+     * phone breakpoint is the one that matters here, because a large cols.sm produces
+     * unusable slivers on a phone (the grids stay overflow-SAFE thanks to
+     * minmax(0, 1fr), so nothing breaks visibly — it just becomes unreadable, which
+     * is worse to diagnose from a screenshot).
+     *
+     * Rejects non-integer numerics too. grid_int() casts "2.9" to 2, so accepting it
+     * here would publish a layout the author did not describe.
+     */
+    private static function check_grid_cols(array &$v, string $path, $value, int $max): void {
+        if ($value === null) {
+            return;
+        }
+        if (!is_int($value) && !(is_string($value) && ctype_digit($value))) {
+            $v[] = self::vio('grid_cols_type', $path, 'Grid column count must be a whole number.');
+            return;
+        }
+        $n = (int) $value;
+        if ($n < self::GRID_COLS_MIN || $n > $max) {
+            $v[] = self::vio(
+                'grid_cols_range', $path,
+                'Grid column count must be between ' . self::GRID_COLS_MIN . ' and ' . $max . '.'
+            );
+        }
     }
 
     private static function vio(string $code, string $path, string $message): array {

@@ -75,12 +75,100 @@ class Bynli_Connect_Settings {
         }
         return (string)get_option(self::OPTION_KEY, '');
     }
-    public static function api_base(): string {
-        if (defined('BYNLI_CONNECT_API_BASE') && BYNLI_CONNECT_API_BASE) {
-            return (string) BYNLI_CONNECT_API_BASE;
+    /**
+     * Constrain an API base to an absolute https origin, or reject it.
+     *
+     * esc_url_raw alone is not enough here. It preserves a scheme-relative '//host'
+     * and it accepts 'http://', and this value now reaches two front-end <script src>
+     * tags on public pages, so a typo or a hostile option write becomes third-party
+     * script execution for every visitor. Applied on the way IN and again on the way
+     * OUT, because an option saved before this existed is still in the database.
+     */
+    /** True only while the Settings API is running this as a save-path callback. */
+    private static $sanitising_save = false;
+
+    public static function sanitize_api_base_on_save($value): string
+    {
+        self::$sanitising_save = true;
+        try {
+            return self::sanitize_api_base($value);
+        } finally {
+            self::$sanitising_save = false;
         }
-        $v = (string)get_option(self::OPTION_BASE, '');
-        return $v !== '' ? $v : BYNLI_CONNECT_DEFAULT_API_BASE;
+    }
+
+    public static function sanitize_api_base($value, bool $allow_http = false): string
+    {
+        $raw = trim((string) $value);
+        if ($raw === '') {
+            return '';
+        }
+        $schemes = $allow_http ? ['https', 'http'] : ['https'];
+        $url     = esc_url_raw($raw, $schemes);
+        $parts   = $url === '' ? [] : (array) wp_parse_url($url);
+        if (!empty($parts['host'])) {
+            $parts['host'] = rtrim($parts['host'], '.');
+        }
+        if (empty($parts['scheme']) || !in_array($parts['scheme'], $schemes, true) || empty($parts['host'])) {
+            self::reject_api_base('The API base must be an absolute https:// URL, for example '
+                . BYNLI_CONNECT_DEFAULT_API_BASE . '.');
+            return '';
+        }
+        if (!empty($parts['user']) || !empty($parts['pass'])) {
+            self::reject_api_base('The API base must not carry a username or password.');
+            return '';
+        }
+        $out = $parts['scheme'] . '://' . $parts['host'];
+        if (!empty($parts['port'])) {
+            $out .= ':' . (int) $parts['port'];
+        }
+        if (!empty($parts['path'])) {
+            $out .= rtrim($parts['path'], '/');
+        }
+        return $out;
+    }
+
+    /**
+     * Hosts a saved option may still name from before the rename, which must not be
+     * honoured. A site connected under the old brand has the old host persisted in
+     * the option, and the option beats the default — so changing the default alone
+     * left every already-connected site signing requests to the old origin, and now
+     * would point its front-end <script src> there too.
+     */
+    private const LEGACY_API_HOSTS = ['bynli.com', 'www.bynli.com'];
+
+    /**
+     * Surface a rejection where the admin will see it, and only when they are the one
+     * who typed it. The same sanitiser runs on READ to clean a value saved before it
+     * existed, and a settings error raised there would be attributed to whatever page
+     * happened to load.
+     */
+    private static function reject_api_base(string $message): void
+    {
+        if (!self::$sanitising_save || !function_exists('add_settings_error')) {
+            return;
+        }
+        add_settings_error(self::OPTION_BASE, 'bynli_connect_api_base_invalid', $message, 'error');
+    }
+
+    public static function api_base(): string {
+        static $memo = [];
+        $blog = function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 0;
+        if (isset($memo[$blog])) {
+            return $memo[$blog];
+        }
+        $from_constant = defined('BYNLI_CONNECT_API_BASE') && BYNLI_CONNECT_API_BASE;
+        $raw = $from_constant
+            ? (string) BYNLI_CONNECT_API_BASE
+            : (string) get_option(self::OPTION_BASE, '');
+        $v = self::sanitize_api_base($raw, $from_constant);
+        if ($v !== '') {
+            $host = strtolower((string) (wp_parse_url($v, PHP_URL_HOST) ?: ''));
+            if (in_array($host, self::LEGACY_API_HOSTS, true)) {
+                $v = '';
+            }
+        }
+        return $memo[$blog] = ($v !== '' ? $v : BYNLI_CONNECT_DEFAULT_API_BASE);
     }
     public static function site_slug(): string {
         return (string)get_option(self::OPTION_SLUG, '');
@@ -130,7 +218,7 @@ class Bynli_Connect_Settings {
         ]);
         register_setting(self::OPTION_GROUP, self::OPTION_BASE, [
             'type'              => 'string',
-            'sanitize_callback' => 'esc_url_raw',
+            'sanitize_callback' => [__CLASS__, 'sanitize_api_base_on_save'],
             'default'           => BYNLI_CONNECT_DEFAULT_API_BASE,
         ]);
         register_setting(self::OPTION_GROUP, self::OPTION_SLUG, [
@@ -267,6 +355,18 @@ class Bynli_Connect_Settings {
             'status_label'     => !$is_configured ? 'Not connected' : ($is_connected ? 'Connected' : 'Not verified'),
             'next_cron'        => wp_next_scheduled('bynli_connect_daily_report'),
             'update_available' => !empty($upd['version']) && version_compare($upd['version'], BYNLI_CONNECT_VERSION, '>'),
+            // Is that update something THIS ADMIN can act on? On a Bynefit-managed
+            // site the plugin is an mu-plugin, WordPress cannot apply a plugin update
+            // at all, and Bynefit pushes it on the next call-home — so the answer is
+            // no, and every affordance that invites action must say so.
+            //
+            // Separate from update_available rather than replacing it: "a newer
+            // version exists" is still true and the Updates panel still reports it.
+            // What changes is whether the rail badge, the rail dot, the overview tile
+            // and the activity entry present it as something to do.
+            'update_actionable' => (!empty($upd['version'])
+                && version_compare($upd['version'], BYNLI_CONNECT_VERSION, '>')
+                && !Bynli_Connect_Updater::is_mu_install()),
             'tested'           => isset($_GET['tested']) ? sanitize_text_field((string)$_GET['tested']) : '',
             'cleared'          => isset($_GET['cleared']) && (string)$_GET['cleared'] === 'updates',
             'discon'           => isset($_GET['disconnected']) && (string)$_GET['disconnected'] === '1',
@@ -328,7 +428,10 @@ class Bynli_Connect_Settings {
             'activity'   => ['dashicons-backup',        'Activity'],
             'updates'    => ['dashicons-update',        'Updates'],
         ];
-        $up_to_date = !$ctx['update_available'];
+        // "Nothing for you to do" rather than "nothing pending": on a managed site an
+        // available update is real but not the admin's to apply, so the rail reads calm
+        // and the Updates panel explains the queue.
+        $up_to_date = !$ctx['update_actionable'];
         ?>
         <nav class="bcn-rail" aria-label="Bynefit Connect sections">
             <?php foreach ($items as $key => [$icon, $label]):
@@ -340,7 +443,7 @@ class Bynli_Connect_Settings {
                    <?php echo $is ? 'aria-current="page"' : ''; ?>>
                     <span class="dashicons <?php echo esc_attr($icon); ?>" aria-hidden="true"></span>
                     <span class="bcn-rail-label"><?php echo esc_html($label); ?></span>
-                    <?php if ($key === 'updates' && $ctx['update_available']): ?>
+                    <?php if ($key === 'updates' && $ctx['update_actionable']): ?>
                         <span class="bcn-nav-count bcn-chip acc" aria-label="Update available">1</span>
                     <?php endif; ?>
                 </a>
@@ -400,7 +503,8 @@ class Bynli_Connect_Settings {
         $next_cron = $ctx['next_cron'];
 
         // Health tiles.
-        $update_available = $ctx['update_available'];
+        $update_available  = $ctx['update_available'];
+        $update_actionable = $ctx['update_actionable'];
         $daily_recent = !empty($last['at']) && (time() - (int)$last['at']) < 2 * DAY_IN_SECONDS;
         ?>
         <div class="bcn-hero" data-state="<?php echo esc_attr($hero_state); ?>">
@@ -453,10 +557,10 @@ class Bynli_Connect_Settings {
                 <span class="bcn-tile-label">Daily report</span>
                 <span class="bcn-tile-value"><?php echo !empty($last['at']) ? esc_html(human_time_diff((int)$last['at']) . ' ago') : 'never'; ?></span>
             </div>
-            <div class="bcn-tile" data-state="<?php echo $update_available ? 'acc' : 'ok'; ?>">
+            <div class="bcn-tile" data-state="<?php echo $update_actionable ? 'acc' : 'ok'; ?>">
                 <span class="dashicons dashicons-update" aria-hidden="true"></span>
                 <span class="bcn-tile-label">Plugin</span>
-                <span class="bcn-tile-value"><?php echo $update_available ? 'Update ready' : 'v' . esc_html(BYNLI_CONNECT_VERSION); ?></span>
+                <span class="bcn-tile-value"><?php echo $update_actionable ? 'Update ready' : 'v' . esc_html(BYNLI_CONNECT_VERSION); ?></span>
             </div>
             <div class="bcn-tile" data-state="ok">
                 <span class="dashicons dashicons-lock" aria-hidden="true"></span>
@@ -486,7 +590,7 @@ class Bynli_Connect_Settings {
             <div class="bcn-card-body">
                 <p>Generate a site-host key on Bynefit, paste it in <strong>Connection</strong>, and this WordPress install starts reporting and unlocks every shortcode.</p>
                 <ol>
-                    <li>Open <a href="https://bynli.com/dash/sites/host-keys" target="_blank" rel="noopener">/dash/sites/host-keys</a> signed in as a team admin.</li>
+                    <li>Open <a href="https://bynefit.com/dash/sites/host-keys" target="_blank" rel="noopener">/dash/sites/host-keys</a> signed in as a team admin.</li>
                     <li>Pick this site, <strong>Generate key</strong>, copy the plaintext value — shown once.</li>
                     <li>Paste it into the API key field in Connection and save.</li>
                 </ol>
@@ -822,7 +926,7 @@ class Bynli_Connect_Settings {
                         <?php endforeach; ?>
                     </div>
                 </div>
-                <p class="bcn-hint bcn-pad-top">Full reference at <a href="https://bynli.com/guides/wordpress" target="_blank" rel="noopener">/guides/wordpress</a>.</p>
+                <p class="bcn-hint bcn-pad-top">Full reference at <a href="https://bynefit.com/guides/wordpress" target="_blank" rel="noopener">/guides/wordpress</a>.</p>
             </div>
         </section>
         <?php
@@ -857,7 +961,7 @@ class Bynli_Connect_Settings {
         if (!empty($upd['has'])) {
             if (!empty($upd['error'])) {
                 $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
-            } elseif ($ctx['update_available']) {
+            } elseif ($ctx['update_actionable']) {
                 $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
             } else {
                 $update_event = ['state' => 'ok', 'ico' => 'dashicons-yes-alt', 'title' => 'Up to date', 'detail' => 'v' . BYNLI_CONNECT_VERSION];
@@ -912,11 +1016,19 @@ class Bynli_Connect_Settings {
 
     private function render_updates(array $ctx): void {
         $upd = $ctx['upd']; $update_available = $ctx['update_available'];
+        $last = $ctx['last'];
+        // On a Bynefit-managed site this plugin is an mu-plugin, and WordPress cannot
+        // apply a plugin update there at all. Offering the same buttons as a self-hosted
+        // site meant an admin clicked "Check for updates now", was told a newer version
+        // existed, and had nothing they could do with that.
+        $managed = Bynli_Connect_Updater::is_mu_install();
         ?>
         <section class="bcn-card">
             <div class="bcn-card-head">
                 <h2>Updates</h2>
-                <span class="bcn-card-sub">Released directly from Bynefit</span>
+                <span class="bcn-card-sub"><?php echo $managed
+                    ? 'Applied for you by Bynefit'
+                    : 'Released directly from Bynefit'; ?></span>
             </div>
             <div class="bcn-card-body">
                 <div class="bcn-up-row">
@@ -928,7 +1040,16 @@ class Bynli_Connect_Settings {
                     <span class="bcn-up-value">
                         <?php if (!empty($upd['version'])): ?>
                             <code>v<?php echo esc_html($upd['version']); ?></code>
-                            <?php if ($update_available): ?>
+                            <?php if ($update_available && $managed): ?>
+                                <?php /* On a managed site the update is real but is not the
+                                     admin's to apply, so an accent "Update available" chip
+                                     contradicted the notice directly below it — which says
+                                     there is nothing for them to do. Four affordances were
+                                     routed through update_actionable for this reason and this
+                                     fifth one, inside the panel itself, kept reading the raw
+                                     version comparison. */ ?>
+                                <span class="bcn-chip ok">Update queued</span>
+                            <?php elseif ($update_available): ?>
                                 <span class="bcn-chip acc">Update available</span>
                             <?php else: ?>
                                 <span class="bcn-chip ok">Up to date</span>
@@ -951,19 +1072,62 @@ class Bynli_Connect_Settings {
                     </div>
                 <?php endif; ?>
 
-                <div class="bcn-actions bcn-pad-top">
-                    <?php if ($update_available): ?>
-                        <a class="bcn-btn primary" href="<?php echo esc_url(admin_url('plugins.php')); ?>">
-                            <span class="dashicons dashicons-update"></span> Go to Plugins → Update
-                        </a>
-                    <?php endif; ?>
-                    <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
-                        <input type="hidden" name="action" value="bynli_connect_clear_update_cache">
-                        <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
-                        <button type="submit" class="bcn-btn ink">Check for updates now</button>
-                    </form>
-                    <span class="bcn-action-hint">WordPress polls Bynefit every 12 hours.</span>
-                </div>
+                <?php if ($managed): ?>
+                    <?php
+                    $checkin_at    = !empty($last['at']) ? (int) $last['at'] : 0;
+                    $checkin_stale = $checkin_at === 0 || (time() - $checkin_at) > DAY_IN_SECONDS;
+                    ?>
+                    <div class="bcn-notice <?php echo $checkin_stale ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
+                        <span class="dashicons <?php
+                            echo $checkin_stale ? 'dashicons-warning'
+                                : ($update_available ? 'dashicons-update' : 'dashicons-yes-alt');
+                        ?>" aria-hidden="true"></span>
+                        <?php if ($update_available): ?>
+                            <strong>Update queued.</strong> Bynefit keeps this site&rsquo;s plugin up to
+                            date for you, and will apply v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
+                            on this site&rsquo;s next check-in.
+                        <?php else: ?>
+                            <strong>Up to date.</strong> Bynefit keeps this site&rsquo;s plugin up to date
+                            for you &mdash; updates arrive automatically, with no action from you.
+                        <?php endif; ?>
+                        <?php if ($checkin_at === 0): ?>
+                            This site has never checked in, so that may not be happening &mdash; contact
+                            Bynefit if it stays this way.
+                        <?php elseif ($checkin_stale): ?>
+                            Last check-in was <?php echo esc_html(human_time_diff($checkin_at)); ?> ago,
+                            longer than the daily window, so the next one may be overdue.
+                        <?php else: ?>
+                            Last check-in: <?php echo esc_html(human_time_diff($checkin_at)); ?> ago.
+                        <?php endif; ?>
+                    </div>
+                    <div class="bcn-actions bcn-pad-top">
+                        <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
+                            <input type="hidden" name="action" value="bynli_connect_clear_update_cache">
+                            <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
+                            <button type="submit" class="bcn-btn ink">Refresh this readout</button>
+                        </form>
+                    </div>
+                    <p class="bcn-hint">
+                        This site runs the plugin from WordPress&rsquo;s must-use directory, which
+                        WordPress offers no update button for. That is why Bynefit applies the
+                        update instead of it appearing on your Plugins screen. Refreshing clears the
+                        cached readout above; it does not install anything.
+                    </p>
+                <?php else: ?>
+                    <div class="bcn-actions bcn-pad-top">
+                        <?php if ($update_available): ?>
+                            <a class="bcn-btn primary" href="<?php echo esc_url(admin_url('plugins.php')); ?>">
+                                <span class="dashicons dashicons-update"></span> Go to Plugins &rarr; Update
+                            </a>
+                        <?php endif; ?>
+                        <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
+                            <input type="hidden" name="action" value="bynli_connect_clear_update_cache">
+                            <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
+                            <button type="submit" class="bcn-btn ink">Check for updates now</button>
+                        </form>
+                        <span class="bcn-action-hint">WordPress polls Bynefit every 12 hours.</span>
+                    </div>
+                <?php endif; ?>
 
                 <?php if (!empty($upd['changelog'])): ?>
                     <div class="bcn-changelog">

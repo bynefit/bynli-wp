@@ -162,8 +162,8 @@
         if (!btn) return;
         btn.addEventListener('click', (e) => {
             const ok = window.confirm(
-                'Disconnect this site from Bynli? The API key will be cleared.\n\n' +
-                'This will NOT revoke the key on Bynli’s side — visit /dash/sites/host-keys to do that.'
+                'Disconnect this site from Bynefit? The API key will be cleared.\n\n' +
+                'This will NOT revoke the key on Bynefit’s side — visit /dash/sites/host-keys to do that.'
             );
             if (!ok) e.preventDefault();
         });

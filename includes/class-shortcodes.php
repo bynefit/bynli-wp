@@ -2,14 +2,14 @@
 if (!defined('ABSPATH')) { exit; }
 
 /**
- * Shortcode handlers for Bynli Connect.
+ * Shortcode handlers for Bynefit Connect.
  *
- * Each shortcode emits the same `data-bynli` HTML that a Bynli-hosted
+ * Each shortcode emits the same `data-bynli` HTML that a Bynefit-hosted
  * team site uses. The bynli.js loader is enqueued exactly once per
  * page, only if at least one shortcode was rendered, so pages without
- * Bynli content stay un-tagged.
+ * Bynefit content stay un-tagged.
  *
- *   [bynli-form id="frm_xxx"]            One-line embed of a Bynli form
+ *   [bynli-form id="frm_xxx"]            One-line embed of a Bynefit form
  *   [bynli-form id="frm_xxx" style="default" success="Thanks!"]
  *
  *   [bynli-modal label="..." title="..." body="..." href="..."]
@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) { exit; }
  *   [bynli-toast message="..." kind="success"]
  *                                         Fires a toast on page load
  *
- *   [bynli-widget team="acme"]            Floating Bynli widget bubble
+ *   [bynli-widget team="acme"]            Floating Bynefit widget bubble
  *
  *   [bynli-events team="acme" limit="5" style="cards"]
  *                                         Read-only upcoming events for a team
@@ -35,7 +35,27 @@ if (!defined('ABSPATH')) { exit; }
  */
 class Bynli_Connect_Shortcodes {
 
-    const LOADER_URL = 'https://bynli.com/sites/bynli.js';
+    /**
+     * The runtime loader, derived rather than hardcoded.
+     *
+     * Both script URLs used to be literals, which meant a site pointed at staging
+     * through the settings UI still pulled PRODUCTION runtime assets — while every
+     * other outbound URL in the plugin (class-api ×3, class-reporter, class-updater)
+     * already went through api_base(). Deriving them makes the override actually work
+     * and stops the host being a thing each future rename has to find again.
+     *
+     * The filename stays bynli.js: it is the published asset path, not product copy,
+     * and renaming it would 404 every site that has not upgraded.
+     */
+    public static function loader_url(): string
+    {
+        return rtrim(Bynli_Connect_Settings::api_base(), '/') . '/sites/bynli.js';
+    }
+
+    public static function widget_url(): string
+    {
+        return rtrim(Bynli_Connect_Settings::api_base(), '/') . '/widget.js';
+    }
 
     private static $loader_needed = false;
 
@@ -57,7 +77,7 @@ class Bynli_Connect_Shortcodes {
         if (!self::$loader_needed) return;
         printf(
             '<script src="%s" async></script>' . "\n",
-            esc_url(self::LOADER_URL)
+            esc_url(self::loader_url())
         );
     }
 
@@ -177,7 +197,7 @@ class Bynli_Connect_Shortcodes {
         // The legacy widget.js loads independently — it is NOT the same
         // file as bynli.js. We do not flag self::$loader_needed here
         // because this widget brings its own loader.
-        $attrs  = ' src="' . esc_url('https://bynli.com/widget.js') . '"';
+        $attrs  = ' src="' . esc_url(self::widget_url()) . '"';
         $attrs .= ' data-team="' . esc_attr($a['team']) . '"';
         if ($a['position'] !== '') $attrs .= ' data-position="' . esc_attr($a['position']) . '"';
         if ($a['label']    !== '') $attrs .= ' data-label="'    . esc_attr($a['label'])    . '"';

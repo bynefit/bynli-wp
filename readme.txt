@@ -12,24 +12,24 @@ Bring your Bynefit team into WordPress — answer support tickets, drop in live 
 
 == Description ==
 
-Hook this site up to your Bynli team. One key, and Bynli shows up where you already are.
+Hook this site up to your Bynefit team. One key, and Bynefit shows up where you already are.
 
 Here's what lights up the moment you save the key:
 
-* **Your support tickets, in wp-admin.** Open Settings → Bynli Tickets. See every open thread, read the full conversation, reply in place, mark resolved with a closing note, or open a brand new ticket — no bouncing to bynli.com.
-* **Bynli features inside posts.** Drop a single shortcode and a Bynli form, events list, donate card, modal, confirm, toast, or floating widget renders live from your team's data. The runtime only loads on pages that actually use one.
+* **Your support tickets, in wp-admin.** Open Settings → Bynefit Tickets. See every open thread, read the full conversation, reply in place, mark resolved with a closing note, or open a brand new ticket — no bouncing to bynefit.com.
+* **Bynefit features inside posts.** Drop a single shortcode and a Bynefit form, events list, donate card, modal, confirm, toast, or floating widget renders live from your team's data. The runtime only loads on pages that actually use one.
 * **Daily usage reports.** Bytes and version strings, that's it — no user data, no post content, no visitor info ever leaves your site.
-* **Auto-updates from Bynli.** New version drops on Bynli, WordPress sees it on **Plugins → Updates**. No swapping zips, no FTP.
+* **Auto-updates from Bynefit.** New version drops on Bynefit, WordPress sees it on **Plugins → Updates**. No swapping zips, no FTP.
 
 This plugin does **not** change your content, modify permalinks, or override any other plugin. The shortcodes are inert until you place them in a post or page.
 
-Connect your site once, and the rest of Bynli quietly follows you into WordPress.
+Connect your site once, and the rest of Bynefit quietly follows you into WordPress.
 
 == Shortcodes ==
 
 = [bynli-form] =
 
-A Bynli form, in one line.
+A Bynefit form, in one line.
 
 `[bynli-form id="frm_abc123"]`
 
@@ -41,7 +41,7 @@ Optional:
 
 = [bynli-events] =
 
-Live upcoming events from your team. Pulls from Bynli the moment the page renders.
+Live upcoming events from your team. Pulls from Bynefit the moment the page renders.
 
 `[bynli-events team="your-team" limit="5" style="cards"]`
 
@@ -51,7 +51,7 @@ Live upcoming events from your team. Pulls from Bynli the moment the page render
 
 = [bynli-donate] =
 
-A donation card with preset amounts + a custom amount input. Routes straight to Bynli's existing donation flow.
+A donation card with preset amounts + a custom amount input. Routes straight to Bynefit's existing donation flow.
 
 `[bynli-donate team="your-team" amounts="10,25,50,100" default_amount="25" cause="general"]`
 
@@ -85,7 +85,7 @@ Kinds: `info`, `success`, `error`, `warning`.
 
 = [bynli-widget] =
 
-The floating Bynli widget bubble.
+The floating Bynefit widget bubble.
 
 `[bynli-widget team="your-team"]`
 
@@ -95,10 +95,10 @@ Optional: `position`, `label`.
 
 1. Upload `bynli-connect.zip` via **Plugins → Add New → Upload**, or copy the folder into `wp-content/plugins/`.
 2. Activate the plugin.
-3. In your Bynli dashboard, open `/dash/sites/host-keys`, pick this site, and click **Generate key**. Copy the plaintext key once — Bynli won't show it again.
-4. WordPress: **Settings → Bynli Connect**. Paste the key. Save.
-5. Click **Send heartbeat** to confirm Bynli is hearing you.
-6. Now you're connected. Add a shortcode to any post — or hop over to **Settings → Bynli Tickets** if you have open support threads.
+3. In your Bynefit dashboard, open `/dash/sites/host-keys`, pick this site, and click **Generate key**. Copy the plaintext key once — Bynefit won't show it again.
+4. WordPress: **Settings → Bynefit Connect**. Paste the key. Save.
+5. Click **Send heartbeat** to confirm Bynefit is hearing you.
+6. Now you're connected. Add a shortcode to any post — or hop over to **Settings → Bynefit Tickets** if you have open support threads.
 
 == Frequently Asked Questions ==
 
@@ -114,27 +114,27 @@ When you take payments through Bynefit, Bynefit processes that customer data on 
 
 = What if my API key is compromised? =
 
-Revoke it from `/dash/sites/host-keys` on Bynli. Generate a new key, paste it in **Settings → Bynli Connect**, save. The old key stops working the instant Bynli marks it revoked.
+Revoke it from `/dash/sites/host-keys` on Bynefit. Generate a new key, paste it in **Settings → Bynefit Connect**, save. The old key stops working the instant Bynefit marks it revoked.
 
-= Does the Bynli runtime load on every page? =
+= Does the Bynefit runtime load on every page? =
 
-No. The `bynli.js` loader only enqueues on pages that actually use a Bynli shortcode. Empty pages stay untouched.
+No. The `bynli.js` loader only enqueues on pages that actually use a Bynefit shortcode. Empty pages stay untouched.
 
-= Can I reply to tickets from WordPress, or do I still need to go to bynli.com? =
+= Can I reply to tickets from WordPress, or do I still need to go to bynefit.com? =
 
-You can do both. Replies, resolves, and new tickets all work from WordPress — and they're attributed to the WordPress user who clicked send, so Bynli staff see who answered and can email that person back. The full ticket history (attachments, payment refs, transaction-tied tickets) still lives on bynli.com when you need the long view.
+You can do both. Replies, resolves, and new tickets all work from WordPress — and they're attributed to the WordPress user who clicked send, so Bynefit staff see who answered and can email that person back. The full ticket history (attachments, payment refs, transaction-tied tickets) still lives on bynefit.com when you need the long view.
 
 = How do updates work? =
 
-The plugin polls Bynli every 12 hours for a version manifest. When a new version is available, WordPress shows it on **Plugins → Updates** like any other plugin. Hit **Update now** — that's it. No WordPress.org account, no FTP, no zip-swapping.
+The plugin polls Bynefit every 12 hours for a version manifest. When a new version is available, WordPress shows it on **Plugins → Updates** like any other plugin. Hit **Update now** — that's it. No WordPress.org account, no FTP, no zip-swapping.
 
 = Can I disconnect a site without revoking the key? =
 
-Yes. **Settings → Bynli Connect → Disconnect** clears the saved key from this install. Bynli's server-side key stays valid — visit `/dash/sites/host-keys` to revoke it there if you also want to kill it server-side.
+Yes. **Settings → Bynefit Connect → Disconnect** clears the saved key from this install. Bynefit's server-side key stays valid — visit `/dash/sites/host-keys` to revoke it there if you also want to kill it server-side.
 
 = Where do I get support for the plugin itself? =
 
-Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands in front of Bynli support the same moment it's filed.
+Open a ticket from **Settings → Bynefit Tickets → Open new ticket**. It lands in front of Bynefit support the same moment it's filed.
 
 == Changelog ==
 
@@ -149,7 +149,7 @@ Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands 
 * **Privacy — please read:** to do the above, an order paid through Bynefit now sends that order's buyer name, email, phone and billing/shipping addresses (plus item SKUs) to bynefit.com. This happens **only** when you have enabled the Bynefit payment method **and** a shopper actively chooses it at checkout — never for visitors browsing your site, and never for orders paid by any other method. The "Does this send any personal data?" FAQ has been rewritten to describe this accurately. You remain the data controller for your customers; Bynefit processes this data on your behalf to take the payment.
 
 = 0.21.2 =
-* **Fixed (WooCommerce):** "Pay with Bynefit" did not appear on stores using the block-based Checkout — shoppers saw "no payment methods available" even with the gateway enabled. The gateway now registers with the Cart/Checkout blocks as well as the classic checkout. **Recommended update for any store taking Bynefit payments.** (After updating, confirm the gateway is enabled under WooCommerce → Settings → Payments and your site-host key is saved under Settings → Bynli Connect.)
+* **Fixed (WooCommerce):** "Pay with Bynefit" did not appear on stores using the block-based Checkout — shoppers saw "no payment methods available" even with the gateway enabled. The gateway now registers with the Cart/Checkout blocks as well as the classic checkout. **Recommended update for any store taking Bynefit payments.** (After updating, confirm the gateway is enabled under WooCommerce → Settings → Payments and your site-host key is saved under Settings → Bynefit Connect.)
 * **Added:** Site visibility now also closes the XML-RPC endpoint while a site is set to Coming soon or Members only. Note this pauses app access that signs in over XML-RPC (e.g. Jetpack, the WordPress mobile apps) until the site is set back to Live.
 * **Improved:** Images published without dimensions now reserve their space while loading, so pages no longer shift as they render.
 * **Improved:** Section layouts keep items inside the section's own column count, so a wide item can no longer spill outside the grid.
@@ -174,7 +174,7 @@ Open a ticket from **Settings → Bynli Tickets → Open new ticket**. It lands 
 * **Changed (internal):** The Bynefit Sites control-plane endpoints now authorize on the signed-request integrity check alone (a per-site secret only Bynefit holds), acting as the site administrator to make the requested change. No effect on manually connected sites — the control plane stays inert until Bynefit provisions the secret, and an unsigned request is still refused.
 
 = 0.16.0 =
-* **Added:** Two data-driven Bynefit Sites blocks — **Form** (embeds a form you built in the Bynli form builder by id, inside a clean token-styled card; the form renders and submits securely to Bynli, so no submission data touches this site) and **Events** (shows a team's upcoming or past Bynli events live). Both hydrate from Bynli at page load and only load the runtime on pages that use them.
+* **Added:** Two data-driven Bynefit Sites blocks — **Form** (embeds a form you built in the Bynefit form builder by id, inside a clean token-styled card; the form renders and submits securely to Bynefit, so no submission data touches this site) and **Events** (shows a team's upcoming or past Bynefit events live). Both hydrate from Bynefit at page load and only load the runtime on pages that use them.
 
 = 0.15.0 =
 * **Added:** Bynefit Sites **hero sections and full-width background video** — a section can now carry a background image or looping video with an overlay scrim, a chosen height, and vertically-centred content, so a full-bleed hero reads edge-to-edge with legible text over the image. Publishing requires the scrim when a background image/video is used, so overlaid text always stays readable.

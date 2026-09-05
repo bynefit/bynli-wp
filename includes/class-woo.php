@@ -2,7 +2,7 @@
 if (!defined('ABSPATH')) { exit; }
 
 /**
- * WooCommerce payment rail — plugin side (#2164). Registers the off-site
+ * WooCommerce payment rail — plugin side. Registers the off-site
  * Bynefit gateway and wires the two confirmation paths that flip a WC order to
  * paid:
  *
@@ -34,7 +34,7 @@ class Bynli_Connect_Woo {
         add_action('woocommerce_blocks_payment_method_type_registration', [$this, 'register_blocks_support']);
         add_action('woocommerce_api_bynefit_connect', [$this, 'handle_nudge']);
         add_action('woocommerce_thankyou', [$this, 'reconcile_on_thankyou'], 10, 1);
-        // Order-sync (#2164): push lifecycle changes for Bynefit-gateway orders to
+        // Order-sync: push lifecycle changes for Bynefit-gateway orders to
         // the portal, off the request path (scheduled) so it never stalls checkout.
         add_action('woocommerce_order_status_changed', [$this, 'schedule_order_sync'], 10, 4);
         add_action(self::SYNC_EVENT, [$this, 'do_order_sync'], 10, 1);
@@ -127,7 +127,7 @@ class Bynli_Connect_Woo {
     /**
      * On any WC status change for a Bynefit-gateway order, schedule a background
      * lifecycle sync to the Bynefit portal. Scheduled — never inline — so a slow
-     * bynli.com round-trip can't stall the store's order flow. WP dedupes an
+     * bynefit.com round-trip can't stall the store's order flow. WP dedupes an
      * identical (hook, args) event within its window, so rapid transitions
      * coalesce into a single sync of the final status.
      */

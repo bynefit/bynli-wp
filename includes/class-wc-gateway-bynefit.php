@@ -2,7 +2,7 @@
 if (!defined('ABSPATH')) { exit; }
 
 /**
- * WC_Gateway_Bynefit — off-site (redirect) WooCommerce payment gateway (#2164).
+ * WC_Gateway_Bynefit — off-site (redirect) WooCommerce payment gateway.
  * Holds NO PayPal credentials: process_payment() calls the signed
  * /api/site-host/woo/checkout with the site-host key the plugin already carries,
  * then redirects the buyer to the returned Bynefit-hosted pay page. The order
@@ -39,7 +39,7 @@ class WC_Gateway_Bynefit extends WC_Payment_Gateway {
                 'type'        => 'checkbox',
                 'label'       => __('Enable Bynefit payments', 'bynli-connect'),
                 'default'     => 'no',
-                'description' => $connected ? '' : __('Add your Bynefit site-host key in Settings → Bynli Connect first.', 'bynli-connect'),
+                'description' => $connected ? '' : __('Add your Bynefit site-host key in Settings → Bynefit Connect first.', 'bynli-connect'),
             ],
             'title' => [
                 'title'       => __('Title', 'bynli-connect'),

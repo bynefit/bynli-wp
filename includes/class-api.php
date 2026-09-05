@@ -40,7 +40,7 @@ class Bynli_Connect_Api {
     public static function post(string $path, array $body = []): array {
         $key = Bynli_Connect_Settings::key();
         if (!$key) {
-            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynli Connect.'];
+            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynefit Connect.'];
         }
 
         $api_base = Bynli_Connect_Settings::api_base();
@@ -86,7 +86,7 @@ class Bynli_Connect_Api {
         $err   = is_array($json) ? (string)($json['error'] ?? 'http_' . $code) : 'http_' . $code;
         $human = [
             'no_key'               => 'No API key configured.',
-            'unauthorized'         => 'Site key was rejected. Reissue it at /dash/sites/host-keys on Bynli.',
+            'unauthorized'         => 'Site key was rejected. Reissue it at /dash/sites/host-keys on Bynefit.',
             'signature_invalid'    => 'Signature check failed. The site clock may be off, or the key is wrong.',
             'bad_timestamp'        => 'Bad timestamp header. Check the server clock.',
             'bad_signature_format' => 'Malformed signature header — please report.',
@@ -95,7 +95,7 @@ class Bynli_Connect_Api {
             'empty_body'           => 'Reply cannot be empty.',
             'body_too_large'       => 'Reply is too long — keep it under 5000 characters.',
             'invalid_json'         => 'The request body could not be parsed.',
-            'server_error'         => 'Bynli returned a server error. Please retry shortly.',
+            'server_error'         => 'Bynefit returned a server error. Please retry shortly.',
         ];
         return [
             'ok'      => false,
@@ -107,14 +107,14 @@ class Bynli_Connect_Api {
 
     /**
      * Signed POST with an idempotency key (signer v2). Used by the WooCommerce
-     * gateway (#2164) — the key is sent as X-Bynli-Idempotency-Key AND folded
+     * gateway — the key is sent as X-Bynli-Idempotency-Key AND folded
      * into the signature preimage so a retry can't be forged. Response handling
      * mirrors post().
      */
     public static function post_v2(string $path, array $body, string $idempotency_key, string $method = 'POST'): array {
         $key = Bynli_Connect_Settings::key();
         if (!$key) {
-            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynli Connect.'];
+            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynefit Connect.'];
         }
         if ($idempotency_key === '') {
             return ['ok' => false, 'error' => 'no_idempotency_key', 'message' => 'Missing idempotency key.'];
@@ -168,7 +168,7 @@ class Bynli_Connect_Api {
     public static function get(string $path, array $query = []): array {
         $key = Bynli_Connect_Settings::key();
         if (!$key) {
-            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynli Connect.'];
+            return ['ok' => false, 'error' => 'no_key', 'message' => 'No API key configured. See Settings → Bynefit Connect.'];
         }
 
         $api_base = Bynli_Connect_Settings::api_base();
@@ -212,13 +212,13 @@ class Bynli_Connect_Api {
         // so the WP-admin UI can show something more useful than "http_401".
         $human = [
             'no_key'               => 'No API key configured.',
-            'unauthorized'         => 'Site key was rejected. Reissue it at /dash/sites/host-keys on Bynli.',
+            'unauthorized'         => 'Site key was rejected. Reissue it at /dash/sites/host-keys on Bynefit.',
             'signature_invalid'    => 'Signature check failed. The site clock may be off, or the key is wrong.',
             'bad_timestamp'        => 'Bad timestamp header. Check the server clock.',
             'bad_signature_format' => 'Malformed signature header — please report.',
             'not_found'            => 'Not found.',
             'method_not_allowed'   => 'Endpoint does not accept this method.',
-            'server_error'         => 'Bynli returned a server error. Please retry shortly.',
+            'server_error'         => 'Bynefit returned a server error. Please retry shortly.',
         ];
         return [
             'ok'      => false,
