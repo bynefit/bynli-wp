@@ -12,17 +12,24 @@
        why the avatars below deliberately keep rem. Containers derive from this. */
     --bynefit-touch-min: 44px;
 
-    /* Fallbacks for the theme presets this stylesheet reads. Every preset read below
-       resolves through one of these, because a bare var() on a theme that does not
-       declare the preset yields the INITIAL value, and for the carousel dots that
-       meant a transparent background and a transparent ring — the pagination simply
-       vanished. These are last-resort values only; any theme with the preset wins. */
+    /* A bare var() on a theme that does not declare the preset yields the initial
+       value, which for the dots meant a transparent ring on a transparent background:
+       the pagination vanished. A theme declaring the preset still wins.
+
+       A LIGHT set, so it is read only on non-inherited properties, and every surface
+       the plugin paints pins its own text colour. A `color:` on a theme-painted
+       surface keeps a bare var(): the inherited value is already that theme's
+       correct text colour, so a fallback would replace a right answer with a wrong
+       one. */
     --bynefit-fb-brand: #b5541f;
     --bynefit-fb-on-brand: #ffffff;
     --bynefit-fb-text: #110e0a;
     --bynefit-fb-muted: #6b6355;
     --bynefit-fb-surface-2: #f5f2ec;
     --bynefit-fb-border: #ddd6c9;
+    /* Separate from -border: a hairline between rows may be faint, but a boundary
+       that is a control's only affordance needs 3:1. -border measures 1.44:1. */
+    --bynefit-fb-control-edge: #8a8272;
 }
 
 .bynefit-section {
@@ -160,7 +167,7 @@
 }
 
 .bynefit-quote__role {
-    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
+    color: var(--wp--preset--color--muted);
     font-size: var(--wp--preset--font-size--small);
 }
 
@@ -188,7 +195,7 @@
 }
 
 .bynefit-stat__caption {
-    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
+    color: var(--wp--preset--color--muted);
     font-size: var(--wp--preset--font-size--small);
 }
 
@@ -220,7 +227,7 @@
     content: "+";
     font-size: 1.25em;
     line-height: 1;
-    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
+    color: var(--wp--preset--color--muted);
     transition: transform var(--wp--custom--motion--duration--base, 0.24s) var(--wp--custom--motion--easing--standard, ease);
 }
 
@@ -292,7 +299,7 @@
 
 .bynefit-list__text {
     min-width: 0;
-    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
+    color: var(--wp--preset--color--text);
 }
 
 .bynefit-list--dot .bynefit-list__item {
@@ -338,7 +345,7 @@
 
 .bynefit-cta__text {
     margin: 0;
-    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
+    color: var(--wp--preset--color--muted);
 }
 
 .bynefit-cta__actions {
@@ -372,8 +379,8 @@
 
 .bynefit-cta__btn--secondary {
     background: transparent;
-    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
-    box-shadow: inset 0 0 0 1px var(--wp--preset--color--border, var(--bynefit-fb-border));
+    color: var(--wp--preset--color--text);
+    box-shadow: inset 0 0 0 1px var(--wp--preset--color--border, var(--bynefit-fb-control-edge));
 }
 
 .bynefit-callout {
@@ -382,6 +389,7 @@
     padding: var(--wp--preset--spacing--40, 1rem);
     border-radius: var(--wp--custom--radius--md, 14px);
     background: var(--wp--preset--color--surface-2, var(--bynefit-fb-surface-2));
+    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
     border-inline-start: 3px solid var(--wp--preset--color--brand, var(--bynefit-fb-brand));
 }
 
@@ -419,6 +427,7 @@
     gap: var(--wp--preset--spacing--40, 1rem);
     height: 100%;
     background-color: var(--bynefit-card-bg, var(--wp--preset--color--surface-2, var(--bynefit-fb-surface-2)));
+    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
     border-radius: var(--bynefit-card-radius, var(--wp--custom--radius--md, 14px));
     box-shadow: var(--bynefit-card-shadow, none);
     padding: var(--bynefit-card-pad, var(--wp--preset--spacing--50, 1.5rem));
@@ -535,6 +544,7 @@
 
 .bynefit-form--card {
     background-color: var(--wp--preset--color--surface-2, var(--bynefit-fb-surface-2));
+    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
     border-radius: var(--wp--custom--radius--lg, 24px);
     padding: var(--wp--preset--spacing--60, 2rem);
     box-shadow: var(--wp--preset--shadow--card, 0 1px 2px rgba(17, 14, 10, 0.06), 0 8px 24px rgba(17, 14, 10, 0.08));
@@ -546,7 +556,7 @@
 
 .bynefit-form__noscript {
     display: block;
-    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
+    color: var(--wp--preset--color--muted);
     font-size: var(--wp--preset--font-size--small);
 }
 
@@ -568,7 +578,7 @@
     cursor: pointer;
     font: inherit;
     font-weight: 600;
-    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
+    color: var(--wp--preset--color--muted);
     /* BOTH axes: min-height alone left a short tab label ("Pro", "All", "1") under the
    minimum on width, because the side padding is only 1rem. */
     min-height: var(--bynefit-touch-min, 44px);
@@ -579,7 +589,7 @@
 }
 
 .bynefit-tabs__tab[aria-selected="true"] {
-    color: var(--wp--preset--color--text, var(--bynefit-fb-text));
+    color: var(--wp--preset--color--text);
     border-bottom-color: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
 }
 
@@ -602,25 +612,11 @@
     gap: var(--wp--preset--spacing--50, 1.5rem);
 }
 
-/* Two rows: the track, then the dots. The nav is placed in the TRACK's cell (below)
-   rather than absolutely positioned over the whole component, so the arrows centre
-   on the track by construction — at any dot-row count, with no arithmetic to hold.
-
-   This replaces a min-height floor that could not work. The nav was centred on
-   track + dots, so a floor of 3T + 2.5rem cleared one dot row by 8px accidentally
-   and missed two rows entirely (nine dots wrap at 390px and need 252px), putting
-   the arrows up to 40px inside the dots band. A floor is not a cap: a wrapped row
-   grows the component and takes the midpoint down with it.
-
-   The pause toggle gets a row of its OWN above the track rather than being
-   absolutely positioned into the top-right corner. Sharing the track's cell, it
-   collided with the next arrow on any track under 3.5x the control size — a
-   one-line testimonial is about 100px — and the nav's stacking context put the
-   arrow on top, so the arrow took the hit test and the pause control became
-   unreachable. Giving it its own row makes the collision impossible at every
-   track height, which is what the min-height floor had been standing in for, so
-   the floor is gone. The row collapses to zero when autoplay is off and the
-   toggle is not rendered. */
+/* Three rows — toggle, track, dots — so the nav centres on the TRACK and the toggle
+   cannot collide with it at any track height. Both used to be positioned against the
+   whole component: the arrows centred on track+dots, and the toggle shared the
+   arrows' corner. A min-height floor stood in for both and could fix neither, because
+   a floor is not a cap. Row 1 collapses to zero when autoplay renders no toggle. */
 .bynefit-carousel.is-enhanced {
     display: grid;
     grid-template-rows: auto auto auto;
@@ -668,7 +664,7 @@
 
 .bynefit-carousel__cite { font-weight: 600; }
 .bynefit-carousel__role {
-    color: var(--wp--preset--color--muted, var(--bynefit-fb-muted));
+    color: var(--wp--preset--color--muted);
     font-size: var(--wp--preset--font-size--small);
 }
 

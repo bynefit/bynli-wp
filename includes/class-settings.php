@@ -84,20 +84,21 @@ class Bynli_Connect_Settings {
      * script execution for every visitor. Applied on the way IN and again on the way
      * OUT, because an option saved before this existed is still in the database.
      */
-    public static function sanitize_api_base($value): string {
+    public static function sanitize_api_base($value): string
+    {
         $raw = trim((string) $value);
         if ($raw === '') {
             return '';
         }
-        $url = esc_url_raw($raw, ['https']);
-        if ($url === '') {
-            return '';
-        }
-        $parts = wp_parse_url($url);
+        $url   = esc_url_raw($raw, ['https']);
+        $parts = $url === '' ? [] : (array) wp_parse_url($url);
         if (empty($parts['scheme']) || $parts['scheme'] !== 'https' || empty($parts['host'])) {
+            self::reject_api_base('The API base must be an absolute https:// URL, for example '
+                . BYNLI_CONNECT_DEFAULT_API_BASE . '.');
             return '';
         }
         if (!empty($parts['user']) || !empty($parts['pass'])) {
+            self::reject_api_base('The API base must not carry a username or password.');
             return '';
         }
         $out = 'https://' . $parts['host'];
@@ -119,18 +120,36 @@ class Bynli_Connect_Settings {
      */
     private const LEGACY_API_HOSTS = ['bynli.com', 'www.bynli.com'];
 
-    public static function api_base(): string {
-        if (defined('BYNLI_CONNECT_API_BASE') && BYNLI_CONNECT_API_BASE) {
-            return (string) BYNLI_CONNECT_API_BASE;
+    /**
+     * Surface a rejection where the admin will see it, and only when they are the one
+     * who typed it. The same sanitiser runs on READ to clean a value saved before it
+     * existed, and a settings error raised there would be attributed to whatever page
+     * happened to load.
+     */
+    private static function reject_api_base(string $message): void
+    {
+        if (!function_exists('add_settings_error') || !is_admin()) {
+            return;
         }
-        $v = self::sanitize_api_base((string)get_option(self::OPTION_BASE, ''));
+        add_settings_error(self::OPTION_BASE, 'bynli_connect_api_base_invalid', $message, 'error');
+    }
+
+    public static function api_base(): string {
+        static $memo = null;
+        if ($memo !== null) {
+            return $memo;
+        }
+        $raw = (defined('BYNLI_CONNECT_API_BASE') && BYNLI_CONNECT_API_BASE)
+            ? (string) BYNLI_CONNECT_API_BASE
+            : (string) get_option(self::OPTION_BASE, '');
+        $v = self::sanitize_api_base($raw);
         if ($v !== '') {
             $host = strtolower((string) (wp_parse_url($v, PHP_URL_HOST) ?: ''));
             if (in_array($host, self::LEGACY_API_HOSTS, true)) {
                 $v = '';
             }
         }
-        return $v !== '' ? $v : BYNLI_CONNECT_DEFAULT_API_BASE;
+        return $memo = ($v !== '' ? $v : BYNLI_CONNECT_DEFAULT_API_BASE);
     }
     public static function site_slug(): string {
         return (string)get_option(self::OPTION_SLUG, '');
@@ -1034,23 +1053,43 @@ class Bynli_Connect_Settings {
                 <?php endif; ?>
 
                 <?php if ($managed): ?>
-                    <div class="bcn-notice bcn-notice-ok bcn-pad-top">
+                    <?php
+                    $checkin_at    = !empty($last['at']) ? (int) $last['at'] : 0;
+                    $checkin_stale = $checkin_at === 0 || (time() - $checkin_at) > DAY_IN_SECONDS;
+                    ?>
+                    <div class="bcn-notice <?php echo $checkin_stale ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
+                        <span class="dashicons <?php echo $update_available ? 'dashicons-update' : 'dashicons-yes-alt'; ?>" aria-hidden="true"></span>
                         <?php if ($update_available): ?>
                             <strong>Update queued.</strong> Bynefit keeps this site&rsquo;s plugin up to
                             date for you, and will apply v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
-                            on this site&rsquo;s next check-in. There is nothing for you to do here.
+                            on this site&rsquo;s next check-in.
                         <?php else: ?>
                             <strong>Up to date.</strong> Bynefit keeps this site&rsquo;s plugin up to date
                             for you &mdash; updates arrive automatically, with no action from you.
                         <?php endif; ?>
+                        <?php if ($checkin_at === 0): ?>
+                            This site has never checked in, so that may not be happening &mdash; contact
+                            Bynefit if it stays this way.
+                        <?php elseif ($checkin_stale): ?>
+                            Last check-in was <?php echo esc_html(human_time_diff($checkin_at)); ?> ago,
+                            longer than the daily window, so the next one may be overdue.
+                        <?php else: ?>
+                            Last check-in: <?php echo esc_html(human_time_diff($checkin_at)); ?> ago.
+                        <?php endif; ?>
                     </div>
                     <div class="bcn-actions bcn-pad-top">
-                        <span class="bcn-action-hint">
-                            This site runs the plugin from WordPress&rsquo;s must-use directory, which
-                            WordPress offers no update button for. That is why Bynefit applies the
-                            update instead of it appearing on your Plugins screen.
-                        </span>
+                        <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
+                            <input type="hidden" name="action" value="bynli_connect_clear_update_cache">
+                            <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
+                            <button type="submit" class="bcn-btn ink">Refresh this readout</button>
+                        </form>
                     </div>
+                    <p class="bcn-hint">
+                        This site runs the plugin from WordPress&rsquo;s must-use directory, which
+                        WordPress offers no update button for. That is why Bynefit applies the
+                        update instead of it appearing on your Plugins screen. Refreshing clears the
+                        cached readout above; it does not install anything.
+                    </p>
                 <?php else: ?>
                     <div class="bcn-actions bcn-pad-top">
                         <?php if ($update_available): ?>

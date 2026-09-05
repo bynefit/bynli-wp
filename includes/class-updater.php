@@ -28,9 +28,9 @@ class Bynli_Connect_Updater {
     public static function is_mu_install(): bool {
         // Per-request constant: nothing can move the plugin mid-request, and this is
         // read at least twice per Settings load plus once per update-transient fire.
-        // Without this the DEFAULT install — wp-content/plugins, which always misses
-        // the fast path below — pays a full scandir plus a realpath per entry, every
-        // time, to recompute a constant false.
+        // Without this the DEFAULT install recomputes a constant false on every read:
+        // two realpath calls where there is no mu-plugins directory, and a scandir
+        // plus a realpath per entry where there is one.
         static $cached = null;
         if ($cached !== null) {
             return $cached;
@@ -394,7 +394,7 @@ class Bynli_Connect_Updater {
 
         $res = wp_remote_get($url, [
             'timeout'    => 8,
-            'user-agent' => 'BynliConnect/' . BYNLI_CONNECT_VERSION . ' (WP ' . get_bloginfo('version') . ')',
+            'user-agent' => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
             'headers'    => ['Accept' => 'application/json'],
         ]);
         if (is_wp_error($res)) {
