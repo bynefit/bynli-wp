@@ -120,8 +120,10 @@
 
 /*
    Relay console shell — topbar · rail · panels · theme
-   toggle · chips · notes · buttons · fields. All token-driven so light/dark
-   flow from the token layers above. Surface-specific components (hero,
+   toggle · chips · notes · buttons · fields. All token-driven, though the tokens
+   are a single light set: there is no prefers-color-scheme block and no dark layer
+   in this file, and the hero is the only fixed dark surface. Surface-specific
+   components (hero,
    sparkline, shortcode previewer, tickets, activity log) land in later
    phases; classes carried from the old layout are overridden to tokens here.
  */

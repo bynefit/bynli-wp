@@ -786,7 +786,6 @@ class Bynli_Connect_Emitter {
         return $entry;
     }
 
-    /** Serialize a dynamic (save:null) block: void form when there is no inner content. */
     /**
      * The align coercion, in one place, reading the shared vocabulary.
      *
@@ -802,6 +801,7 @@ class Bynli_Connect_Emitter {
             : Bynli_Connect_Blocks::BLOCK_ALIGNS[0];
     }
 
+    /** Serialize a dynamic (save:null) block: void form when there is no inner content. */
     private static function wrap(string $name, array $attrs, ?string $inner): string {
         $json = $attrs ? ' ' . serialize_block_attributes($attrs) : '';
         if ($inner === null) {

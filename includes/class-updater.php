@@ -260,17 +260,28 @@ class Bynli_Connect_Updater {
             return $reply;
         }
 
+        // OWNERSHIP FIRST, and this ordering is load-bearing. WordPress sets
+        // $hook_extra['plugin'] for plugin updates only — a theme, core, or language-pack
+        // download arrives with it empty, so the guard above does not fire and control
+        // reaches here. Fetching the manifest before deciding whether the package is even
+        // ours meant that, with the error cache bypassed, EVERY such download paid a fresh
+        // 8-second blocking request whenever the version endpoint was cold. A bulk update
+        // of core plus five themes would have added roughly 48 seconds to a run that is
+        // already near max_execution_time, and reset the error window each time so it
+        // never settled.
+        //
+        // So: read the cache to establish ownership, and only bypass it once we know the
+        // package is ours — which is the only case the bypass was added for.
+        $cached_manifest = $this->get_remote_manifest();
+        $our_url = is_array($cached_manifest) ? (string) ($cached_manifest['download_url'] ?? '') : '';
+        if ($plugin === '' && ($our_url === '' || $package !== $our_url)) {
+            return $reply;
+        }
+
         $remote = $this->get_remote_manifest(true);
         $expected = is_array($remote) && isset($remote['download_sha256'])
             ? strtolower(trim((string) $remote['download_sha256']))
             : '';
-
-        // When $hook_extra carries no plugin key we cannot be certain this package is
-        // ours, so only claim it if the URL is the one our own manifest names.
-        $our_url = is_array($remote) ? (string) ($remote['download_url'] ?? '') : '';
-        if ($plugin === '' && ($our_url === '' || $package !== $our_url)) {
-            return $reply;
-        }
 
         // Nothing to check against — proceed exactly as before. The permissive default
         // is deliberate: a manifest published before this field existed must still be
@@ -290,10 +301,14 @@ class Bynli_Connect_Updater {
             // each right alone, cancelling each other on the log whose only job is to
             // prove the control did not run.
             if (!is_array($remote) || empty($remote['version'])) {
-                error_log('[Bynli Connect] update: release manifest unavailable'
-                    . (is_array($remote) && !empty($remote['error'])
-                        ? ' (' . preg_replace('/[^\x20-\x7E]/', '', substr((string) $remote['error'], 0, 60)) . ')'
-                        : '')
+                // The reason comes from the CACHED entry, not from $remote. With the error
+                // cache bypassed, $remote is null on every failure path, so reading the
+                // detail off it printed nothing — a log promising a reason and never
+                // carrying one.
+                $why = is_array($cached_manifest) && !empty($cached_manifest['error'])
+                    ? ' (' . preg_replace('/[^\x20-\x7E]/', '', substr((string) $cached_manifest['error'], 0, 60)) . ')'
+                    : '';
+                error_log('[Bynli Connect] update: release manifest unavailable' . $why
                     . ', so this package is being installed WITHOUT checksum verification');
             } else {
                 error_log('[Bynli Connect] update: release manifest carries no'

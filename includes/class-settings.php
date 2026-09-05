@@ -342,9 +342,18 @@ class Bynli_Connect_Settings {
         $is_configured = ($key !== '');
         $is_connected  = $is_configured && !empty($last) && !empty($last['ok']);
 
+        // Derived ONCE. A manifest carrying both a version and an error would otherwise
+        // split the surfaces — this predicate was corrected on the Updates panel and left
+        // alone on the rail, the tile, the activity log and the refresh flash, which is
+        // the same by-convention agreement that produced the defect it was fixing. A
+        // readout that produced a version is not a failed readout, on every surface.
+        $readout_failed = !empty($upd['error']) && empty($upd['version']);
+
         return [
             'last'             => $last,
             'upd'              => $upd,
+            'readout_failed'   => $readout_failed,
+            'no_readout'       => empty($upd['version']) && !$readout_failed,
             'history'          => Bynli_Connect_Reporter::history(), // read once; used by overview + activity
             'key'              => $key,
             'slug'             => self::site_slug(),
@@ -421,7 +430,7 @@ class Bynli_Connect_Settings {
             // 'Could not be reached' was also wrong for two of the three failure stubs —
             // a bad manifest and an HTTP 4xx/5xx both mean Bynefit WAS reached and the
             // answer was unusable.
-            $refresh_failed = !empty($ctx['upd']['error']);
+            $refresh_failed = $ctx['readout_failed'];
             if ($refresh_failed): ?>
                 <div class="bcn-notice bcn-notice-err"><span class="dashicons dashicons-warning"></span>
                     <span>Refresh failed &mdash; could not read a version from Bynefit. The version below is unchanged.</span></div>
@@ -457,8 +466,8 @@ class Bynli_Connect_Settings {
         // 'Update queued' on the same screen. Whether the reader can ACT is a different
         // question from whether an update EXISTS, and only the second one belongs in a
         // status label.
-        $rail_no_readout = empty($ctx['upd']['version']) && empty($ctx['upd']['error']);
-        $rail_failed     = !empty($ctx['upd']['error']);
+        $rail_no_readout = $ctx['no_readout'];
+        $rail_failed     = $ctx['readout_failed'];
         $rail_unsettled  = $rail_no_readout || $rail_failed;
         $rail_queued     = !$ctx['update_actionable'] && !empty($ctx['update_available']);
         $up_to_date      = !$ctx['update_actionable'] && !$rail_queued && !$rail_unsettled;
@@ -493,7 +502,7 @@ class Bynli_Connect_Settings {
                     elseif ($rail_no_readout)  { echo 'Not checked'; }
                     elseif ($rail_queued)      { echo 'Update queued'; }
                     elseif ($up_to_date)       { echo 'Up to date'; }
-                    else                       { echo 'Update ready'; }
+                    else                       { echo 'Update available'; }
                 ?></span>
             </div>
         </nav>
@@ -604,14 +613,14 @@ class Bynli_Connect_Settings {
                 // The same three-state derivation the rail uses. Keying on the actionable
                 // flag alone rendered a GREEN tile when there was no readout at all, in the
                 // same viewport as a rail correctly reading "Not checked".
-                $tile_failed     = !empty($ctx['upd']['error']);
-                $tile_no_readout = empty($ctx['upd']['version']) && !$tile_failed;
+                $tile_failed     = $ctx['readout_failed'];
+                $tile_no_readout = $ctx['no_readout'];
                 if ($tile_failed) {
                     $tile_state = 'warn'; $tile_value = 'Check failed';
                 } elseif ($tile_no_readout) {
                     $tile_state = 'warn'; $tile_value = 'Not checked';
                 } elseif ($update_actionable) {
-                    $tile_state = 'acc';  $tile_value = 'Update ready';
+                    $tile_state = 'acc';  $tile_value = 'Update available';
                 } elseif (!empty($ctx['update_available'])) {
                     // Managed: real, queued, and not this admin's to apply. It is still
                     // not 'up to date', which is what the bare else used to print.
@@ -1026,10 +1035,9 @@ class Bynli_Connect_Settings {
         // to where it happens. No transient at all IS the not-checked state: on a fresh
         // install, or right after an upgrade clears the cache, the rail, the tile and
         // the panel all say so and only this surface stayed silent.
-        $update_event = null;
         if (empty($upd['has'])) {
             $update_event = ['state' => 'warn', 'ico' => 'dashicons-clock', 'title' => 'Not checked yet', 'detail' => 'no version readout'];
-        } elseif (!empty($upd['error'])) {
+        } elseif ($ctx['readout_failed']) {
             $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
         } elseif ($ctx['update_actionable']) {
             $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
@@ -1071,7 +1079,7 @@ class Bynli_Connect_Settings {
                     </div>
                 <?php else: ?>
                     <ul class="bcn-log">
-                        <?php if ($update_event !== null): ?>
+                        <?php // Always set: every branch of the chain above assigns one. ?>
                             <li class="bcn-log-item">
                                 <span class="bcn-log-ico <?php echo esc_attr($update_event['state']); ?>" aria-hidden="true"><span class="dashicons <?php echo esc_attr($update_event['ico']); ?>"></span></span>
                                 <div class="bcn-log-main">
@@ -1080,7 +1088,6 @@ class Bynli_Connect_Settings {
                                 </div>
                                 <span class="bcn-log-time">update check</span>
                             </li>
-                        <?php endif; ?>
                         <?php foreach ($history as $h):
                             $ok     = !empty($h['ok']);
                             $kind   = (string)($h['kind'] ?? 'report');
@@ -1128,14 +1135,10 @@ class Bynli_Connect_Settings {
                     // Derived once, above BOTH readers. It was assigned inside the managed
                     // branch and read above it, so a self-hosted install hit an undefined
                     // variable and reproduced the exact row this was meant to fix.
-                    // A manifest carrying BOTH an error and a version would split the
-                    // surfaces again — the Latest row tests failure first, the notice
-                    // below tests availability first. The success path stores the raw
-                    // decoded body, so that shape is the server's to produce, not ours
-                    // to assume away. A readout that produced a version is not a failed
-                    // readout, whatever else came with it.
-                    $readout_failed = !empty($upd['error']) && empty($upd['version']);
-                    $no_readout     = empty($upd['version']) && !$readout_failed;
+                    // Both derived in build_context(), so all five surfaces answer the
+                    // same way about the same manifest.
+                    $readout_failed = $ctx['readout_failed'];
+                    $no_readout     = $ctx['no_readout'];
                 ?>
                 <div class="bcn-up-row">
                     <span class="bcn-up-label">Latest</span>
@@ -1152,7 +1155,7 @@ class Bynli_Connect_Settings {
                                      routed through update_actionable for this reason and this
                                      fifth one, inside the panel itself, kept reading the raw
                                      version comparison. */ ?>
-                                <span class="bcn-chip ok">Update queued</span>
+                                <span class="bcn-chip acc">Update queued</span>
                             <?php elseif ($update_available): ?>
                                 <span class="bcn-chip acc">Update available</span>
                             <?php else: ?>
