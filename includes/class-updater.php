@@ -58,7 +58,10 @@ class Bynli_Connect_Updater {
         //
         // So when the fast path misses, ask the directory instead of the file: does any
         // entry in mu-plugins RESOLVE to us? Only reached when the answer would
-        // otherwise be false, so the ordinary install pays nothing for it.
+        // otherwise be false — which IS the ordinary install, so it is the ordinary
+        // install that pays for it. That is exactly why the result is memoised above;
+        // an earlier version of this line claimed the opposite and sat directly below
+        // the cache comment that contradicts it.
         $entries = @scandir($mu);
         if ($entries === false) {
             return $cached = false;
@@ -189,7 +192,7 @@ class Bynli_Connect_Updater {
         // This was hardcoded 'Bynli Connect', which is the title WordPress renders
         // at the top of the "View version details" lightbox, immediately above the
         // release notes. The 0.22.1 notes tell the reader to open "Settings →
-        // Bynefit Connect" under a heading that said Bynli Connect. Reading it from
+        // Bynefit Connect" under a heading that said the old name. Reading it from
         // the source that already carries the right value is what stops it drifting
         // again.
         $info->name          = self::plugin_display_name($remote);

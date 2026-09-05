@@ -5,8 +5,8 @@ if (!defined('ABSPATH')) {
 /**
  * Server render for wp:bynefit/form.
  *
- * Emits only the data-bynli="form" reference the Bynli loader hydrates — the
- * form itself renders from the Bynli form builder and submits to Bynli, so no
+ * Emits only the data-bynli="form" reference the Bynefit loader hydrates — the
+ * form itself renders from the Bynefit form builder and submits to Bynefit, so no
  * submission data is ever handled or stored by this WordPress site. Only a
  * strictly-validated form id is accepted; no markup comes from the payload.
  *

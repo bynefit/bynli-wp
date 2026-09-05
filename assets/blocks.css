@@ -348,7 +348,7 @@
     /* Padding alone lands at ~43px on a typical line-height, and a theme can set
        the spacing slug smaller still. No min-width here on purpose: the side padding
        is 1.5rem a side = 48px, so this button clears 44px for any label at all. */
-    min-height: var(--bynefit-touch-min);
+    min-height: var(--bynefit-touch-min, 44px);
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--50, 1.5rem);
     border-radius: var(--wp--custom--radius--md, 14px);
 }
@@ -492,8 +492,8 @@
     right: 1rem;
     bottom: 1rem;
     z-index: 3;
-    width: var(--bynefit-touch-min);
-    height: var(--bynefit-touch-min);
+    width: var(--bynefit-touch-min, 44px);
+    height: var(--bynefit-touch-min, 44px);
     padding: 0;
     border: 0;
     border-radius: 999px;
@@ -559,8 +559,8 @@
     color: var(--wp--preset--color--muted);
     /* BOTH axes: min-height alone left a short tab label ("Pro", "All", "1") under the
    minimum on width, because the side padding is only 1rem. */
-    min-height: var(--bynefit-touch-min);
-    min-width: var(--bynefit-touch-min);
+    min-height: var(--bynefit-touch-min, 44px);
+    min-width: var(--bynefit-touch-min, 44px);
     padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--40, 1rem);
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
@@ -590,18 +590,31 @@
     gap: var(--wp--preset--spacing--50, 1.5rem);
 }
 
-/* Floor so the centred nav arrows clear the top-right chip: with T = touch token,
-   chip bottom = 0.75rem + T and nav top = H/2 - T/2, giving H >= 3T + 1.5rem.
-   The rule adds a further 1rem of deliberate clearance (3T + 2.5rem = 172px rather
-   than the derived 156px) so the arrows are not flush against the chip. */
+/* Two rows: the track, then the dots. The nav is placed in the TRACK's cell (below)
+   rather than absolutely positioned over the whole component, so the arrows centre
+   on the track by construction — at any dot-row count, with no arithmetic to hold.
+
+   This replaces a min-height floor that could not work. The nav was centred on
+   track + dots, so a floor of 3T + 2.5rem cleared one dot row by 8px accidentally
+   and missed two rows entirely (nine dots wrap at 390px and need 252px), putting
+   the arrows up to 40px inside the dots band. A floor is not a cap: a wrapped row
+   grows the component and takes the midpoint down with it.
+
+   The min-height stays, reduced to what it is actually for — keeping a short
+   carousel tall enough that the arrows clear the top-right chip: chip bottom is
+   0.75rem + T and the arrows now centre on the track, so the track wants 2T. */
 .bynefit-carousel.is-enhanced {
-    min-height: calc(var(--bynefit-touch-min) * 3 + 2.5rem);
+    display: grid;
+    grid-template-rows: auto auto;
+    min-height: calc(var(--bynefit-touch-min, 44px) * 2 + 1.5rem);
 }
 
 .bynefit-carousel.is-enhanced .bynefit-carousel__track {
+    grid-row: 1;
+    grid-column: 1;
     display: block;
     /* Sized FROM the control token so the gutter cannot drift from what it holds. */
-    padding: 0 calc(var(--bynefit-touch-min) + 0.25rem);
+    padding: 0 calc(var(--bynefit-touch-min, 44px) + 0.25rem);
 }
 
 .bynefit-carousel__slide {
@@ -643,13 +656,14 @@
 }
 
 .bynefit-carousel__nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
+    grid-row: 1;
+    grid-column: 1;
+    align-self: center;
+    z-index: 1;
     appearance: none;
     border: 0;
-    width: var(--bynefit-touch-min);
-    height: var(--bynefit-touch-min);
+    width: var(--bynefit-touch-min, 44px);
+    height: var(--bynefit-touch-min, 44px);
     border-radius: 999px;
     background: var(--wp--preset--color--surface-2);
     color: var(--wp--preset--color--text);
@@ -659,10 +673,12 @@
     cursor: pointer;
 }
 
-.bynefit-carousel__prev { left: 0; }
-.bynefit-carousel__next { right: 0; }
+.bynefit-carousel__prev { justify-self: start; }
+.bynefit-carousel__next { justify-self: end; }
 
 .bynefit-carousel__dots {
+    grid-row: 2;
+    grid-column: 1;
     display: flex;
     gap: 0.5rem;
     justify-content: center;
@@ -706,8 +722,8 @@
     .bynefit-carousel__dot,
     .bynefit-carousel__dot[aria-current="true"] {
         flex: none;
-        width: var(--bynefit-touch-min);
-        height: var(--bynefit-touch-min);
+        width: var(--bynefit-touch-min, 44px);
+        height: var(--bynefit-touch-min, 44px);
         /* Both, not just background: the button became a hit box and the ::before
            below is the visible dot, so any paint left on the button is a 44px
            artifact. The ring arrived after this reset was written. */
@@ -755,8 +771,8 @@
     right: 0.25rem;
     appearance: none;
     border: 0;
-    width: var(--bynefit-touch-min);
-    height: var(--bynefit-touch-min);
+    width: var(--bynefit-touch-min, 44px);
+    height: var(--bynefit-touch-min, 44px);
     border-radius: 999px;
     background: var(--wp--preset--color--surface-2);
     color: var(--wp--preset--color--text);
