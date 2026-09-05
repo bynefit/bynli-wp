@@ -1077,13 +1077,25 @@ class Bynli_Connect_Settings {
                     $checkin_at    = !empty($last['at']) ? (int) $last['at'] : 0;
                     $checkin_stale = $checkin_at === 0 || (time() - $checkin_at) > DAY_IN_SECONDS;
                     ?>
-                    <?php $readout_failed = !empty($upd['error']); ?>
-                    <div class="bcn-notice <?php echo ($checkin_stale || $readout_failed) ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
+                    <?php
+                        $readout_failed = !empty($upd['error']);
+                        // No version AND no error is a THIRD state: we have not looked.
+                        // It fell through to the up-to-date branch, so the panel printed a
+                        // green verdict it had no basis for — and the Refresh button was
+                        // the quickest way to reach it.
+                        $no_readout = empty($upd['version']) && !$readout_failed;
+                        $unsettled  = $checkin_stale || $readout_failed || $no_readout;
+                    ?>
+                    <div class="bcn-notice <?php echo $unsettled ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
                         <span class="dashicons <?php
-                            echo ($checkin_stale || $readout_failed) ? 'dashicons-warning'
+                            echo $unsettled ? 'dashicons-warning'
                                 : ($update_available ? 'dashicons-update' : 'dashicons-yes-alt');
                         ?>" aria-hidden="true"></span>
-                        <?php if ($update_available): ?>
+                        <?php if ($no_readout): ?>
+                            <strong>Not checked yet.</strong> This panel has no version readout to
+                            compare against, so it cannot tell you whether an update is waiting.
+                            Bynefit still applies updates for you either way.
+                        <?php elseif ($update_available): ?>
                             <strong>Update queued.</strong> v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
                             arrives on this site&rsquo;s next check-in.
                         <?php elseif ($readout_failed): ?>
@@ -1093,8 +1105,7 @@ class Bynli_Connect_Settings {
                             you; this affects what this panel can tell you, not whether the site is
                             kept current.
                         <?php else: ?>
-                            <strong>Up to date.</strong> Bynefit keeps this site&rsquo;s plugin up to date
-                            for you &mdash; updates arrive automatically, with no action from you.
+                            <strong>Up to date.</strong> Bynefit applies updates for you.
                         <?php endif; ?>
                         <?php if ($checkin_at === 0): ?>
                             This site has never checked in, so that may not be happening &mdash; contact

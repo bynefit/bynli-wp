@@ -279,6 +279,10 @@ class Bynli_Connect_Publish_Contract {
                             self::GALLERY_COLS_MAX
                         );
                     }
+                    // Gated like spacer.size and section.grid.gap, which are the same
+                    // shape: emitted through resolve_token('space', …) and therefore
+                    // silently dropped rather than refused when the token is not real.
+                    self::check_token_ref($v, "$bpath.gap", $block['gap'] ?? null, 'space', $vocab, false);
                     $gitems = is_array($block['items'] ?? null) ? $block['items'] : [];
                     if (count($gitems) === 0) {
                         $v[] = self::vio('gallery_empty', "$bpath.items", 'Gallery has no images.');
@@ -523,9 +527,13 @@ class Bynli_Connect_Publish_Contract {
      * for, on the same block, decided one function away.
      *
      * col is bounded by the SECTION'S track count and colSpan by what is left of the
-     * row after col — the same arithmetic cell_vars() uses, and the type test accepts
-     * exactly what grid_int() accepts, so nothing this accepts is clamped afterwards
-     * and nothing it refuses would have rendered. It runs only for a
+     * row after col — the same arithmetic cell_vars() uses, so nothing this accepts is
+     * clamped or coerced afterwards.
+     *
+     * The converse is NOT claimed: a non-integer numeric such as 2.9, 4.0 or 1e2 does
+     * render, as a truncated or clamped integer, and is refused here on purpose —
+     * publishing it would lay out a page the author did not describe. Refusing it is
+     * the gate working, not the gate over-reaching. It runs only for a
      * block whose placement a renderer actually reads: a card child's place map is
      * never emitted, and refusing one would refuse the whole page for a value that has
      * no effect on it.

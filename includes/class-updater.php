@@ -377,6 +377,12 @@ class Bynli_Connect_Updater {
         check_admin_referer('bynli_connect_clear_update_cache');
         delete_transient(self::TRANSIENT_KEY);
         delete_site_transient('update_plugins');
+        // Re-read before redirecting. Clearing alone left the panel with no readout,
+        // and its no-readout branch printed a green verdict — so the button whose hint
+        // promises a fresh version was the fastest way to replace a real one with an
+        // unearned reassurance. A failed fetch is fine: it caches the error and the
+        // panel says so.
+        $this->get_remote_manifest();
         wp_safe_redirect(add_query_arg([
             'page'    => Bynli_Connect_Settings::MENU_SLUG,
             'cleared' => 'updates',
