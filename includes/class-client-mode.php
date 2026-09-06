@@ -352,7 +352,7 @@ class Bynli_Connect_Client_Mode {
             'read_bynefit_portal',   // only the Client role holds this — keeps subscribers/admins out
             self::PORTAL_SLUG,
             [$this, 'render_portal'],
-            'dashicons-admin-home',
+            plugins_url('assets/menu-icon.png', BYNLI_CONNECT_PLUGIN_FILE),
             2
         );
         add_action('admin_print_styles-' . $hook, [$this, 'enqueue']);
