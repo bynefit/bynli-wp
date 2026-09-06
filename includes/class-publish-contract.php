@@ -588,6 +588,18 @@ class Bynli_Connect_Publish_Contract {
             $v[] = self::vio('place_shape', $path, 'Placement must be an object keyed by breakpoint.');
             return;
         }
+        // Unknown BREAKPOINT, not just unknown property. cell_vars() reads sm and lg and
+        // nothing else, so "place": {"md": {...}} is copied into the attribute verbatim,
+        // read by nobody, and the block lands in the default position in silence. That is
+        // the same defect the property check below refuses, one nesting level up — and
+        // refusing the property while accepting the container it sits in would have made
+        // the gate look complete without being it.
+        foreach (array_keys($place) as $bp_key) {
+            if ($bp_key !== 'sm' && $bp_key !== 'lg') {
+                $v[] = self::vio('place_key', "$path." . (string) $bp_key,
+                    'Unknown breakpoint. Use sm or lg.');
+            }
+        }
         $bounds = [
             'col'      => [Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GRID_COLS_MAX],
             'colSpan'  => [Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GRID_COLS_MAX],

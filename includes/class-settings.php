@@ -1212,22 +1212,36 @@ class Bynli_Connect_Settings {
                             echo $unsettled ? 'dashicons-warning'
                                 : ($update_available ? 'dashicons-update' : 'dashicons-yes-alt');
                         ?>" aria-hidden="true"></span>
+                        <?php /* "Bynefit applies updates for you" is only reassuring while the
+                             check-in is actually happening — and the row below may be saying it is
+                             not. Splitting the colour was right; leaving the reassurance
+                             unconditional had this notice promise the exact thing the next one
+                             calls into question, most sharply on a fresh managed install where
+                             the site has never checked in at all. Exactly one of the two rows
+                             makes the claim. */
+                            $applies_for_you = $checkin_stale
+                                ? 'Updates arrive on this site&rsquo;s check-in &mdash; see below.'
+                                : 'Bynefit still applies updates for you either way.';
+                        ?>
                         <?php if ($no_readout): ?>
                             <strong>Not checked.</strong> This panel has no version readout to
                             compare against, so it cannot tell you whether an update is waiting.
-                            Bynefit still applies updates for you either way.
+                            <?php echo $applies_for_you; ?>
                         <?php elseif ($update_available): ?>
                             <strong>Update queued.</strong> v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
                             arrives on this site&rsquo;s next check-in.
                         <?php elseif ($readout_failed): ?>
                             <strong>Version check failed.</strong> The last attempt to read the release
                             manifest returned <code><?php echo esc_html($upd['error']); ?></code>, so the
-                            version shown above may be out of date. Bynefit still applies updates for
-                            you; this affects what this panel can tell you, not whether the site is
-                            kept current.
+                            version shown above may be out of date.
+                            <?php echo $applies_for_you; ?>
+                            This affects what this panel can tell you, not whether the site is kept
+                            current.
                         <?php else: ?>
-                            <strong>Up to date.</strong> Bynefit applies updates for you, so there is
-                            nothing to do here.
+                            <strong>Up to date.</strong>
+                            <?php echo $checkin_stale
+                                ? 'Updates arrive on this site&rsquo;s check-in &mdash; see below.'
+                                : 'Bynefit applies updates for you, so there is nothing to do here.'; ?>
                         <?php endif; ?>
                         <?php if (!$checkin_stale): ?>
                             Last check-in: <?php echo esc_html(human_time_diff($checkin_at)); ?> ago.

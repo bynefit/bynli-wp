@@ -306,7 +306,11 @@ class Bynli_Connect_Updater {
         // that is not ours: a wordpress.org theme cannot be our package, whatever the
         // manifest says. So decline it here, before any read, and let only a package
         // served from our own API host reach the manifest at all.
-        $api_host = self::url_host(Bynli_Connect_Settings::api_base());
+        // Resolved once, here, because BOTH the early decline and the foreign-package
+        // refusal below have to answer "is this host ours" the same way. Splitting them
+        // would let a release-host package be declined as not-ours here and then refused
+        // as foreign there for opposite reasons.
+        $api_host = self::release_host();
         if ($plugin === '' && ($api_host === '' || self::url_host($package) !== $api_host)) {
             return $reply;
         }
@@ -594,6 +598,39 @@ class Bynli_Connect_Updater {
      * silently reinstated the very defect the comparison was added to fix, on that install
      * only, with nothing failing and nothing logged.
      */
+    /**
+     * The one host an update package is allowed to come from.
+     *
+     * api_base()'s host by default, which is the anchor the checksum control needs: an
+     * anchor read off the manifest travels with the value it is checking, so the same DB
+     * write that repoints `package` can repoint the thing that vouches for it.
+     *
+     * BYNLI_CONNECT_RELEASE_HOST overrides it, and is deliberately a wp-config CONSTANT
+     * rather than an option. Pinning to api_base() alone is right against the threat model
+     * but hard-refuses a legitimate update whenever the two hosts genuinely differ — a
+     * staging or custom api_base whose manifest still names the production zip host, or
+     * release zips moved to a CDN. Both get bynli_connect_foreign_package on every update,
+     * with no self-service recovery and a message reading "downloaded from somewhere other
+     * than Bynefit". A constant gives ops that escape without re-opening the hole: a DB
+     * write cannot reach wp-config.php, so the anchor still does not travel with the value.
+     */
+    private static function release_host(): string
+    {
+        if (defined('BYNLI_CONNECT_RELEASE_HOST')) {
+            $override = strtolower(trim((string) BYNLI_CONNECT_RELEASE_HOST));
+            // Accept a bare host or a full URL, so a wp-config line that pastes the whole
+            // base still works rather than silently matching nothing.
+            $parsed = self::url_host($override);
+            if ($parsed !== '') {
+                return $parsed;
+            }
+            if ($override !== '' && strpos($override, '/') === false) {
+                return $override;
+            }
+        }
+        return self::url_host(Bynli_Connect_Settings::api_base());
+    }
+
     private static function url_host(string $url): string
     {
         $host = wp_parse_url($url, PHP_URL_HOST);
