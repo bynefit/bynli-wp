@@ -362,20 +362,28 @@ class Bynli_Connect_Client_Mode {
     /**
      * Constrain the menu icon to the 20x20 box add_menu_page() expects.
      *
-     * Core applies no width or height to `.wp-menu-image img`, so the 40px
-     * asset — 40px so it stays sharp on HiDPI — would otherwise render at its
-     * intrinsic size and bleed into the label and the row below it. This runs
-     * on admin_head rather than the Portal page's stylesheet because the menu
-     * renders on every admin screen, not just that one.
+     * Core applies no width or height to `.wp-menu-image img`, so the asset
+     * would otherwise render at its intrinsic size and bleed into the label
+     * and the row below it. This runs on admin_head rather than the Portal
+     * page's stylesheet because the menu renders on every admin screen, not
+     * just that one.
+     *
+     * Positioning is done by centring the container, not by hard-coding a top
+     * padding. A fixed padding is derived from the 34px desktop row, and this
+     * rule's specificity beats core's inside the <=782px touch menu too, where
+     * the row is much taller — so the icon would sit high against every
+     * neighbour on mobile admin. Core's mobile metrics have moved between
+     * releases, which is the reason not to encode them at all.
      */
     public function menu_icon_style(): void
     {
         if (!current_user_can('read_bynefit_portal')) {
             return;
         }
+        $sel = '#adminmenu .toplevel_page_' . sanitize_html_class(self::PORTAL_SLUG) . ' .wp-menu-image';
         echo '<style id="bynefit-connect-menu-icon">'
-           . '#adminmenu .toplevel_page_' . esc_attr(self::PORTAL_SLUG) . ' .wp-menu-image img{'
-           . 'width:20px;height:20px;padding:7px 0 0;}'
+           . $sel . '{display:flex;align-items:center;justify-content:center;}'
+           . $sel . ' img{width:20px;height:20px;padding:0;border-radius:4px;}'
            . '</style>' . "\n";
     }
 
