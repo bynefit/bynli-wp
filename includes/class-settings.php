@@ -1036,7 +1036,7 @@ class Bynli_Connect_Settings {
         // install, or right after an upgrade clears the cache, the rail, the tile and
         // the panel all say so and only this surface stayed silent.
         if ($ctx['no_readout']) {
-            $update_event = ['state' => 'warn', 'ico' => 'dashicons-clock', 'title' => 'Not checked yet', 'detail' => 'no version readout'];
+            $update_event = ['state' => 'warn', 'ico' => 'dashicons-clock', 'title' => 'Not checked', 'detail' => 'no version readout'];
         } elseif ($ctx['readout_failed']) {
             $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
         } elseif ($ctx['update_actionable']) {
@@ -1144,7 +1144,7 @@ class Bynli_Connect_Settings {
                     <span class="bcn-up-label">Latest</span>
                     <span class="bcn-up-value">
                         <?php if ($readout_failed): ?>
-                            <span class="bcn-chip warn">check failed</span>
+                            <span class="bcn-chip warn">Check failed</span>
                         <?php elseif (!empty($upd['version'])): ?>
                             <code>v<?php echo esc_html($upd['version']); ?></code>
                             <?php if ($update_available && $managed): ?>
@@ -1162,7 +1162,7 @@ class Bynli_Connect_Settings {
                                 <span class="bcn-chip ok">Up to date</span>
                             <?php endif; ?>
                         <?php else: ?>
-                            <span class="bcn-stat-value-em">not checked yet</span>
+                            <span class="bcn-chip warn">Not checked</span>
                         <?php endif; ?>
                     </span>
                 </div>
@@ -1190,7 +1190,15 @@ class Bynli_Connect_Settings {
                         // error is a THIRD state — we have not looked — and it used to fall
                         // through to the up-to-date branch and print a green verdict with
                         // no basis.
-                        $unsettled = $checkin_stale || $readout_failed || $no_readout;
+                        //
+                        // The check-in age is deliberately NOT part of this. It is a second,
+                        // independent fact with its own sentence below, and folding it in here
+                        // recoloured the VERSION verdict: a managed site with a queued update
+                        // and a check-in older than the daily window — which is every fresh
+                        // managed install, and any site whose cron slipped — rendered this
+                        // notice amber with a warning triangle while the rail, the tile, the
+                        // log and the chip beside it all rendered the same fact in accent.
+                        $unsettled = $readout_failed || $no_readout;
                     ?>
                     <?php
                         // Queued is not the settled state, so it must not borrow the
@@ -1205,7 +1213,7 @@ class Bynli_Connect_Settings {
                                 : ($update_available ? 'dashicons-update' : 'dashicons-yes-alt');
                         ?>" aria-hidden="true"></span>
                         <?php if ($no_readout): ?>
-                            <strong>Not checked yet.</strong> This panel has no version readout to
+                            <strong>Not checked.</strong> This panel has no version readout to
                             compare against, so it cannot tell you whether an update is waiting.
                             Bynefit still applies updates for you either way.
                         <?php elseif ($update_available): ?>
@@ -1221,16 +1229,29 @@ class Bynli_Connect_Settings {
                             <strong>Up to date.</strong> Bynefit applies updates for you, so there is
                             nothing to do here.
                         <?php endif; ?>
-                        <?php if ($checkin_at === 0): ?>
-                            This site has never checked in, so that may not be happening &mdash; contact
-                            Bynefit if it stays this way.
-                        <?php elseif ($checkin_stale): ?>
-                            Last check-in was <?php echo esc_html(human_time_diff($checkin_at)); ?> ago,
-                            longer than the daily window, so the next one may be overdue.
-                        <?php else: ?>
+                        <?php if (!$checkin_stale): ?>
                             Last check-in: <?php echo esc_html(human_time_diff($checkin_at)); ?> ago.
                         <?php endif; ?>
                     </div>
+                    <?php /* The check-in age is its OWN row. It used to be a trailing clause on
+                         the version notice and, through $unsettled, recoloured that notice's
+                         verdict — so a queued update read amber here and accent on the other
+                         four surfaces. A stale check-in is still worth a warning; it just is
+                         not a claim about the version. */ ?>
+                    <?php if ($checkin_stale): ?>
+                        <div class="bcn-notice bcn-notice-warn bcn-pad-top">
+                            <span class="dashicons dashicons-warning" aria-hidden="true"></span>
+                            <?php if ($checkin_at === 0): ?>
+                                <strong>This site has never checked in.</strong> Updates arrive on the
+                                check-in, so that may not be happening &mdash; contact Bynefit if it
+                                stays this way.
+                            <?php else: ?>
+                                <strong>Check-in overdue.</strong> Last check-in was
+                                <?php echo esc_html(human_time_diff($checkin_at)); ?> ago, longer than
+                                the daily window, so the next one may be late.
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                     <div class="bcn-actions bcn-pad-top">
                         <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
                             <input type="hidden" name="action" value="bynli_connect_clear_update_cache">

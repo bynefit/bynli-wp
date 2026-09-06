@@ -511,7 +511,6 @@
 .bcn-stat-value { font-family: var(--bcn-mono); font-size: 15px; font-weight: 600; color: var(--bcn-ink); font-variant-numeric: tabular-nums; }
 .bcn-stat-value[data-state="ok"]  { color: var(--bcn-ok); }
 .bcn-stat-value[data-state="err"] { color: var(--bcn-down); }
-.bcn-stat-value-em { color: var(--bcn-faint); font-weight: 400; }
 .bcn-update-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--bcn-rule-2); }
 .bcn-update-row:last-of-type { border-bottom: none; }
 .bcn-update-label { font-family: var(--bcn-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--bcn-faint); min-width: 90px; }

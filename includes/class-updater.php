@@ -229,6 +229,21 @@ class Bynli_Connect_Updater {
     }
 
     /**
+     * Inline breaking-change warning under the plugin row on the Plugins screen.
+     *
+     * Reads the same manifest field the lightbox tab does, so the two cannot drift.
+     */
+    public function update_message($plugin_data, $response): void
+    {
+        $notice = is_object($response) ? (string) ($response->upgrade_notice ?? '') : '';
+        if ($notice === '') {
+            return;
+        }
+        echo '<br><strong>' . esc_html__('Please read before updating:', 'bynli-connect') . '</strong> '
+            . esc_html($notice);
+    }
+
+    /**
      * Download our own package and refuse it if it does not match the manifest hash.
      *
      * WordPress checks nothing about an update archive: no signature, no checksum. It
@@ -262,21 +277,6 @@ class Bynli_Connect_Updater {
      * @param array         $hook_extra
      * @return bool|string|WP_Error
      */
-    /**
-     * Inline breaking-change warning under the plugin row on the Plugins screen.
-     *
-     * Reads the same manifest field the lightbox tab does, so the two cannot drift.
-     */
-    public function update_message($plugin_data, $response): void
-    {
-        $notice = is_object($response) ? (string) ($response->upgrade_notice ?? '') : '';
-        if ($notice === '') {
-            return;
-        }
-        echo '<br><strong>' . esc_html__('Please read before updating:', 'bynli-connect') . '</strong> '
-            . esc_html($notice);
-    }
-
     public function verify_download($reply, $package, $upgrader = null, $hook_extra = []) {
         // Someone earlier in the chain already handled it.
         if ($reply !== false) {
@@ -292,21 +292,28 @@ class Bynli_Connect_Updater {
             return $reply;
         }
 
-        // OWNERSHIP FIRST, and this ordering is load-bearing. WordPress sets
+        // THE FREE TEST FIRST, and this ordering is load-bearing. WordPress sets
         // $hook_extra['plugin'] for plugin updates only — a theme, core, or language-pack
         // download arrives with it empty, so the guard above does not fire and control
-        // reaches here. Fetching the manifest before deciding whether the package is even
-        // ours meant that, with the error cache bypassed, EVERY such download paid a fresh
-        // 8-second blocking request whenever the version endpoint was cold. A bulk update
-        // of core plus five themes would have added roughly 48 seconds to a run that is
-        // already near max_execution_time, and reset the error window each time so it
-        // never settled.
+        // reaches here. get_remote_manifest() is read-OR-FETCH, not a pure cache read, so
+        // establishing ownership through it made every such download pay a fresh
+        // 8-second blocking request whenever the transient was cold. And it is cold more
+        // often than it looks: clear_cache() deletes it after EVERY completed plugin
+        // upgrade, so a single wp_maybe_auto_update run — core, then plugins, then themes,
+        // then translations — hands the next theme download a guaranteed miss.
         //
-        // So: resolve the manifest through the cache to establish ownership, and only
-        // bypass once we know the package is ours — which is the only case the bypass was
-        // added for. Note this call is read-or-fetch, not a pure cache read: on a cold
-        // transient it does go to the network, once, bounded thereafter by the hour-long
-        // error entry.
+        // The host comparison costs nothing and answers the same question for everything
+        // that is not ours: a wordpress.org theme cannot be our package, whatever the
+        // manifest says. So decline it here, before any read, and let only a package
+        // served from our own API host reach the manifest at all.
+        $api_host = self::url_host(Bynli_Connect_Settings::api_base());
+        if ($plugin === '' && ($api_host === '' || self::url_host($package) !== $api_host)) {
+            return $reply;
+        }
+
+        // From here the package is either ours by basename or served from our own host,
+        // so the manifest read is on our own path and the bypass below is the only case
+        // it was added for.
         $cached_manifest = $this->get_remote_manifest();
         $our_url = is_array($cached_manifest) ? (string) ($cached_manifest['download_url'] ?? '') : '';
 
@@ -314,33 +321,25 @@ class Bynli_Connect_Updater {
         // repair of OUR OWN package arrives here with $plugin === '' and is identified
         // only by its URL. Resolving that URL from a cached ERROR gives '', the ownership
         // test below then declines the package, and it installs unverified with nothing
-        // written down — the only silent skip on this path, created by the reordering
-        // that stopped theme downloads paying for a fetch.
+        // written down — the only silent skip on this path.
         //
-        // The host check is what keeps the perf win: a wordpress.org theme still
-        // short-circuits without touching the network. Only a package served from our own
-        // API host, during a cached failure, is worth one fetch to identify.
+        // The host test above already established this package is served from our API
+        // host, so this fetch only ever happens on our own path.
         if ($plugin === '' && $our_url === ''
-            && is_array($cached_manifest) && !empty($cached_manifest['error'])
-            && self::url_host($package) !== ''
-            && self::url_host($package) === self::url_host(Bynli_Connect_Settings::api_base())) {
+            && is_array($cached_manifest) && !empty($cached_manifest['error'])) {
             $cached_manifest = $this->get_remote_manifest(true);
             $our_url = is_array($cached_manifest) ? (string) ($cached_manifest['download_url'] ?? '') : '';
         }
 
         if ($plugin === '' && ($our_url === '' || $package !== $our_url)) {
-            // Gated on the HOST, not on whether the manifest resolved. The previous
-            // version tested $our_url === '' as well, so the commoner case — manifest
-            // fine, package URL simply different, e.g. an admin reinstalling a pinned
-            // 0.22.1 zip while the manifest names 0.23.0 — was declined and installed
-            // unverified with nothing written down. That is the same shape as the defect
-            // this log was added for.
-            if (self::url_host($package) !== ''
-                && self::url_host($package) === self::url_host(Bynli_Connect_Settings::api_base())) {
-                error_log('[Bynli Connect] update: a package from our own host could not be'
-                    . ' identified against the release manifest, so it is being installed'
-                    . ' WITHOUT checksum verification');
-            }
+            // Unconditional, because the host test above is what got us here. The
+            // previous version gated this log on $our_url !== '' as well, so the commoner
+            // case — manifest fine, package URL simply different, e.g. an admin
+            // reinstalling a pinned 0.22.1 zip while the manifest names 0.23.0 — was
+            // declined and installed unverified with nothing written down.
+            error_log('[Bynli Connect] update: a package from our own host could not be'
+                . ' identified against the release manifest, so it is being installed'
+                . ' WITHOUT checksum verification');
             return $reply;
         }
 
@@ -368,15 +367,28 @@ class Bynli_Connect_Updater {
         //
         // So: same host, different URL is the stale-release race and is unverifiable.
         // Different host is a foreign package and is refused outright.
+        //
+        // The trusted host is api_base(), NOT the manifest's own download_url. Deriving it
+        // from the manifest let the transient nominate its own trust anchor: the same DB
+        // write the paragraph above names as the threat could move download_url AND
+        // download_sha256 together to a foreign host, and this function would then have
+        // hash-VERIFIED a foreign archive and reported it as a good update. api_base() is
+        // an option too, so this is defence in depth rather than a wall — but a control
+        // whose anchor moves with the value it is checking is not a control.
         $describes_this_package = is_array($remote)
             && (string) ($remote['download_url'] ?? '') === $package;
         $manifest_url  = is_array($remote) ? (string) ($remote['download_url'] ?? '') : '';
-        $trusted_host  = self::url_host($manifest_url) !== ''
-            ? self::url_host($manifest_url)
-            : self::url_host(Bynli_Connect_Settings::api_base());
+        $trusted_host  = $api_host;
 
-        if (!$describes_this_package && $trusted_host !== ''
-            && self::url_host($package) !== $trusted_host) {
+        //
+        // No !$describes_this_package escape either: a manifest that names a foreign
+        // download_url would otherwise SATISFY the describes test and be hash-verified,
+        // which is the same hole one step further back. Host first, hash second.
+        //
+        // Consequence worth stating: this couples releases to api_base()'s host. Moving
+        // release zips to a CDN needs a plugin change in the same release, not just a
+        // server one.
+        if ($trusted_host !== '' && self::url_host($package) !== $trusted_host) {
             error_log('[Bynli Connect] update REFUSED: the package URL is not on the host'
                 . ' our release manifest publishes from, so it was not installed');
             return new WP_Error(

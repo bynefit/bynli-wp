@@ -575,7 +575,17 @@ class Bynli_Connect_Publish_Contract {
      * 12-track bound, which is the defect this parameter exists to end.
      */
     private static function check_place(array &$v, string $path, $place, array $tracks): void {
+        if ($place === null) {
+            return;
+        }
+        // A present-but-wrong-shaped place map is DISCARDED by cell_vars(), not clamped —
+        // "place": 5 hands it nothing, and "place": {"sm": 6} skips the whole small
+        // breakpoint. Returning silently here made the gate LOOSER than the renderer on
+        // exactly the values the renderer throws away, which is the same failure as
+        // letting one through that render then rewrites: the author's layout does not
+        // survive the publish and nothing says so.
         if (!is_array($place)) {
+            $v[] = self::vio('place_shape', $path, 'Placement must be an object keyed by breakpoint.');
             return;
         }
         $bounds = [
@@ -586,8 +596,22 @@ class Bynli_Connect_Publish_Contract {
             'order'    => [Bynli_Connect_Blocks::ORDER_MIN,     Bynli_Connect_Blocks::ORDER_MAX],
         ];
         foreach (['sm', 'lg'] as $bp) {
-            if (!isset($place[$bp]) || !is_array($place[$bp])) {
+            if (!isset($place[$bp])) {
                 continue;
+            }
+            if (!is_array($place[$bp])) {
+                $v[] = self::vio('place_shape', "$path.$bp",
+                    'Placement for this breakpoint must be an object.');
+                continue;
+            }
+            // An unrecognised key is dropped by both sides in silence — the same shape as
+            // the gallery cols/columns defect, one function away. Refusing names the typo
+            // instead of publishing a layout the author did not get.
+            foreach (array_keys($place[$bp]) as $key) {
+                if (!isset($bounds[$key])) {
+                    $v[] = self::vio('place_key', "$path.$bp." . (string) $key,
+                        'Unknown placement property. Use col, colSpan, row, rowSpan or order.');
+                }
             }
             // The SECTION'S track count, not the maximum one. render bounds col by it
             // and colSpan by what is left of the row after col, so bounding either by
