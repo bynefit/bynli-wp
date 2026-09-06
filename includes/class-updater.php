@@ -329,7 +329,15 @@ class Bynli_Connect_Updater {
         //
         // The host test above already established this package is served from our API
         // host, so this fetch only ever happens on our own path.
-        if ($plugin === '' && $our_url === ''
+        //
+        // Guarded on $fetched_this_request for the same reason the $remote read below is:
+        // the bypass exists to defeat a STALE cached error, and an error this request just
+        // wrote is not stale. Without the guard, a repair install of our own zip
+        // (Plugin_Upgrader::install passes no plugin key) against a cold transient and a
+        // dead endpoint fetched at the ownership read, cached the failure, then discarded
+        // that very entry and fetched again — 16 seconds inside download_package, on the
+        // path this whole reordering was meant to make cheaper.
+        if ($plugin === '' && $our_url === '' && !$this->fetched_this_request
             && is_array($cached_manifest) && !empty($cached_manifest['error'])) {
             $cached_manifest = $this->get_remote_manifest(true);
             $our_url = is_array($cached_manifest) ? (string) ($cached_manifest['download_url'] ?? '') : '';
@@ -590,15 +598,6 @@ class Bynli_Connect_Updater {
     }
 
     /**
-     * Lowercased host of a URL, or '' when it has none.
-     *
-     * Host comparison was written inline and case-SENSITIVE. sanitize_api_base() rebuilds
-     * the URL from the host as typed and never lowercases it, so an api_base saved as
-     * https://Staging.Bynefit.com compared unequal to its own package URLs — which
-     * silently reinstated the very defect the comparison was added to fix, on that install
-     * only, with nothing failing and nothing logged.
-     */
-    /**
      * The one host an update package is allowed to come from.
      *
      * api_base()'s host by default, which is the anchor the checksum control needs: an
@@ -631,6 +630,15 @@ class Bynli_Connect_Updater {
         return self::url_host(Bynli_Connect_Settings::api_base());
     }
 
+    /**
+     * Lowercased host of a URL, or '' when it has none.
+     *
+     * Host comparison was written inline and case-SENSITIVE. sanitize_api_base() rebuilds
+     * the URL from the host as typed and never lowercases it, so an api_base saved as
+     * https://Staging.Bynefit.com compared unequal to its own package URLs — which
+     * silently reinstated the very defect the comparison was added to fix, on that install
+     * only, with nothing failing and nothing logged.
+     */
     private static function url_host(string $url): string
     {
         $host = wp_parse_url($url, PHP_URL_HOST);

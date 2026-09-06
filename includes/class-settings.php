@@ -1235,8 +1235,13 @@ class Bynli_Connect_Settings {
                             manifest returned <code><?php echo esc_html($upd['error']); ?></code>, so the
                             version shown above may be out of date.
                             <?php echo $applies_for_you; ?>
-                            This affects what this panel can tell you, not whether the site is kept
-                            current.
+                            <?php /* This branch carries a SECOND reassurance, and conditioning only
+                                 the first left "not whether the site is kept current" asserting the
+                                 site is kept current — directly above a row saying check-ins may
+                                 have stopped. Same contradiction, one sentence further along. */
+                                echo $checkin_stale
+                                    ? 'This affects what this panel can tell you, not how the site is updated.'
+                                    : 'This affects what this panel can tell you, not whether the site is kept current.'; ?>
                         <?php else: ?>
                             <strong>Up to date.</strong>
                             <?php echo $checkin_stale
