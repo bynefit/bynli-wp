@@ -73,6 +73,93 @@ class Bynli_Connect_Blocks {
         return 'var(' . $map[$group] . $slug . $tail . ')';
     }
 
+    /**
+     * Grid bounds, declared once. The publish gate reads these rather than restating
+     * them: the gate exists to refuse precisely the values this layer would otherwise
+     * clamp in silence, so two numbers that agree by convention is the one arrangement
+     * that cannot hold — changing a literal here is a one-token edit that nothing
+     * detects, and its effect is to re-admit the clamp the gate was added to prevent.
+     */
+    const GRID_COLS_MIN    = 1;
+    const GRID_COLS_MAX    = 12;
+    const GALLERY_COLS_MAX = 6;
+    const PLACE_MIN        = 1;
+    const PLACE_MAX        = 999;
+    const ORDER_MIN        = 0;
+    const ORDER_MAX        = 999;
+
+    /**
+     * The track count a section renders on when it declares none. Named for the same
+     * reason as the bounds above: the publish gate has to resolve a section's tracks
+     * exactly as the renderer does, and a default that drifts between them is a false
+     * rejection in one direction and a silent clamp in the other.
+     */
+    const GRID_COLS_SM_DEFAULT = 4;
+    const GRID_COLS_LG_DEFAULT = 12;
+    const GALLERY_COLS_SM_DEFAULT = 2;
+    const GALLERY_COLS_LG_DEFAULT = 3;
+
+    /** The alignments the emitter coerces to, and the embed ratios it keeps. */
+    const BLOCK_ALIGNS  = ['start', 'center'];
+    const EMBED_RATIOS  = ['16-9', '4-3', '1-1', '21-9'];
+
+    /** The bounds icon_svg() clamps to. Named for the same reason as the grid bounds. */
+    const ICON_SIZE_MIN = 8;
+    const ICON_SIZE_MAX = 96;
+
+    /**
+     * Does this value reach grid_int() as the integer it is written as?
+     *
+     * ONE rule, and it is derived from grid_int() rather than restated alongside it:
+     * that function accepts anything is_numeric() accepts and then casts with (int).
+     * So the question this predicate answers is exactly "does the (int) cast lose
+     * anything" — and the way to answer it is to perform the cast and compare, not to
+     * enumerate the shapes that survive it.
+     *
+     * Enumerating is what went wrong twice. A hand-written character class disagreed
+     * with the renderer by PHP version, because trailing whitespace is numeric from 8.0
+     * and not on 7.4, which this plugin still declares as its floor. Then a type-by-type
+     * test accepted the float 24.0 and refused the string '24.0', though grid_int()
+     * reproduces both as 24 exactly. Deferring to is_numeric() and comparing the cast
+     * cannot disagree with the renderer on any version or any type.
+     *
+     * What is still refused is what the renderer would genuinely REWRITE: 24.5 and '2.9'
+     * truncate, so publishing them lays out a page the author did not describe. That is
+     * the whole purpose of the gate, and the only thing it should refuse.
+     */
+    public static function isIntLike($value): bool
+    {
+        if (is_int($value)) { return true; }
+        if (!is_numeric($value)) { return false; }
+        $f = (float) $value;
+        // NAN and INF are numeric and survive nothing. The magnitude bound is 2**53, not
+        // PHP_INT_MAX: a double cannot represent consecutive integers above 2**53, so the
+        // cast-and-compare below stops being able to tell 'reproduced exactly' from
+        // 'rounded to something nearby' and starts answering yes to both.
+        //
+        // Bounding on PHP_INT_MAX read as if it did this and did not: (float) PHP_INT_MAX
+        // rounds UP to 2**63, so '9223372036854775808' passed the test, saturated on the
+        // (int) cast, and compared equal — accepted, by the guard written to refuse it.
+        //
+        // Two consequences, both deliberate, both stated because neither is obvious.
+        //
+        // First: between 2**53 and PHP_INT_MAX there are integers the (int) cast does
+        // reproduce exactly and this refuses anyway, because it cannot prove it. That is
+        // the predicate being stricter than grid_int(), and refusing what we cannot
+        // verify is the right way round for a gate to be wrong.
+        //
+        // Second: the bound applies to STRINGS AND FLOATS ONLY. A real PHP int short-
+        // circuits above, because (int) on an int is the identity and there is nothing
+        // to lose. So PHP_INT_MAX as an int is accepted and '9223372036854775807' as a
+        // string is refused — the same number, answered differently depending on whether
+        // json_decode produced an int or a string. Neither can reach a layout value,
+        // since every caller bounds to 999 or less.
+        if (!is_finite($f) || abs($f) >= 9007199254740992.0) {
+            return false;
+        }
+        return $f === (float) (int) $value;
+    }
+
     /** Clamp a numeric grid coordinate to a sane bounded integer. */
     public static function grid_int($value, int $min, int $max, int $default): int {
         if (!is_numeric($value)) {
@@ -94,27 +181,38 @@ class Bynli_Connect_Blocks {
      * sm in CSS. Kept on the class so render.php can't redeclare it when a page
      * holds more than one section.
      *
-     * $cols carries the section's real per-breakpoint track counts (#51): col
-     * and colSpan are clamped against them so a span wider than the section
-     * can't overflow into implicit tracks. Defaults keep legacy callers on the
-     * old 1..12 behavior.
+     * $cols carries the section's real per-breakpoint track counts: col and colSpan
+     * are clamped against them so a span wider than the section cannot overflow into
+     * implicit tracks. The section renderer is the only caller and always passes real
+     * counts, so the defaults are a guard rather than a compatibility shim — they are
+     * the same per-breakpoint defaults the renderer and the publish gate resolve to,
+     * because a fourth answer to "how many tracks" is the drift the constants exist
+     * to end.
      */
-    public static function cell_vars(array $place, array $cols = ['sm' => 12, 'lg' => 12]): string {
+    public static function cell_vars(
+        array $place,
+        array $cols = [
+            'sm' => self::GRID_COLS_SM_DEFAULT,
+            'lg' => self::GRID_COLS_LG_DEFAULT,
+        ]
+    ): string {
         $out = [];
         foreach (['sm', 'lg'] as $bp) {
             $p = isset($place[$bp]) && is_array($place[$bp]) ? $place[$bp] : null;
             if ($p === null) {
                 continue;
             }
-            $track_max = self::grid_int($cols[$bp] ?? null, 1, 12, 12);
-            $col       = self::grid_int($p['col'] ?? null, 1, $track_max, 1);
+            $track_default = $bp === 'sm' ? self::GRID_COLS_SM_DEFAULT : self::GRID_COLS_LG_DEFAULT;
+            $track_max = self::grid_int($cols[$bp] ?? null, self::GRID_COLS_MIN, self::GRID_COLS_MAX, $track_default);
+            $col       = self::grid_int($p['col'] ?? null, self::GRID_COLS_MIN, $track_max, 1);
             $span_max  = max(1, $track_max - $col + 1);
             $out["--bynefit-col-$bp"]     = (string) $col;
-            $out["--bynefit-colspan-$bp"] = (string) self::grid_int($p['colSpan'] ?? null, 1, $span_max, min(($bp === 'sm' ? 4 : 12), $span_max));
-            $out["--bynefit-row-$bp"]     = (string) self::grid_int($p['row'] ?? null, 1, 999, 1);
-            $out["--bynefit-rowspan-$bp"] = (string) self::grid_int($p['rowSpan'] ?? null, 1, 999, 1);
+            $colspan_default = $bp === 'sm' ? self::GRID_COLS_SM_DEFAULT : self::GRID_COLS_LG_DEFAULT;
+            $out["--bynefit-colspan-$bp"] = (string) self::grid_int($p['colSpan'] ?? null, self::GRID_COLS_MIN, $span_max, min($colspan_default, $span_max));
+            $out["--bynefit-row-$bp"]     = (string) self::grid_int($p['row'] ?? null, self::PLACE_MIN, self::PLACE_MAX, 1);
+            $out["--bynefit-rowspan-$bp"] = (string) self::grid_int($p['rowSpan'] ?? null, self::PLACE_MIN, self::PLACE_MAX, 1);
             if (isset($p['order']) && is_numeric($p['order'])) {
-                $out["--bynefit-order-$bp"] = (string) self::grid_int($p['order'], 0, 999, 0);
+                $out["--bynefit-order-$bp"] = (string) self::grid_int($p['order'], self::ORDER_MIN, self::ORDER_MAX, 0);
             }
         }
         $s = '';
@@ -167,7 +265,7 @@ class Bynli_Connect_Blocks {
         if (!isset($paths[$name])) {
             return null;
         }
-        $size = max(8, min(96, $size));
+        $size = max(self::ICON_SIZE_MIN, min(self::ICON_SIZE_MAX, $size));
         $a11y = $label !== ''
             ? 'role="img" aria-label="' . esc_attr($label) . '"'
             : 'aria-hidden="true" focusable="false"';

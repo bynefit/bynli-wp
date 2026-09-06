@@ -17,19 +17,6 @@ if (!defined('ABSPATH')) { exit; }
 class Bynli_Connect_Api {
 
     /**
-     * GET a JSON endpoint at $path (e.g. "/api/site-host/tickets"). Query
-     * arguments are appended to the URL but NOT part of the signed payload
-     * — the server's verifier signs body only, never URL.
-     *
-     * @return array {
-     *   ok:       bool,
-     *   status?:  int,
-     *   data?:    array,     // decoded JSON when ok
-     *   error?:   string,    // short machine code when !ok
-     *   message?: string,    // human-readable detail
-     * }
-     */
-    /**
      * POST a JSON body to $path. Same signed-header pattern as get(),
      * but the HMAC is over the actual JSON body bytes (not empty).
      * Mirrors the bynli-side site_host_ticket_reply / _resolve handlers.
@@ -165,6 +152,19 @@ class Bynli_Connect_Api {
         ];
     }
 
+    /**
+     * GET a JSON endpoint at $path (e.g. "/api/site-host/tickets"). Query
+     * arguments are appended to the URL but NOT part of the signed payload
+     * — the server's verifier signs body only, never URL.
+     *
+     * @return array {
+     *   ok:       bool,
+     *   status?:  int,
+     *   data?:    array,     // decoded JSON when ok
+     *   error?:   string,    // short machine code when !ok
+     *   message?: string,    // human-readable detail
+     * }
+     */
     public static function get(string $path, array $query = []): array {
         $key = Bynli_Connect_Settings::key();
         if (!$key) {

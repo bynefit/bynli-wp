@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name:       Bynefit Connect
- * Plugin URI:        https://bynefit.com/guides/wordpress
+ * Plugin URI:        https://bynefit.com/help/wordpress
  * Description:       Connect a WordPress site to Bynefit — reports daily usage and exposes Bynefit shortcodes for forms, modals, toasts, confirms, and the floating widget.
- * Version:           0.22.1
+ * Version:           0.23.0
  * Requires at least: 6.1
  * Requires PHP:      7.4
  * Author:            Bynefit
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('BYNLI_CONNECT_VERSION', '0.22.1');
+define('BYNLI_CONNECT_VERSION', '0.23.0');
 define('BYNLI_CONNECT_PLUGIN_FILE', __FILE__);
 define('BYNLI_CONNECT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('BYNLI_CONNECT_DEFAULT_API_BASE', 'https://bynefit.com');
@@ -27,6 +27,11 @@ require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-settings.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-signer.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-api.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-emitter.php';
+// class-blocks.php FIRST: the publish contract's bounds are constant expressions
+// referencing Bynli_Connect_Blocks. PHP resolves those lazily, so nothing breaks
+// today — but it becomes a fatal the moment anything loaded in between reads one,
+// and load order is not where that should be discovered.
+require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-blocks.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-publish-contract.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-control-plane.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-reporter.php';
@@ -36,7 +41,6 @@ require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-client-mode.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-updater.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-tickets.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-woo.php';
-require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-blocks.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-plugin.php';
 
 add_action('plugins_loaded', ['Bynli_Connect_Plugin', 'instance']);

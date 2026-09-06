@@ -110,6 +110,12 @@ class Bynli_Connect_Updater {
         add_filter('upgrader_source_selection',             [$this, 'rename_source'], 10, 4);
         add_action('upgrader_process_complete',             [$this, 'clear_cache'], 10, 2);
         add_action('admin_post_bynli_connect_clear_update_cache', [$this, 'handle_clear_cache']);
+        // wp_plugin_update_row() does NOT read $entry->upgrade_notice — that is the theme
+        // path. For a plugin it fires this action after the update message, which is the
+        // documented way to put text inline under the row. 0.23.0 starts refusing designs
+        // that publish today, so the warning has to reach an admin who bulk-updates and
+        // never opens the lightbox.
+        add_action('in_plugin_update_message-' . $this->plugin_basename, [$this, 'update_message'], 10, 2);
     }
 
     public function inject_update($transient) {
@@ -199,8 +205,8 @@ class Bynli_Connect_Updater {
         $info->slug          = self::PLUGIN_SLUG;
         $info->version       = (string)$remote['version'];
         $info->author        = '<a href="https://bynefit.org">Bynefit</a>';
-        $info->homepage      = 'https://bynefit.com/guides/wordpress';
-        $info->requires      = $remote['requires']      ?? '6.0';
+        $info->homepage      = 'https://bynefit.com/help/wordpress';
+        $info->requires      = $remote['requires']      ?? '6.1';
         $info->tested        = $remote['tested']        ?? '6.6';
         $info->requires_php  = $remote['requires_php']  ?? '7.4';
         $info->last_updated  = $remote['last_updated']  ?? '';
@@ -210,10 +216,31 @@ class Bynli_Connect_Updater {
             'description' => $remote['description'] ?? 'Connect a WordPress site to Bynefit — daily usage reporting and Bynefit shortcodes.',
             'changelog'   => $remote['changelog']   ?? '',
         ];
+        // The lightbox renders any sections key as a tab, and this is the .org-shaped
+        // place a plugin's upgrade notice lives. Only added when there is one, so an
+        // ordinary release does not grow an empty tab.
+        if (!empty($remote['upgrade_notice'])) {
+            $info->sections['upgrade_notice'] = (string) $remote['upgrade_notice'];
+        }
         if (!empty($remote['banners']) && is_array($remote['banners'])) {
             $info->banners = $remote['banners'];
         }
         return $info;
+    }
+
+    /**
+     * Inline breaking-change warning under the plugin row on the Plugins screen.
+     *
+     * Reads the same manifest field the lightbox tab does, so the two cannot drift.
+     */
+    public function update_message($plugin_data, $response): void
+    {
+        $notice = is_object($response) ? (string) ($response->upgrade_notice ?? '') : '';
+        if ($notice === '') {
+            return;
+        }
+        echo '<br><strong>' . esc_html__('Please read before updating:', 'bynli-connect') . '</strong> '
+            . esc_html($notice);
     }
 
     /**
@@ -231,6 +258,9 @@ class Bynli_Connect_Updater {
      * Contract, deliberately asymmetric:
      *   hash present and MATCHES   -> proceed with the file we already downloaded
      *   hash present and MISMATCHES -> hard stop, WP_Error, nothing is unpacked
+     *   package on a host our manifest does not publish from -> hard stop, WP_Error
+     *   package on OUR host that the manifest does not describe (a release landed between
+     *     WordPress's transient and ours) -> unverifiable, logged, allowed
      *   hash ABSENT or empty        -> proceed, unverified
      *
      * The absent case is permissive on purpose. Older manifests do not carry the field,
@@ -249,7 +279,28 @@ class Bynli_Connect_Updater {
      */
     public function verify_download($reply, $package, $upgrader = null, $hook_extra = []) {
         // Someone earlier in the chain already handled it.
+        //
+        // upgrader_pre_download is a FILTER CHAIN, so this is not merely "not our
+        // business": another plugin — a mirror, a WAF, a local-packages plugin, or a
+        // compromised one — can return a package for OUR basename and short-circuit this
+        // control entirely. WordPress then unpacks bytes we never hashed over our own
+        // plugin directory. We cannot refuse that without breaking every legitimate
+        // mirror, but the release note promises a skip is always recorded, and this was
+        // the last path that made that sentence false.
+        //
+        // is_wp_error first: a WP_Error reply is a REFUSAL, not a substitution.
+        // download_package() hands any non-false reply back to run(), which returns a
+        // WP_Error straight out and installs nothing — so a freeze-updates or WAF plugin
+        // blocking our basename would otherwise write "proceeding WITHOUT checksum
+        // verification" for an install that never happened, in the log the release note
+        // sends auditors to, worded identically to the real thing.
         if ($reply !== false) {
+            if (!is_wp_error($reply) && is_array($hook_extra)
+                && ($hook_extra['plugin'] ?? '') === $this->plugin_basename) {
+                error_log('[Bynli Connect] update: another filter supplied this package before'
+                    . ' we could verify it, so this install is proceeding WITHOUT checksum'
+                    . ' verification');
+            }
             return $reply;
         }
         $plugin = is_array($hook_extra) && isset($hook_extra['plugin']) ? (string) $hook_extra['plugin'] : '';
@@ -257,23 +308,187 @@ class Bynli_Connect_Updater {
             return $reply;
         }
         if (!is_string($package) || $package === '') {
+            error_log('[Bynli Connect] update: no package URL to verify, so this install is'
+                . ' proceeding WITHOUT checksum verification');
             return $reply;
         }
 
-        $remote = $this->get_remote_manifest();
-        $expected = is_array($remote) && isset($remote['download_sha256'])
+        // THE FREE TEST FIRST, and this ordering is load-bearing. WordPress sets
+        // $hook_extra['plugin'] for plugin updates only — a theme, core, or language-pack
+        // download arrives with it empty, so the guard above does not fire and control
+        // reaches here. get_remote_manifest() is read-OR-FETCH, not a pure cache read, so
+        // establishing ownership through it made every such download pay a fresh
+        // 8-second blocking request whenever the transient was cold. And it is cold more
+        // often than it looks: clear_cache() deletes it after EVERY completed plugin
+        // upgrade, so a single wp_maybe_auto_update run — core, then plugins, then themes,
+        // then translations — hands the next theme download a guaranteed miss.
+        //
+        // The host comparison costs nothing and answers the same question for everything
+        // that is not ours: a wordpress.org theme cannot be our package, whatever the
+        // manifest says. So decline it here, before any read, and let only a package
+        // served from our own API host reach the manifest at all.
+        // Resolved once, here, because BOTH the early decline and the foreign-package
+        // refusal below have to answer "is this host ours" the same way. Splitting them
+        // would let a release-host package be declined as not-ours here and then refused
+        // as foreign there for opposite reasons.
+        $api_host = self::release_host();
+        if ($plugin === '' && ($api_host === '' || self::url_host($package) !== $api_host)) {
+            return $reply;
+        }
+
+        // From here the package is either ours by basename or served from our own host,
+        // so the manifest read is on our own path and the bypass below is the only case
+        // it was added for.
+        $cached_manifest = $this->get_remote_manifest();
+        $our_url = is_array($cached_manifest) ? (string) ($cached_manifest['download_url'] ?? '') : '';
+
+        // Plugin_Upgrader::install() passes no 'plugin' key, so a fresh install or a
+        // repair of OUR OWN package arrives here with $plugin === '' and is identified
+        // only by its URL. Resolving that URL from a cached ERROR gives '', the ownership
+        // test below then declines the package, and it installs unverified with nothing
+        // written down — the only silent skip on this path.
+        //
+        // The host test above already established this package is served from our API
+        // host, so this fetch only ever happens on our own path.
+        //
+        // Guarded on $fetched_this_request for the same reason the $remote read below is:
+        // the bypass exists to defeat a STALE cached error, and an error this request just
+        // wrote is not stale. Without the guard, a repair install of our own zip
+        // (Plugin_Upgrader::install passes no plugin key) against a cold transient and a
+        // dead endpoint fetched at the ownership read, cached the failure, then discarded
+        // that very entry and fetched again — 16 seconds inside download_package, on the
+        // path this whole reordering was meant to make cheaper.
+        if ($plugin === '' && $our_url === '' && !$this->fetched_this_request
+            && is_array($cached_manifest) && !empty($cached_manifest['error'])) {
+            $cached_manifest = $this->get_remote_manifest(true);
+            $our_url = is_array($cached_manifest) ? (string) ($cached_manifest['download_url'] ?? '') : '';
+        }
+
+        if ($plugin === '' && ($our_url === '' || $package !== $our_url)) {
+            // Unconditional, because the host test above is what got us here. The
+            // previous version gated this log on $our_url !== '' as well, so the commoner
+            // case — manifest fine, package URL simply different, e.g. an admin
+            // reinstalling a pinned 0.22.1 zip while the manifest names 0.23.0 — was
+            // declined and installed unverified with nothing written down.
+            error_log('[Bynli Connect] update: a package from our own host could not be'
+                . ' identified against the release manifest, so it is being installed'
+                . ' WITHOUT checksum verification');
+            return $reply;
+        }
+
+        // Only bypass a cached error this request did NOT write. Bypassing one we just
+        // wrote means two 8-second fetches inside download_package for a single answer —
+        // which is worse than what the bypass was added to fix.
+        $remote = $this->fetched_this_request
+            ? $cached_manifest
+            : $this->get_remote_manifest(true);
+        // The hash and the package come from two DIFFERENT transients with independent
+        // lifetimes: $package was built from WordPress's update_plugins entry at inject
+        // time, $expected from whatever our manifest says now. A release landing between
+        // those two refreshes gives the hash of vN+1 against the bytes of vN — and the
+        // failure the admin sees is 'the download was corrupted or tampered with', on a
+        // perfectly good package, with no self-service recovery.
+        //
+        // That tolerance is scoped to OUR OWN HOST, and the scoping is the whole control.
+        // An earlier version of this branch skipped verification whenever the URLs merely
+        // differed, which meant anything able to filter site_transient_update_plugins —
+        // another plugin, a compromised one, a DB write — could point $package at its own
+        // ZIP, leave ->plugin correct, and have this function DOWNGRADE a checksum
+        // mismatch into a logged skip. WordPress would then unpack that archive over the
+        // live plugin directory. On main the same input was a hard stop, and this function
+        // exists precisely because WordPress checks nothing about an update archive.
+        //
+        // So: same host, different URL is the stale-release race and is unverifiable.
+        // Different host is a foreign package and is refused outright.
+        //
+        // The trusted host is api_base(), NOT the manifest's own download_url. Deriving it
+        // from the manifest let the transient nominate its own trust anchor: the same DB
+        // write the paragraph above names as the threat could move download_url AND
+        // download_sha256 together to a foreign host, and this function would then have
+        // hash-VERIFIED a foreign archive and reported it as a good update. api_base() is
+        // an option too, so this is defence in depth rather than a wall — but a control
+        // whose anchor moves with the value it is checking is not a control.
+        $describes_this_package = is_array($remote)
+            && (string) ($remote['download_url'] ?? '') === $package;
+        $manifest_url  = is_array($remote) ? (string) ($remote['download_url'] ?? '') : '';
+        $trusted_host  = $api_host;
+
+        //
+        // No !$describes_this_package escape either: a manifest that names a foreign
+        // download_url would otherwise SATISFY the describes test and be hash-verified,
+        // which is the same hole one step further back. Host first, hash second.
+        //
+        // Consequence worth stating: this couples releases to api_base()'s host. Moving
+        // release zips to a CDN needs a plugin change in the same release, not just a
+        // server one.
+        if ($trusted_host !== '' && self::url_host($package) !== $trusted_host) {
+            error_log('[Bynli Connect] update REFUSED: the package URL is not on the host'
+                . ' our release manifest publishes from, so it was not installed');
+            return new WP_Error(
+                'bynli_connect_foreign_package',
+                __('This update was going to be downloaded from somewhere other than Bynefit, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
+            );
+        }
+
+        $expected = $describes_this_package && isset($remote['download_sha256'])
             ? strtolower(trim((string) $remote['download_sha256']))
             : '';
-
-        // When $hook_extra carries no plugin key we cannot be certain this package is
-        // ours, so only claim it if the URL is the one our own manifest names.
-        $our_url = is_array($remote) ? (string) ($remote['download_url'] ?? '') : '';
-        if ($plugin === '' && ($our_url === '' || $package !== $our_url)) {
-            return $reply;
+        if (is_array($remote) && !$describes_this_package && $manifest_url !== '') {
+            error_log('[Bynli Connect] update: the release manifest describes a different'
+                . ' package on the same host, so this package is being installed WITHOUT'
+                . ' checksum verification');
         }
 
-        // Nothing to check against — proceed exactly as before.
-        if ($expected === '' || !preg_match('/^[a-f0-9]{64}$/', $expected)) {
+        // Nothing to check against — proceed exactly as before. The permissive default
+        // is deliberate: a manifest published before this field existed must still be
+        // installable. But the two ways of getting here are not the same event, and
+        // only one of them is expected, so they are not recorded the same way.
+        if ($expected === '') {
+            // Two ways to get here and they are not the same event, but BOTH of them
+            // install a package without verifying it, so both are recorded. The release
+            // note promises a skip is always recorded, and for one release that was
+            // false: a manifest that simply predates the field skipped SILENTLY, which is
+            // the commoner of the two paths and the one an auditor looks for first.
+            //
+            // The unavailable test is for a USABLE manifest, not merely a present one.
+            // Caching a failed check made this return an array — ['version' => '',
+            // 'error' => …] — so an is_array() test stopped firing and the skip went
+            // unrecorded for the hour that failure is cached. Two fixes on this branch,
+            // each right alone, cancelling each other on the log whose only job is to
+            // prove the control did not run.
+            if (!is_array($remote) || empty($remote['version'])) {
+                // The reason comes from the CACHED entry, not from $remote. With the error
+                // cache bypassed, $remote is null on every failure path, so reading the
+                // detail off it printed nothing — a log promising a reason and never
+                // carrying one.
+                $why = is_array($cached_manifest) && !empty($cached_manifest['error'])
+                    ? ' (' . preg_replace('/[^\x20-\x7E]/', '', substr((string) $cached_manifest['error'], 0, 60)) . ')'
+                    : '';
+                error_log('[Bynli Connect] update: release manifest unavailable' . $why
+                    . ', so this package is being installed WITHOUT checksum verification');
+            } else {
+                error_log('[Bynli Connect] update: release manifest carries no'
+                    . ' download_sha256 for v'
+                    . preg_replace('/[^\x20-\x7E]/', '', substr((string) $remote['version'], 0, 32))
+                    . ', so this package is being installed WITHOUT checksum verification');
+            }
+            return $reply;
+        }
+        if (!preg_match('/^[a-f0-9]{64}$/', $expected)) {
+            // A field that is present and unusable is a release-process defect, and it
+            // silently downgrades every install to unverified.
+            //
+            // The value reached this line BECAUSE it failed the hex check, so it is
+            // arbitrary bytes by definition. Truncating it was not enough: a newline
+            // inside it forges a second line in the site's error log, and the line an
+            // attacker would forge is one that reads like a successful verification —
+            // in the log whose only purpose here is to record that verification did not
+            // happen. Hex-encoded, so whatever it contains lands as one field on one
+            // line and is still identifiable to whoever is debugging the release.
+            error_log('[Bynli Connect] update: manifest carries an unusable'
+                . ' download_sha256, so this package is being installed WITHOUT checksum'
+                . ' verification — got 0x' . bin2hex(substr($expected, 0, 16))
+                . ' (' . strlen($expected) . ' chars)');
             return $reply;
         }
 
@@ -282,6 +497,14 @@ class Bynli_Connect_Updater {
         }
         $tmp = download_url($package);
         if (is_wp_error($tmp)) {
+            // Returning $reply hands the package back to WordPress, which fetches it
+            // itself and may well succeed — so this is not "WordPress reports the
+            // failure", it is an install that proceeds with no checksum check and, until
+            // now, no record. The readme makes a Security-headed promise that a skip is
+            // always recorded; this was the path that made it false.
+            error_log('[Bynli Connect] update: could not fetch the package for'
+                . ' verification (' . preg_replace('/[^\x20-\x7E]/', '', (string) $tmp->get_error_code())
+                . '), so this package is being installed WITHOUT checksum verification');
             // Let WordPress report its own download failure.
             return $reply;
         }
@@ -355,6 +578,12 @@ class Bynli_Connect_Updater {
         check_admin_referer('bynli_connect_clear_update_cache');
         delete_transient(self::TRANSIENT_KEY);
         delete_site_transient('update_plugins');
+        // Re-read before redirecting. Clearing alone left the panel with no readout,
+        // and its no-readout branch printed a green verdict — so the button whose hint
+        // promises a fresh version was the fastest way to replace a real one with an
+        // unearned reassurance. A failed fetch is fine: it caches the error and the
+        // panel says so.
+        $this->get_remote_manifest();
         wp_safe_redirect(add_query_arg([
             'page'    => Bynli_Connect_Settings::MENU_SLUG,
             'cleared' => 'updates',
@@ -368,20 +597,97 @@ class Bynli_Connect_Updater {
         $entry->slug          = self::PLUGIN_SLUG;
         $entry->plugin        = $this->plugin_basename;
         $entry->new_version   = (string)$remote['version'];
-        $entry->url           = 'https://bynefit.com/guides/wordpress';
+        $entry->url           = 'https://bynefit.com/help/wordpress';
         $entry->package       = (string)($remote['download_url'] ?? '');
         $entry->tested        = $remote['tested']       ?? '6.6';
         $entry->requires_php  = $remote['requires_php'] ?? '7.4';
-        $entry->requires      = $remote['requires']     ?? '6.0';
+        $entry->requires      = $remote['requires']     ?? '6.1';
+        // WordPress renders this inline under the plugin row for ANY plugin that sets it —
+        // it is not a wordpress.org-only field. This release deliberately starts refusing
+        // designs that publish today, and without this the warning is reachable only by
+        // clicking through to View version details, which a bulk update never does.
+        // Kept because WordPress carries it through the update object, but it is NOT what
+        // renders the notice for a plugin — wp_theme_update_row() reads this field;
+        // wp_plugin_update_row() fires in_plugin_update_message-{file} instead, and the
+        // .org lightbox reads sections['upgrade_notice']. Both of those are wired below,
+        // because a warning that renders nowhere is the same as no warning.
+        $entry->upgrade_notice = (string) ($remote['upgrade_notice'] ?? '');
         $entry->icons         = $remote['icons']        ?? [];
         $entry->banners       = $remote['banners']      ?? [];
         $entry->compatibility = new stdClass();
         return $entry;
     }
 
-    private function get_remote_manifest(): ?array {
+    /**
+     * The one host an update package is allowed to come from.
+     *
+     * api_base()'s host by default, which is the anchor the checksum control needs: an
+     * anchor read off the manifest travels with the value it is checking, so the same DB
+     * write that repoints `package` can repoint the thing that vouches for it.
+     *
+     * BYNLI_CONNECT_RELEASE_HOST overrides it, and is deliberately a wp-config CONSTANT
+     * rather than an option. Pinning to api_base() alone is right against the threat model
+     * but hard-refuses a legitimate update whenever the two hosts genuinely differ — a
+     * staging or custom api_base whose manifest still names the production zip host, or
+     * release zips moved to a CDN. Both get bynli_connect_foreign_package on every update,
+     * with no self-service recovery and a message reading "downloaded from somewhere other
+     * than Bynefit". A constant gives ops that escape without re-opening the hole: a DB
+     * write cannot reach wp-config.php, so the anchor still does not travel with the value.
+     */
+    private static function release_host(): string
+    {
+        if (defined('BYNLI_CONNECT_RELEASE_HOST')) {
+            $override = strtolower(trim((string) BYNLI_CONNECT_RELEASE_HOST));
+            // Accept a bare host or a full URL, so a wp-config line that pastes the whole
+            // base still works rather than silently matching nothing.
+            $parsed = self::url_host($override);
+            if ($parsed !== '') {
+                return $parsed;
+            }
+            if ($override !== '' && strpos($override, '/') === false) {
+                return $override;
+            }
+        }
+        return self::url_host(Bynli_Connect_Settings::api_base());
+    }
+
+    /**
+     * Lowercased host of a URL, or '' when it has none.
+     *
+     * Host comparison was written inline and case-SENSITIVE. sanitize_api_base() rebuilds
+     * the URL from the host as typed and never lowercases it, so an api_base saved as
+     * https://Staging.Bynefit.com compared unequal to its own package URLs — which
+     * silently reinstated the very defect the comparison was added to fix, on that install
+     * only, with nothing failing and nothing logged.
+     */
+    private static function url_host(string $url): string
+    {
+        $host = wp_parse_url($url, PHP_URL_HOST);
+        return is_string($host) ? strtolower($host) : '';
+    }
+
+    /** True once this request has actually gone to the network for the manifest. */
+    private $fetched_this_request = false;
+
+    /**
+     * @param bool $bypass_error_cache Re-fetch when the cached answer is an error with no
+     *   version. The cache exists to stop the SETTINGS PAGE making two blocking fetches
+     *   per refresh; letting it govern checksum verification means one blip widens into
+     *   an hour in which every install skips the check. The UI can wait an hour for a
+     *   version number. The control cannot.
+     */
+    private function get_remote_manifest(bool $bypass_error_cache = false): ?array {
         $cached = get_transient(self::TRANSIENT_KEY);
-        if (is_array($cached) && !empty($cached['version'])) {
+        if ($bypass_error_cache && is_array($cached)
+            && empty($cached['version']) && !empty($cached['error'])) {
+            $cached = false;
+        }
+        // A cached ERROR counts as an answer. Short-circuiting only on a version meant
+        // a failed check was re-attempted on the very next read, so one press of Refresh
+        // against a dead endpoint cost two blocking 8s fetches — the handler's, then the
+        // redirected page's. The transient is what bounds that, and it only bounds it if
+        // the failure is allowed to occupy it.
+        if (is_array($cached) && (!empty($cached['version']) || !empty($cached['error']))) {
             return $cached;
         }
 
@@ -392,25 +698,38 @@ class Bynli_Connect_Updater {
             'site'      => wp_parse_url(home_url(), PHP_URL_HOST),
         ], $url);
 
+        // Recorded so verify_download() can tell a STALE cached error from one this
+        // request just wrote. The bypass exists to defeat the former; re-fetching after
+        // the latter is two 8-second stalls inside download_package for one answer.
+        $this->fetched_this_request = true;
         $res = wp_remote_get($url, [
             'timeout'    => 8,
             'user-agent' => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
             'headers'    => ['Accept' => 'application/json'],
         ]);
+        // Each failure path RETURNS the entry it just cached rather than null. The
+        // asymmetry — array on success, null on failure — has now produced the same
+        // defect twice: a caller reads the reason off the return value, the failure
+        // shape is not an array, and the log that exists to record the failure carries
+        // no reason. Both existing callers test empty($remote['version']), which absorbs
+        // this with no behaviour change.
         if (is_wp_error($res)) {
-            set_transient(self::TRANSIENT_KEY, ['version' => '', 'error' => $res->get_error_message()], HOUR_IN_SECONDS);
-            return null;
+            $entry = ['version' => '', 'error' => $res->get_error_message()];
+            set_transient(self::TRANSIENT_KEY, $entry, HOUR_IN_SECONDS);
+            return $entry;
         }
         $code = (int)wp_remote_retrieve_response_code($res);
         if ($code < 200 || $code >= 300) {
-            set_transient(self::TRANSIENT_KEY, ['version' => '', 'error' => "HTTP $code"], HOUR_IN_SECONDS);
-            return null;
+            $entry = ['version' => '', 'error' => "HTTP $code"];
+            set_transient(self::TRANSIENT_KEY, $entry, HOUR_IN_SECONDS);
+            return $entry;
         }
         $body = (string)wp_remote_retrieve_body($res);
         $data = json_decode($body, true);
         if (!is_array($data) || empty($data['version']) || empty($data['download_url'])) {
-            set_transient(self::TRANSIENT_KEY, ['version' => '', 'error' => 'bad manifest'], HOUR_IN_SECONDS);
-            return null;
+            $entry = ['version' => '', 'error' => 'bad manifest'];
+            set_transient(self::TRANSIENT_KEY, $entry, HOUR_IN_SECONDS);
+            return $entry;
         }
 
         set_transient(self::TRANSIENT_KEY, $data, self::TRANSIENT_TTL);

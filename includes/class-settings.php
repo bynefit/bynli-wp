@@ -75,15 +75,6 @@ class Bynli_Connect_Settings {
         }
         return (string)get_option(self::OPTION_KEY, '');
     }
-    /**
-     * Constrain an API base to an absolute https origin, or reject it.
-     *
-     * esc_url_raw alone is not enough here. It preserves a scheme-relative '//host'
-     * and it accepts 'http://', and this value now reaches two front-end <script src>
-     * tags on public pages, so a typo or a hostile option write becomes third-party
-     * script execution for every visitor. Applied on the way IN and again on the way
-     * OUT, because an option saved before this existed is still in the database.
-     */
     /** True only while the Settings API is running this as a save-path callback. */
     private static $sanitising_save = false;
 
@@ -97,6 +88,15 @@ class Bynli_Connect_Settings {
         }
     }
 
+    /**
+     * Constrain an API base to an absolute https origin, or reject it.
+     *
+     * esc_url_raw alone is not enough here. It preserves a scheme-relative '//host'
+     * and it accepts 'http://', and this value now reaches two front-end <script src>
+     * tags on public pages, so a typo or a hostile option write becomes third-party
+     * script execution for every visitor. Applied on the way IN and again on the way
+     * OUT, because an option saved before this existed is still in the database.
+     */
     public static function sanitize_api_base($value, bool $allow_http = false): string
     {
         $raw = trim((string) $value);
@@ -342,9 +342,18 @@ class Bynli_Connect_Settings {
         $is_configured = ($key !== '');
         $is_connected  = $is_configured && !empty($last) && !empty($last['ok']);
 
+        // Derived ONCE. A manifest carrying both a version and an error would otherwise
+        // split the surfaces — this predicate was corrected on the Updates panel and left
+        // alone on the rail, the tile, the activity log and the refresh flash, which is
+        // the same by-convention agreement that produced the defect it was fixing. A
+        // readout that produced a version is not a failed readout, on every surface.
+        $readout_failed = !empty($upd['error']) && empty($upd['version']);
+
         return [
             'last'             => $last,
             'upd'              => $upd,
+            'readout_failed'   => $readout_failed,
+            'no_readout'       => empty($upd['version']) && !$readout_failed,
             'history'          => Bynli_Connect_Reporter::history(), // read once; used by overview + activity
             'key'              => $key,
             'slug'             => self::site_slug(),
@@ -409,10 +418,27 @@ class Bynli_Connect_Settings {
             <div class="bcn-notice bcn-notice-err"><span class="dashicons dashicons-warning"></span>
                 <span>Heartbeat failed. Check the key + API base, then try again.</span></div>
         <?php endif;
-        if ($ctx['cleared']): ?>
-            <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-update"></span>
-                <span>Update cache cleared. WordPress will re-check on the next page load.</span></div>
-        <?php endif;
+        if ($ctx['cleared']):
+            // The notice reports the OUTCOME, not the button press. Refresh re-reads
+            // before redirecting, so a failed re-read printed a green "refreshed"
+            // directly above the panel's own "check failed" — the same un-earned green
+            // verdict this release fixes, reintroduced one element above it by the fix.
+            // Two states, not three: get_remote_manifest() writes a transient on every
+            // exit path, so after a refresh either a version or an error is always set
+            // and a 'no version and no error' notice could never render.
+            //
+            // 'Could not be reached' was also wrong for two of the three failure stubs —
+            // a bad manifest and an HTTP 4xx/5xx both mean Bynefit WAS reached and the
+            // answer was unusable.
+            $refresh_failed = $ctx['readout_failed'];
+            if ($refresh_failed): ?>
+                <div class="bcn-notice bcn-notice-err"><span class="dashicons dashicons-warning"></span>
+                    <span>Refresh failed &mdash; could not read a version from Bynefit. The version below is unchanged.</span></div>
+            <?php else: ?>
+                <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-update"></span>
+                    <span>Version readout refreshed.</span></div>
+            <?php endif;
+        endif;
         if ($ctx['discon']): ?>
             <div class="bcn-notice bcn-notice-warn"><span class="dashicons dashicons-info-outline"></span>
                 <span>Site disconnected. The API key was cleared from this WordPress install. Revoke it on Bynefit at <code>/dash/sites/host-keys</code> to invalidate it server-side too.</span></div>
@@ -428,10 +454,23 @@ class Bynli_Connect_Settings {
             'activity'   => ['dashicons-backup',        'Activity'],
             'updates'    => ['dashicons-update',        'Updates'],
         ];
-        // "Nothing for you to do" rather than "nothing pending": on a managed site an
-        // available update is real but not the admin's to apply, so the rail reads calm
-        // and the Updates panel explains the queue.
-        $up_to_date = !$ctx['update_actionable'];
+        // The rail has to answer the same question the panel does, or it contradicts it
+        // 200px away — on the surface that is visible from every tab. 'Up to date' is a
+        // claim and it needs a reading behind it: no version and no error means we have
+        // not looked, and an error means the reading failed.
+        //
+        // FIVE states. An earlier version of this block reasoned that a
+        // managed site should 'read calm' because the update is not the admin's to
+        // apply — but update_actionable is false BY CONSTRUCTION on a managed install,
+        // so 'calm' meant printing a green 'Up to date' while the Updates panel said
+        // 'Update queued' on the same screen. Whether the reader can ACT is a different
+        // question from whether an update EXISTS, and only the second one belongs in a
+        // status label.
+        $rail_no_readout = $ctx['no_readout'];
+        $rail_failed     = $ctx['readout_failed'];
+        $rail_unsettled  = $rail_no_readout || $rail_failed;
+        $rail_queued     = !$ctx['update_actionable'] && !empty($ctx['update_available']);
+        $up_to_date      = !$ctx['update_actionable'] && !$rail_queued && !$rail_unsettled;
         ?>
         <nav class="bcn-rail" aria-label="Bynefit Connect sections">
             <?php foreach ($items as $key => [$icon, $label]):
@@ -450,8 +489,21 @@ class Bynli_Connect_Settings {
             <?php endforeach; ?>
             <div class="bcn-rail-foot">
                 <span class="bcn-rail-ver">v<?php echo esc_html(BYNLI_CONNECT_VERSION); ?></span>
-                <span class="bcn-dot <?php echo $up_to_date ? 'ok' : 'acc'; ?>" aria-hidden="true"></span>
-                <span class="bcn-rail-ver-label"><?php echo $up_to_date ? 'Up to date' : 'Update ready'; ?></span>
+                <?php
+                    // Three labels shared two colours, so a FAILED check rendered in the
+                    // same accent as a pending update — the wrong end of the scale.
+                    if ($rail_unsettled)  { $rail_dot = 'warn'; }
+                    elseif ($up_to_date)  { $rail_dot = 'ok'; }
+                    else                  { $rail_dot = 'acc'; }
+                ?>
+                <span class="bcn-dot <?php echo esc_attr($rail_dot); ?>" aria-hidden="true"></span>
+                <span class="bcn-rail-ver-label"><?php
+                    if ($rail_failed)          { echo 'Check failed'; }
+                    elseif ($rail_no_readout)  { echo 'Not checked'; }
+                    elseif ($rail_queued)      { echo 'Update queued'; }
+                    elseif ($up_to_date)       { echo 'Up to date'; }
+                    else                       { echo 'Update available'; }
+                ?></span>
             </div>
         </nav>
         <?php
@@ -557,10 +609,30 @@ class Bynli_Connect_Settings {
                 <span class="bcn-tile-label">Daily report</span>
                 <span class="bcn-tile-value"><?php echo !empty($last['at']) ? esc_html(human_time_diff((int)$last['at']) . ' ago') : 'never'; ?></span>
             </div>
-            <div class="bcn-tile" data-state="<?php echo $update_actionable ? 'acc' : 'ok'; ?>">
+            <?php
+                // The same derivation the rail uses, all five states of it. Keying on the actionable
+                // flag alone rendered a GREEN tile when there was no readout at all, in the
+                // same viewport as a rail correctly reading "Not checked".
+                $tile_failed     = $ctx['readout_failed'];
+                $tile_no_readout = $ctx['no_readout'];
+                if ($tile_failed) {
+                    $tile_state = 'warn'; $tile_value = 'Check failed';
+                } elseif ($tile_no_readout) {
+                    $tile_state = 'warn'; $tile_value = 'Not checked';
+                } elseif ($update_actionable) {
+                    $tile_state = 'acc';  $tile_value = 'Update available';
+                } elseif (!empty($ctx['update_available'])) {
+                    // Managed: real, queued, and not this admin's to apply. It is still
+                    // not 'up to date', which is what the bare else used to print.
+                    $tile_state = 'acc';  $tile_value = 'Update queued';
+                } else {
+                    $tile_state = 'ok';   $tile_value = 'v' . BYNLI_CONNECT_VERSION;
+                }
+            ?>
+            <div class="bcn-tile" data-state="<?php echo esc_attr($tile_state); ?>">
                 <span class="dashicons dashicons-update" aria-hidden="true"></span>
                 <span class="bcn-tile-label">Plugin</span>
-                <span class="bcn-tile-value"><?php echo $update_actionable ? 'Update ready' : 'v' . esc_html(BYNLI_CONNECT_VERSION); ?></span>
+                <span class="bcn-tile-value"><?php echo esc_html($tile_value); ?></span>
             </div>
             <div class="bcn-tile" data-state="ok">
                 <span class="dashicons dashicons-lock" aria-hidden="true"></span>
@@ -926,7 +998,7 @@ class Bynli_Connect_Settings {
                         <?php endforeach; ?>
                     </div>
                 </div>
-                <p class="bcn-hint bcn-pad-top">Full reference at <a href="https://bynefit.com/guides/wordpress" target="_blank" rel="noopener">/guides/wordpress</a>.</p>
+                <p class="bcn-hint bcn-pad-top">Full reference at <a href="https://bynefit.com/help/wordpress" target="_blank" rel="noopener">/help/wordpress</a>.</p>
             </div>
         </section>
         <?php
@@ -957,15 +1029,31 @@ class Bynli_Connect_Settings {
 
         // Update-check event as the newest log entry (it has no per-check
         // timestamp; last_updated is the release date, shown when present).
-        $update_event = null;
-        if (!empty($upd['has'])) {
-            if (!empty($upd['error'])) {
-                $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
-            } elseif ($ctx['update_actionable']) {
-                $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
-            } else {
-                $update_event = ['state' => 'ok', 'ico' => 'dashicons-yes-alt', 'title' => 'Up to date', 'detail' => 'v' . BYNLI_CONNECT_VERSION];
-            }
+        // Five states, and the log has to carry all five. The 'not checked' event was
+        // previously written INSIDE the has-guard, where it could never fire, and then
+        // deleted for being unreachable — which removed the state instead of moving it
+        // to where it happens. No transient at all IS the not-checked state: on a fresh
+        // install, or right after an upgrade clears the cache, the rail, the tile and
+        // the panel all say so and only this surface stayed silent.
+        if ($ctx['no_readout']) {
+            $update_event = ['state' => 'warn', 'ico' => 'dashicons-clock', 'title' => 'Not checked', 'detail' => 'no version readout'];
+        } elseif ($ctx['readout_failed']) {
+            $update_event = ['state' => 'warn', 'ico' => 'dashicons-warning', 'title' => 'Update check failed', 'detail' => (string)$upd['error']];
+        } elseif ($ctx['update_actionable']) {
+            $update_event = ['state' => 'acc', 'ico' => 'dashicons-update', 'title' => 'Update available', 'detail' => 'v' . (string)$upd['version']];
+        } elseif (!empty($ctx['update_available'])) {
+            // An update EXISTS but is not this admin's to apply, which is why the
+            // actionable flag is false on a managed install. Falling through to
+            // "Up to date" made the log assert something FALSE. Gate on whether an
+            // update exists, not on whether the reader can act on it.
+            //
+            // Accent, not ok: this is the same fact the rail and the tile render, and it
+            // was shipping green here while they rendered it accent. Green is also the
+            // settled, nothing-pending verdict this release exists to stop printing
+            // unearned.
+            $update_event = ['state' => 'acc', 'ico' => 'dashicons-clock', 'title' => 'Update queued', 'detail' => 'v' . (string)$upd['version']];
+        } else {
+            $update_event = ['state' => 'ok', 'ico' => 'dashicons-yes-alt', 'title' => 'Up to date', 'detail' => 'v' . BYNLI_CONNECT_VERSION];
         }
         ?>
         <section class="bcn-card">
@@ -974,7 +1062,16 @@ class Bynli_Connect_Settings {
                 <span class="bcn-card-sub">Recent uplink signals &amp; checks<?php echo $next ? ' · next report in ' . esc_html(human_time_diff(time(), (int)$next)) : ''; ?></span>
             </div>
             <div class="bcn-card-body">
-                <?php if (empty($history) && $update_event === null): ?>
+                <?php
+                    // A genuinely fresh install still gets the empty state — its copy
+                    // ('the first daily report lands within 24 hours') is the right thing
+                    // to say there. Testing $update_event === null would have made this
+                    // unreachable the moment the not-checked event started being built,
+                    // which is how the branch this replaces became dead in the first
+                    // place. The not-checked ROW is for a site that has history and has
+                    // lost its readout — after an upgrade clears the cache, say.
+                ?>
+                <?php if (empty($history) && empty($upd['has'])): ?>
                     <div class="bcn-empty" role="status">
                         <span class="dashicons dashicons-backup bcn-empty-icon" aria-hidden="true"></span>
                         <p class="bcn-empty-title">No activity yet.</p>
@@ -982,7 +1079,7 @@ class Bynli_Connect_Settings {
                     </div>
                 <?php else: ?>
                     <ul class="bcn-log">
-                        <?php if ($update_event !== null): ?>
+                        <?php // Always set: every branch of the chain above assigns one. ?>
                             <li class="bcn-log-item">
                                 <span class="bcn-log-ico <?php echo esc_attr($update_event['state']); ?>" aria-hidden="true"><span class="dashicons <?php echo esc_attr($update_event['ico']); ?>"></span></span>
                                 <div class="bcn-log-main">
@@ -991,7 +1088,6 @@ class Bynli_Connect_Settings {
                                 </div>
                                 <span class="bcn-log-time">update check</span>
                             </li>
-                        <?php endif; ?>
                         <?php foreach ($history as $h):
                             $ok     = !empty($h['ok']);
                             $kind   = (string)($h['kind'] ?? 'report');
@@ -1035,10 +1131,21 @@ class Bynli_Connect_Settings {
                     <span class="bcn-up-label">Installed</span>
                     <span class="bcn-up-value"><code>v<?php echo esc_html(BYNLI_CONNECT_VERSION); ?></code></span>
                 </div>
+                <?php
+                    // Derived once, above BOTH readers. It was assigned inside the managed
+                    // branch and read above it, so a self-hosted install hit an undefined
+                    // variable and reproduced the exact row this was meant to fix.
+                    // Both derived in build_context(), so all five surfaces answer the
+                    // same way about the same manifest.
+                    $readout_failed = $ctx['readout_failed'];
+                    $no_readout     = $ctx['no_readout'];
+                ?>
                 <div class="bcn-up-row">
                     <span class="bcn-up-label">Latest</span>
                     <span class="bcn-up-value">
-                        <?php if (!empty($upd['version'])): ?>
+                        <?php if ($readout_failed): ?>
+                            <span class="bcn-chip warn">Check failed</span>
+                        <?php elseif (!empty($upd['version'])): ?>
                             <code>v<?php echo esc_html($upd['version']); ?></code>
                             <?php if ($update_available && $managed): ?>
                                 <?php /* On a managed site the update is real but is not the
@@ -1048,14 +1155,14 @@ class Bynli_Connect_Settings {
                                      routed through update_actionable for this reason and this
                                      fifth one, inside the panel itself, kept reading the raw
                                      version comparison. */ ?>
-                                <span class="bcn-chip ok">Update queued</span>
+                                <span class="bcn-chip acc">Update queued</span>
                             <?php elseif ($update_available): ?>
                                 <span class="bcn-chip acc">Update available</span>
                             <?php else: ?>
                                 <span class="bcn-chip ok">Up to date</span>
                             <?php endif; ?>
                         <?php else: ?>
-                            <span class="bcn-stat-value-em">not checked yet</span>
+                            <span class="bcn-chip warn">Not checked</span>
                         <?php endif; ?>
                     </span>
                 </div>
@@ -1065,7 +1172,7 @@ class Bynli_Connect_Settings {
                         <span class="bcn-up-value"><?php echo esc_html($upd['last_updated']); ?></span>
                     </div>
                 <?php endif; ?>
-                <?php if (!empty($upd['error'])): ?>
+                <?php if (!empty($upd['error']) && !$managed): ?>
                     <div class="bcn-up-row">
                         <span class="bcn-up-label">Last error</span>
                         <span class="bcn-up-value"><code><?php echo esc_html($upd['error']); ?></code></span>
@@ -1077,42 +1184,103 @@ class Bynli_Connect_Settings {
                     $checkin_at    = !empty($last['at']) ? (int) $last['at'] : 0;
                     $checkin_stale = $checkin_at === 0 || (time() - $checkin_at) > DAY_IN_SECONDS;
                     ?>
-                    <div class="bcn-notice <?php echo $checkin_stale ? 'bcn-notice-warn' : 'bcn-notice-ok'; ?> bcn-pad-top">
+                    <?php
+                        // $readout_failed and $no_readout are derived above, before the
+                        // Latest row, because both surfaces read them. No version AND no
+                        // error is a THIRD state — we have not looked — and it used to fall
+                        // through to the up-to-date branch and print a green verdict with
+                        // no basis.
+                        //
+                        // The check-in age is deliberately NOT part of this. It is a second,
+                        // independent fact with its own sentence below, and folding it in here
+                        // recoloured the VERSION verdict: a managed site with a queued update
+                        // and a check-in older than the daily window — which is every fresh
+                        // managed install, and any site whose cron slipped — rendered this
+                        // notice amber with a warning triangle while the rail, the tile, the
+                        // log and the chip beside it all rendered the same fact in accent.
+                        $unsettled = $readout_failed || $no_readout;
+                    ?>
+                    <?php
+                        // Queued is not the settled state, so it must not borrow the
+                        // settled colour. Five surfaces, one fact, one colour.
+                        if ($unsettled)              { $notice_tone = 'bcn-notice-warn'; }
+                        elseif ($update_available)   { $notice_tone = 'bcn-notice-acc'; }
+                        else                         { $notice_tone = 'bcn-notice-ok'; }
+                    ?>
+                    <div class="bcn-notice <?php echo esc_attr($notice_tone); ?> bcn-pad-top">
                         <span class="dashicons <?php
-                            echo $checkin_stale ? 'dashicons-warning'
+                            echo $unsettled ? 'dashicons-warning'
                                 : ($update_available ? 'dashicons-update' : 'dashicons-yes-alt');
                         ?>" aria-hidden="true"></span>
-                        <?php if ($update_available): ?>
-                            <strong>Update queued.</strong> Bynefit keeps this site&rsquo;s plugin up to
-                            date for you, and will apply v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
-                            on this site&rsquo;s next check-in.
+                        <?php /* "Bynefit applies updates for you" is only reassuring while the
+                             check-in is actually happening — and the row below may be saying it is
+                             not. Splitting the colour was right; leaving the reassurance
+                             unconditional had this notice promise the exact thing the next one
+                             calls into question, most sharply on a fresh managed install where
+                             the site has never checked in at all. Exactly one of the two rows
+                             makes the claim. */
+                            $applies_for_you = $checkin_stale
+                                ? 'Updates arrive on this site&rsquo;s check-in &mdash; see below.'
+                                : 'Bynefit still applies updates for you either way.';
+                        ?>
+                        <?php if ($no_readout): ?>
+                            <strong>Not checked.</strong> This panel has no version readout to
+                            compare against, so it cannot tell you whether an update is waiting.
+                            <?php echo $applies_for_you; ?>
+                        <?php elseif ($update_available): ?>
+                            <strong>Update queued.</strong> v<?php echo esc_html((string) ($upd['version'] ?? '')); ?>
+                            arrives on this site&rsquo;s next check-in.
+                        <?php elseif ($readout_failed): ?>
+                            <strong>Version check failed.</strong> The last attempt to read the release
+                            manifest returned <code><?php echo esc_html($upd['error']); ?></code>, so the
+                            version shown above may be out of date.
+                            <?php echo $applies_for_you; ?>
+                            <?php /* This branch carries a SECOND reassurance, and conditioning only
+                                 the first left "not whether the site is kept current" asserting the
+                                 site is kept current — directly above a row saying check-ins may
+                                 have stopped. Same contradiction, one sentence further along. */
+                                echo $checkin_stale
+                                    ? 'This affects what this panel can tell you, not how the site is updated.'
+                                    : 'This affects what this panel can tell you, not whether the site is kept current.'; ?>
                         <?php else: ?>
-                            <strong>Up to date.</strong> Bynefit keeps this site&rsquo;s plugin up to date
-                            for you &mdash; updates arrive automatically, with no action from you.
+                            <strong>Up to date.</strong>
+                            <?php echo $checkin_stale
+                                ? 'Updates arrive on this site&rsquo;s check-in &mdash; see below.'
+                                : 'Bynefit applies updates for you, so there is nothing to do here.'; ?>
                         <?php endif; ?>
-                        <?php if ($checkin_at === 0): ?>
-                            This site has never checked in, so that may not be happening &mdash; contact
-                            Bynefit if it stays this way.
-                        <?php elseif ($checkin_stale): ?>
-                            Last check-in was <?php echo esc_html(human_time_diff($checkin_at)); ?> ago,
-                            longer than the daily window, so the next one may be overdue.
-                        <?php else: ?>
+                        <?php if (!$checkin_stale): ?>
                             Last check-in: <?php echo esc_html(human_time_diff($checkin_at)); ?> ago.
                         <?php endif; ?>
                     </div>
+                    <?php /* The check-in age is its OWN row. It used to be a trailing clause on
+                         the version notice and, through $unsettled, recoloured that notice's
+                         verdict — so a queued update read amber here and accent on the other
+                         four surfaces. A stale check-in is still worth a warning; it just is
+                         not a claim about the version. */ ?>
+                    <?php if ($checkin_stale): ?>
+                        <div class="bcn-notice bcn-notice-warn bcn-pad-top">
+                            <span class="dashicons dashicons-warning" aria-hidden="true"></span>
+                            <?php if ($checkin_at === 0): ?>
+                                <strong>This site has never checked in.</strong> Updates arrive on the
+                                check-in, so that may not be happening &mdash; contact Bynefit if it
+                                stays this way.
+                            <?php else: ?>
+                                <strong>Check-in overdue.</strong> Last check-in was
+                                <?php echo esc_html(human_time_diff($checkin_at)); ?> ago, longer than
+                                the daily window, so the next one may be late.
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                     <div class="bcn-actions bcn-pad-top">
                         <form action="<?php echo esc_url(admin_url('admin-post.php')); ?>" method="post">
                             <input type="hidden" name="action" value="bynli_connect_clear_update_cache">
                             <?php wp_nonce_field('bynli_connect_clear_update_cache'); ?>
                             <button type="submit" class="bcn-btn ink">Refresh this readout</button>
                         </form>
+                        <span class="bcn-action-hint">Not on your Plugins screen because the plugin
+                            runs from WordPress&rsquo;s must-use directory, which has no update button.
+                            Refreshing re-reads the version above; it installs nothing.</span>
                     </div>
-                    <p class="bcn-hint">
-                        This site runs the plugin from WordPress&rsquo;s must-use directory, which
-                        WordPress offers no update button for. That is why Bynefit applies the
-                        update instead of it appearing on your Plugins screen. Refreshing clears the
-                        cached readout above; it does not install anything.
-                    </p>
                 <?php else: ?>
                     <div class="bcn-actions bcn-pad-top">
                         <?php if ($update_available): ?>

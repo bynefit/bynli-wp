@@ -27,12 +27,13 @@ class Bynli_Connect_Publish_Contract {
     const CTA_BG_TOKENS     = ['surface', 'surface-2'];
     const MAX_LIST_ITEMS    = 60;
 
-    // Grid track bounds. These MIRROR the render layer's grid_int() calls — section
-    // 1..12, gallery 1..6 — so the gate refuses precisely the values render would
-    // otherwise have silently clamped. Change one, change both.
-    const GRID_COLS_MIN       = 1;
-    const GRID_COLS_MAX       = 12;
-    const GALLERY_COLS_MAX    = 6;
+    // Grid track bounds, READ FROM the render layer rather than restated here. The
+    // gate's whole job is to refuse the values render would otherwise clamp in
+    // silence, so a second copy that agrees by convention is the one arrangement that
+    // cannot hold. These aliases exist so the rest of this file reads unchanged.
+    const GRID_COLS_MIN       = Bynli_Connect_Blocks::GRID_COLS_MIN;
+    const GRID_COLS_MAX       = Bynli_Connect_Blocks::GRID_COLS_MAX;
+    const GALLERY_COLS_MAX    = Bynli_Connect_Blocks::GALLERY_COLS_MAX;
 
     const MAX_SECTIONS        = 200;
     const MAX_BLOCKS_SECTION  = 200;
@@ -89,12 +90,23 @@ class Bynli_Connect_Publish_Contract {
                 'color', $vocab, false
             );
             self::check_token_ref($v, "$spath.grid.gap", self::deep($section, ['grid', 'gap']), 'space', $vocab, false);
-            foreach (['sm', 'lg'] as $bp) {
+            // The section's effective track count per breakpoint, resolved the same way
+            // the emitter resolves it — including its defaults, because a section that
+            // declares no cols still renders on 4 at sm and 12 at lg, and a block's
+            // placement is bounded by whichever number applies.
+            $tracks = [];
+            $defaults = [
+                'sm' => Bynli_Connect_Blocks::GRID_COLS_SM_DEFAULT,
+                'lg' => Bynli_Connect_Blocks::GRID_COLS_LG_DEFAULT,
+            ];
+            foreach ($defaults as $bp => $fallback) {
                 self::check_grid_cols(
                     $v, "$spath.grid.cols.$bp",
                     self::deep($section, ['grid', 'cols', $bp]),
                     self::GRID_COLS_MAX
                 );
+                $declared = self::deep($section, ['grid', 'cols', $bp]);
+                $tracks[$bp] = is_numeric($declared) ? (int) $declared : $fallback;
             }
             foreach (['sm', 'lg'] as $bp) {
                 self::check_token_ref($v, "$spath.padding.$bp", self::deep($section, ['padding', $bp]), 'space', $vocab, false);
@@ -122,10 +134,13 @@ class Bynli_Connect_Publish_Contract {
             }
             if (is_array($section['overlay'] ?? null)) {
                 self::check_token_ref($v, "$spath.overlay.color", $section['overlay']['color'] ?? null, 'color', $vocab, false);
-                $oop = $section['overlay']['opacity'] ?? null;
-                if ($oop !== null && (!is_numeric($oop) || $oop < 0 || $oop > 100)) {
-                    $v[] = self::vio('overlay_opacity', "$spath.overlay.opacity", 'Overlay opacity must be 0–100.');
-                }
+                // The emitter does (int) on this, so 42.7 published clean and rendered
+                // at 42 — the same silent truncation the events limit was converted away
+                // from three hundred lines up, in this file, in the same change.
+                self::check_bounded_int(
+                    $v, "$spath.overlay.opacity", $section['overlay']['opacity'] ?? null,
+                    0, 100, 'Overlay opacity', 'overlay_opacity'
+                );
             }
             if (isset($section['minHeight']) && !in_array((string) $section['minHeight'], ['short', 'medium', 'tall', 'full'], true)) {
                 $v[] = self::vio('section_minheight', "$spath.minHeight", 'Section minHeight must be short, medium, tall, or full.');
@@ -140,7 +155,7 @@ class Bynli_Connect_Publish_Contract {
                 continue;
             }
             foreach ($blocks as $bi => $block) {
-                self::validate_block($block, "$spath.blocks[$bi]", $v, $vocab, $media, $bg_slug, $heading_levels, $priority_images);
+                self::validate_block($block, "$spath.blocks[$bi]", $v, $vocab, $media, $bg_slug, $heading_levels, $priority_images, $tracks);
             }
         }
 
@@ -172,7 +187,7 @@ class Bynli_Connect_Publish_Contract {
      * the page's one-H1 / one-LCP rules. $bg_slug is the effective background
      * (section, or the card's own) used for the block's contrast check.
      */
-    private static function validate_block($block, string $bpath, array &$v, array $vocab, array $media, ?string $bg_slug, array &$heading_levels, int &$priority_images): void {
+    private static function validate_block($block, string $bpath, array &$v, array $vocab, array $media, ?string $bg_slug, array &$heading_levels, int &$priority_images, ?array $tracks): void {
                 if (!is_array($block)) {
                     $v[] = self::vio('block_shape', $bpath, 'Block is not an object.');
                     return;
@@ -181,6 +196,10 @@ class Bynli_Connect_Publish_Contract {
                 if (!in_array($type, self::SUPPORTED_BLOCKS, true)) {
                     $v[] = self::vio('block_unsupported', $bpath, "Block type '$type' is not supported by the emitter yet.");
                     return;
+                }
+
+                if ($tracks !== null) {
+                    self::check_place($v, "$bpath.place", $block['place'] ?? null, $tracks);
                 }
 
                 $style = is_array($block['style'] ?? null) ? $block['style'] : [];
@@ -252,13 +271,21 @@ class Bynli_Connect_Publish_Contract {
                 } elseif ($type === 'spacer') {
                     self::check_token_ref($v, "$bpath.size", $block['size'] ?? null, 'space', $vocab, false);
                 } elseif ($type === 'gallery') {
+                    // 'columns', not 'cols'. The emitter reads block['columns'] and
+                    // block.json declares it, so a gate on 'cols' validated a key the
+                    // gallery does not have — it has never run, and columns:{sm:99}
+                    // published clean and rendered clamped.
                     foreach (['sm', 'lg'] as $bp) {
                         self::check_grid_cols(
-                            $v, "$bpath.cols.$bp",
-                            self::deep($block, ['cols', $bp]),
+                            $v, "$bpath.columns.$bp",
+                            self::deep($block, ['columns', $bp]),
                             self::GALLERY_COLS_MAX
                         );
                     }
+                    // Gated like spacer.size and section.grid.gap, which are the same
+                    // shape: emitted through resolve_token('space', …) and therefore
+                    // silently dropped rather than refused when the token is not real.
+                    self::check_token_ref($v, "$bpath.gap", $block['gap'] ?? null, 'space', $vocab, false);
                     $gitems = is_array($block['items'] ?? null) ? $block['items'] : [];
                     if (count($gitems) === 0) {
                         $v[] = self::vio('gallery_empty', "$bpath.items", 'Gallery has no images.');
@@ -320,6 +347,12 @@ class Bynli_Connect_Publish_Contract {
                 } elseif ($type === 'embed') {
                     $provider = (string) ($block['provider'] ?? '');
                     $eid = (string) ($block['id'] ?? '');
+                    // An unrecognised ratio is not emitted at all, so the block falls
+                    // back to 16-9 and the author sees a shape they did not pick.
+                    self::check_enum(
+                        $v, "$bpath.ratio", $block['ratio'] ?? null,
+                        Bynli_Connect_Blocks::EMBED_RATIOS, 'Embed ratio', 'embed_ratio'
+                    );
                     if (!in_array($provider, self::EMBED_PROVIDERS, true)) {
                         $v[] = self::vio('embed_provider', "$bpath.provider", 'Embed provider must be youtube, vimeo, or map.');
                     } elseif ($provider === 'youtube' && !preg_match('/^[A-Za-z0-9_-]{6,20}$/', $eid)) {
@@ -332,11 +365,30 @@ class Bynli_Connect_Publish_Contract {
                     if (trim((string) ($block['title'] ?? '')) === '') {
                         $v[] = self::vio('embed_title', "$bpath.title", 'Embed needs a title for accessibility.');
                     }
-                } elseif ($type === 'icon') {
+                }
+                if (in_array($type, ['quote', 'stat', 'cta'], true)) {
+                    // The emitter rewrites anything that is not exactly 'center' to
+                    // 'start', so "end" or a typo renders left-aligned with no complaint.
+                    self::check_enum(
+                        $v, "$bpath.align", $block['align'] ?? null,
+                        Bynli_Connect_Blocks::BLOCK_ALIGNS, 'Alignment', 'block_align'
+                    );
+                }
+                if ($type === 'icon') {
                     $iname = (string) ($block['name'] ?? '');
                     if (Bynli_Connect_Blocks::icon_svg($iname) === null) {
                         $v[] = self::vio('icon_unknown', "$bpath.name", "Icon '$iname' is not in the icon set.");
                     }
+                    // icon_svg() clamps size to 8..96, so an out-of-range value published
+                    // clean and rendered at a size the author did not choose — the same
+                    // silent clamp the grid gates exist to refuse, in the branch beside them.
+                    self::check_bounded_int(
+                        $v, "$bpath.size", $block['size'] ?? null,
+                        Bynli_Connect_Blocks::ICON_SIZE_MIN,
+                        Bynli_Connect_Blocks::ICON_SIZE_MAX,
+                        'Icon size',
+                        'icon_size'
+                    );
                     self::check_token_ref($v, "$bpath.color", $block['color'] ?? null, 'color', $vocab, false);
                 } elseif ($type === 'list') {
                     $litems = is_array($block['items'] ?? null) ? $block['items'] : [];
@@ -441,8 +493,13 @@ class Bynli_Connect_Publish_Contract {
                     if (isset($block['scope']) && !in_array((string) $block['scope'], ['upcoming', 'past'], true)) {
                         $v[] = self::vio('events_scope', "$bpath.scope", 'Events scope must be upcoming or past.');
                     }
-                    if (isset($block['limit']) && (!is_numeric($block['limit']) || $block['limit'] < 1 || $block['limit'] > 50)) {
-                        $v[] = self::vio('events_limit', "$bpath.limit", 'Events limit must be 1–50.');
+                    // isIntLike, not is_numeric: 2.9 passed and rendered as 2, which is the
+                    // truncation every other gate in this file refuses.
+                    if (isset($block['limit'])
+                        && (!Bynli_Connect_Blocks::isIntLike($block['limit'])
+                            || (int) $block['limit'] < 1
+                            || (int) $block['limit'] > 50)) {
+                        $v[] = self::vio('events_limit', "$bpath.limit", 'Events limit must be a whole number, 1–50.');
                     }
                 } elseif ($type === 'card') {
                     self::check_token_ref($v, "$bpath.padding", $block['padding'] ?? null, 'space', $vocab, false);
@@ -459,7 +516,9 @@ class Bynli_Connect_Publish_Contract {
                                 $v[] = self::vio('card_nesting', "$bpath.blocks[$ci]", 'A card can hold content blocks, not sections or other cards.');
                                 continue;
                             }
-                            self::validate_block($cb, "$bpath.blocks[$ci]", $v, $vocab, $media, $card_bg, $heading_levels, $priority_images);
+                            // null, not the section's tracks: a card child's place map is
+                            // never emitted, so nothing clamps it and nothing may refuse it.
+                            self::validate_block($cb, "$bpath.blocks[$ci]", $v, $vocab, $media, $card_bg, $heading_levels, $priority_images, null);
                         }
                     }
                 } elseif ($type === 'logos') {
@@ -493,32 +552,183 @@ class Bynli_Connect_Publish_Contract {
     }
 
     /**
+     * The five placement properties render clamps alongside the track count.
+     *
+     * cell_vars() puts col, colSpan, row, rowSpan and order through the same
+     * grid_int() as cols, and the gate validated none of them — so `row: 5000`
+     * published clean and rendered as 999. Same defect as the one this gate was added
+     * for, on the same block, decided one function away.
+     *
+     * col is bounded by the SECTION'S track count and colSpan by what is left of the
+     * row after col — the same arithmetic cell_vars() uses, so nothing this accepts is
+     * clamped or coerced afterwards.
+     *
+     * Only a value the renderer would REWRITE is refused: 2.9 truncates to 2, which is a
+     * layout the author did not describe. 4.0 and '1e2' reproduce exactly, so they are
+     * range-checked rather than type-rejected — see isIntLike(), which derives that rule
+     * from grid_int() rather than restating it. It runs only for a
+     * block whose placement a renderer actually reads: a card child's place map is
+     * never emitted, and refusing one would refuse the whole page for a value that has
+     * no effect on it.
+     *
+     * $tracks has no default on purpose. An omitted argument would silently restore the
+     * 12-track bound, which is the defect this parameter exists to end.
+     */
+    private static function check_place(array &$v, string $path, $place, array $tracks): void {
+        if ($place === null) {
+            return;
+        }
+        // A present-but-wrong-shaped place map is DISCARDED by cell_vars(), not clamped —
+        // "place": 5 hands it nothing, and "place": {"sm": 6} skips the whole small
+        // breakpoint. Returning silently here made the gate LOOSER than the renderer on
+        // exactly the values the renderer throws away, which is the same failure as
+        // letting one through that render then rewrites: the author's layout does not
+        // survive the publish and nothing says so.
+        if (!is_array($place)) {
+            $v[] = self::vio('place_shape', $path, 'Placement must be an object keyed by breakpoint.');
+            return;
+        }
+        // Unknown BREAKPOINT, not just unknown property. cell_vars() reads sm and lg and
+        // nothing else, so "place": {"md": {...}} is copied into the attribute verbatim,
+        // read by nobody, and the block lands in the default position in silence. That is
+        // the same defect the property check below refuses, one nesting level up — and
+        // refusing the property while accepting the container it sits in would have made
+        // the gate look complete without being it.
+        foreach (array_keys($place) as $bp_key) {
+            if ($bp_key !== 'sm' && $bp_key !== 'lg') {
+                $v[] = self::vio('place_key', "$path." . (string) $bp_key,
+                    'Unknown breakpoint. Use sm or lg.');
+            }
+        }
+        $bounds = [
+            'col'      => [Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GRID_COLS_MAX],
+            'colSpan'  => [Bynli_Connect_Blocks::GRID_COLS_MIN, Bynli_Connect_Blocks::GRID_COLS_MAX],
+            'row'      => [Bynli_Connect_Blocks::PLACE_MIN,     Bynli_Connect_Blocks::PLACE_MAX],
+            'rowSpan'  => [Bynli_Connect_Blocks::PLACE_MIN,     Bynli_Connect_Blocks::PLACE_MAX],
+            'order'    => [Bynli_Connect_Blocks::ORDER_MIN,     Bynli_Connect_Blocks::ORDER_MAX],
+        ];
+        foreach (['sm', 'lg'] as $bp) {
+            if (!isset($place[$bp])) {
+                continue;
+            }
+            if (!is_array($place[$bp])) {
+                $v[] = self::vio('place_shape', "$path.$bp",
+                    'Placement for this breakpoint must be an object.');
+                continue;
+            }
+            // An unrecognised key is dropped by both sides in silence — the same shape as
+            // the gallery cols/columns defect, one function away. Refusing names the typo
+            // instead of publishing a layout the author did not get.
+            foreach (array_keys($place[$bp]) as $key) {
+                if (!isset($bounds[$key])) {
+                    $v[] = self::vio('place_key', "$path.$bp." . (string) $key,
+                        'Unknown placement property. Use col, colSpan, row, rowSpan or order.');
+                }
+            }
+            // The SECTION'S track count, not the maximum one. render bounds col by it
+            // and colSpan by what is left of the row after col, so bounding either by
+            // 12 lets a value through that render then clamps in silence.
+            $track_default = $bp === 'sm'
+                ? Bynli_Connect_Blocks::GRID_COLS_SM_DEFAULT
+                : Bynli_Connect_Blocks::GRID_COLS_LG_DEFAULT;
+            $track = isset($tracks[$bp]) ? (int) $tracks[$bp] : $track_default;
+            $track = max(Bynli_Connect_Blocks::GRID_COLS_MIN, min(Bynli_Connect_Blocks::GRID_COLS_MAX, $track));
+            $col   = isset($place[$bp]['col']) && is_numeric($place[$bp]['col'])
+                ? (int) $place[$bp]['col']
+                : 1;
+            $bounds['col'][1]     = $track;
+            $bounds['colSpan'][1] = max(1, $track - max(1, min($track, $col)) + 1);
+            foreach ($bounds as $key => [$min, $max]) {
+                if (!array_key_exists($key, $place[$bp]) || $place[$bp][$key] === null) {
+                    continue;
+                }
+                $val = $place[$bp][$key];
+                $ipath = "$path.$bp.$key";
+                // The predicate lives on the class that owns grid_int(), so the gate and
+                // the renderer cannot drift on what counts as an integer. A padded or
+                // signed integer string renders as that integer and must be
+                // RANGE-checked here rather than type-rejected — rejecting it refused
+                // the whole page for a value the renderer lays out exactly as written.
+                if (!Bynli_Connect_Blocks::isIntLike($val)) {
+                    $v[] = self::vio('place_type', $ipath, ucfirst($key) . ' must be a whole number.');
+                    continue;
+                }
+                $n = (int) $val;
+                if ($n < $min || $n > $max) {
+                    $v[] = self::vio('place_range', $ipath,
+                        ucfirst($key) . " must be between $min and $max.");
+                }
+            }
+        }
+    }
+
+    /**
      * A grid track count must be an integer inside the range render will accept.
      *
      * null/absent is fine — every consumer has a documented default. A value that is
-     * present but out of range is a violation rather than something to clamp: the
-     * phone breakpoint is the one that matters here, because a large cols.sm produces
-     * unusable slivers on a phone (the grids stay overflow-SAFE thanks to
-     * minmax(0, 1fr), so nothing breaks visibly — it just becomes unreadable, which
-     * is worse to diagnose from a screenshot).
+     * present but out of range is a violation rather than something to clamp: the phone
+     * breakpoint is the one that matters, because a large cols.sm produces unusable
+     * slivers on a phone (the grids stay overflow-SAFE thanks to minmax(0, 1fr), so
+     * nothing breaks visibly — it just becomes unreadable, which is worse to diagnose
+     * from a screenshot).
      *
      * Rejects non-integer numerics too. grid_int() casts "2.9" to 2, so accepting it
      * here would publish a layout the author did not describe.
      */
     private static function check_grid_cols(array &$v, string $path, $value, int $max): void {
+        self::check_bounded_int($v, $path, $value, self::GRID_COLS_MIN, $max, 'Grid column count', 'grid_cols');
+    }
+
+    /**
+     * One of a fixed set, refused rather than rewritten.
+     *
+     * The emitter coerces an unrecognised value to a default — align becomes 'start',
+     * an unknown embed ratio falls back to 16-9 — so the page publishes clean and
+     * renders something the author did not choose. Same class as the numeric clamps,
+     * different primitive.
+     */
+    private static function check_enum(
+        array &$v,
+        string $path,
+        $value,
+        array $allowed,
+        string $noun,
+        string $code
+    ): void {
         if ($value === null) {
             return;
         }
-        if (!is_int($value) && !(is_string($value) && ctype_digit($value))) {
-            $v[] = self::vio('grid_cols_type', $path, 'Grid column count must be a whole number.');
+        if (!is_string($value) || !in_array($value, $allowed, true)) {
+            $v[] = self::vio($code, $path, $noun . ' must be one of: ' . implode(', ', $allowed) . '.');
+        }
+    }
+
+    /**
+     * A bounded whole number, refused rather than clamped.
+     *
+     * The same shape as check_grid_cols, generalised so a fourth bound does not become
+     * a fourth copy. Uses the shared int-like predicate, so what the gate accepts is
+     * what the renderer accepts on whatever PHP version is running.
+     */
+    private static function check_bounded_int(
+        array &$v,
+        string $path,
+        $value,
+        int $min,
+        int $max,
+        string $noun,
+        string $code_prefix
+    ): void {
+        if ($value === null) {
+            return;
+        }
+        if (!Bynli_Connect_Blocks::isIntLike($value)) {
+            $v[] = self::vio($code_prefix . '_type', $path, $noun . ' must be a whole number.');
             return;
         }
         $n = (int) $value;
-        if ($n < self::GRID_COLS_MIN || $n > $max) {
-            $v[] = self::vio(
-                'grid_cols_range', $path,
-                'Grid column count must be between ' . self::GRID_COLS_MIN . ' and ' . $max . '.'
-            );
+        if ($n < $min || $n > $max) {
+            $v[] = self::vio($code_prefix . '_range', $path, "$noun must be between $min and $max.");
         }
     }
 

@@ -19,8 +19,18 @@ if (!defined('ABSPATH')) {
  */
 
 $cols    = is_array($attributes['cols'] ?? null) ? $attributes['cols'] : [];
-$cols_sm = Bynli_Connect_Blocks::grid_int($cols['sm'] ?? null, 1, 12, 4);
-$cols_lg = Bynli_Connect_Blocks::grid_int($cols['lg'] ?? null, 1, 12, 12);
+$cols_sm = Bynli_Connect_Blocks::grid_int(
+    $cols['sm'] ?? null,
+    Bynli_Connect_Blocks::GRID_COLS_MIN,
+    Bynli_Connect_Blocks::GRID_COLS_MAX,
+    Bynli_Connect_Blocks::GRID_COLS_SM_DEFAULT
+);
+$cols_lg = Bynli_Connect_Blocks::grid_int(
+    $cols['lg'] ?? null,
+    Bynli_Connect_Blocks::GRID_COLS_MIN,
+    Bynli_Connect_Blocks::GRID_COLS_MAX,
+    Bynli_Connect_Blocks::GRID_COLS_LG_DEFAULT
+);
 
 $vars = [
     '--bynefit-cols-sm' => (string) $cols_sm,
