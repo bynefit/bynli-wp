@@ -287,8 +287,16 @@ class Bynli_Connect_Updater {
         // plugin directory. We cannot refuse that without breaking every legitimate
         // mirror, but the release note promises a skip is always recorded, and this was
         // the last path that made that sentence false.
+        //
+        // is_wp_error first: a WP_Error reply is a REFUSAL, not a substitution.
+        // download_package() hands any non-false reply back to run(), which returns a
+        // WP_Error straight out and installs nothing — so a freeze-updates or WAF plugin
+        // blocking our basename would otherwise write "proceeding WITHOUT checksum
+        // verification" for an install that never happened, in the log the release note
+        // sends auditors to, worded identically to the real thing.
         if ($reply !== false) {
-            if (is_array($hook_extra) && ($hook_extra['plugin'] ?? '') === $this->plugin_basename) {
+            if (!is_wp_error($reply) && is_array($hook_extra)
+                && ($hook_extra['plugin'] ?? '') === $this->plugin_basename) {
                 error_log('[Bynli Connect] update: another filter supplied this package before'
                     . ' we could verify it, so this install is proceeding WITHOUT checksum'
                     . ' verification');
