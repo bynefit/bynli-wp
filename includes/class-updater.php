@@ -279,7 +279,20 @@ class Bynli_Connect_Updater {
      */
     public function verify_download($reply, $package, $upgrader = null, $hook_extra = []) {
         // Someone earlier in the chain already handled it.
+        //
+        // upgrader_pre_download is a FILTER CHAIN, so this is not merely "not our
+        // business": another plugin — a mirror, a WAF, a local-packages plugin, or a
+        // compromised one — can return a package for OUR basename and short-circuit this
+        // control entirely. WordPress then unpacks bytes we never hashed over our own
+        // plugin directory. We cannot refuse that without breaking every legitimate
+        // mirror, but the release note promises a skip is always recorded, and this was
+        // the last path that made that sentence false.
         if ($reply !== false) {
+            if (is_array($hook_extra) && ($hook_extra['plugin'] ?? '') === $this->plugin_basename) {
+                error_log('[Bynli Connect] update: another filter supplied this package before'
+                    . ' we could verify it, so this install is proceeding WITHOUT checksum'
+                    . ' verification');
+            }
             return $reply;
         }
         $plugin = is_array($hook_extra) && isset($hook_extra['plugin']) ? (string) $hook_extra['plugin'] : '';
