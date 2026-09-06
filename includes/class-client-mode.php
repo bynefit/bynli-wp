@@ -356,6 +356,27 @@ class Bynli_Connect_Client_Mode {
             2
         );
         add_action('admin_print_styles-' . $hook, [$this, 'enqueue']);
+        add_action('admin_head', [$this, 'menu_icon_style']);
+    }
+
+    /**
+     * Constrain the menu icon to the 20x20 box add_menu_page() expects.
+     *
+     * Core applies no width or height to `.wp-menu-image img`, so the 40px
+     * asset — 40px so it stays sharp on HiDPI — would otherwise render at its
+     * intrinsic size and bleed into the label and the row below it. This runs
+     * on admin_head rather than the Portal page's stylesheet because the menu
+     * renders on every admin screen, not just that one.
+     */
+    public function menu_icon_style(): void
+    {
+        if (!current_user_can('read_bynefit_portal')) {
+            return;
+        }
+        echo '<style id="bynefit-connect-menu-icon">'
+           . '#adminmenu .toplevel_page_' . esc_attr(self::PORTAL_SLUG) . ' .wp-menu-image img{'
+           . 'width:20px;height:20px;padding:7px 0 0;}'
+           . '</style>' . "\n";
     }
 
     public function enqueue(): void {
@@ -404,11 +425,8 @@ class Bynli_Connect_Client_Mode {
             <header class="bcn-topbar">
                 <div class="bcn-brand">
                     <span class="bcn-logo" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-                            <circle cx="12" cy="12" r="3.2" fill="currentColor"/>
-                            <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.4" opacity=".55"/>
-                            <circle cx="12" cy="12" r="10.6" stroke="currentColor" stroke-width="1.2" opacity=".25"/>
-                        </svg>
+                        <img src="<?php echo esc_url(plugins_url('assets/menu-icon.png', BYNLI_CONNECT_PLUGIN_FILE)); ?>"
+                             width="22" height="22" alt="" decoding="async"/>
                     </span>
                     <span class="bcn-wordmark"><?php echo esc_html($site); ?></span>
                     <span class="bcn-tag">Portal</span>
