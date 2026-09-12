@@ -383,18 +383,15 @@ class Bynli_Connect_Settings {
     }
 
     private function render_topbar(array $ctx): void {
-        $host = wp_parse_url(home_url(), PHP_URL_HOST) ?: home_url();
+        $host   = wp_parse_url(home_url(), PHP_URL_HOST) ?: home_url();
+        $assets = plugins_url('assets/', BYNLI_CONNECT_PLUGIN_FILE);
         ?>
         <header class="bcn-topbar">
             <div class="bcn-brand">
-                <span class="bcn-logo" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-                        <circle cx="12" cy="12" r="3.2" fill="currentColor"/>
-                        <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.4" opacity=".55"/>
-                        <circle cx="12" cy="12" r="10.6" stroke="currentColor" stroke-width="1.2" opacity=".25"/>
-                    </svg>
-                </span>
-                <span class="bcn-wordmark">Bynefit</span>
+                <img class="bcn-mark"
+                     src="<?php echo esc_url($assets . 'bynefit-mark.png'); ?>"
+                     srcset="<?php echo esc_url($assets . 'bynefit-mark.png'); ?> 1x, <?php echo esc_url($assets . 'bynefit-mark@2x.png'); ?> 2x"
+                     width="24" height="24" alt="Bynefit" decoding="async">
                 <span class="bcn-tag">Connect</span>
             </div>
             <div class="bcn-topbar-spacer"></div>
