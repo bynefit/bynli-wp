@@ -139,8 +139,16 @@
     border-radius: var(--bcn-r-lg);
     box-shadow: var(--bcn-shadow-2);
 }
-.bcn-brand { display: flex; align-items: center; gap: 9px; }
-.bcn-logo { display: inline-flex; color: var(--bcn-accent); }
+.bcn-brand { display: flex; align-items: center; gap: 6px; }
+/* The mark is near-white with alpha, so it is invisible on the panel it sits
+   on. The chip is a fixed hex rather than --bcn-ink: this admin is a single
+   light token set today, and a token that gained a dark layer later would take
+   the chip with it while the mark's own colour stayed put. */
+.bcn-mark {
+    display: block; flex-shrink: 0;
+    background: #1a120c; box-sizing: content-box;
+    padding: 4px; border-radius: 8px;
+}
 .bcn-wordmark { font-weight: 700; font-size: 16px; letter-spacing: -0.02em; color: var(--bcn-ink); }
 .bcn-tag {
     font-family: var(--bcn-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;

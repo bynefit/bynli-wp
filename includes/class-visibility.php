@@ -130,6 +130,8 @@ class Bynli_Connect_Visibility {
         $name = esc_html(get_bloginfo('name'));
         $tag  = esc_html(get_bloginfo('description'));
         $login = esc_url(wp_login_url());
+        $mark  = esc_url(plugins_url('assets/bynefit-mark-sm.png', BYNLI_CONNECT_PLUGIN_FILE));
+        $mark2 = esc_url(plugins_url('assets/bynefit-mark-sm@2x.png', BYNLI_CONNECT_PLUGIN_FILE));
         header('Content-Type: text/html; charset=utf-8');
         echo <<<HTML
 <!doctype html>
@@ -144,7 +146,7 @@ body{margin:0;display:flex;align-items:center;justify-content:center;min-height:
 background:radial-gradient(120% 120% at 100% 0%,rgba(45,212,194,.14),transparent 60%),var(--bg);
 color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px}
 .card{max-width:460px;text-align:center}
-.node{width:56px;height:56px;margin:0 auto 22px;color:var(--accent)}
+.node{display:block;width:56px;height:56px;margin:0 auto 22px}
 h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px}
 .tag{color:var(--muted);font-size:15px;line-height:1.5;margin:0 0 26px}
 .pill{display:inline-flex;align-items:center;gap:8px;font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -155,7 +157,7 @@ border:1px solid var(--line);border-radius:999px;padding:7px 14px}
 .login:hover{color:var(--ink)}
 </style></head>
 <body><main class="card">
-<svg class="node" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.4" opacity=".55"/><circle cx="12" cy="12" r="10.6" stroke="currentColor" stroke-width="1.2" opacity=".25"/></svg>
+<img class="node" src="{$mark}" srcset="{$mark} 1x, {$mark2} 2x" width="56" height="56" alt="Bynefit" decoding="async">
 <span class="pill"><span class="beacon"></span>Coming soon</span>
 <h1>{$name}</h1>
 <p class="tag">{$tag}</p>
