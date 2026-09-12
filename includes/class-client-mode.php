@@ -399,17 +399,18 @@ class Bynli_Connect_Client_Mode {
         $u_post_drafts = admin_url('edit.php?post_status=draft');
 
         $has_key = get_option('bynli_connect_api_key', '') !== '';
+        // $base in enqueue() is a different method's local. Naming it the same here
+        // and reading it in the markup would have been an undefined-variable notice
+        // and an empty src.
+        $base = plugins_url('assets/', BYNLI_CONNECT_PLUGIN_FILE);
         ?>
         <div class="wrap bcn-wrap" dir="<?php echo is_rtl() ? 'rtl' : 'ltr'; ?>">
             <header class="bcn-topbar">
                 <div class="bcn-brand">
-                    <span class="bcn-logo" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-                            <circle cx="12" cy="12" r="3.2" fill="currentColor"/>
-                            <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.4" opacity=".55"/>
-                            <circle cx="12" cy="12" r="10.6" stroke="currentColor" stroke-width="1.2" opacity=".25"/>
-                        </svg>
-                    </span>
+                    <img class="bcn-mark"
+                         src="<?php echo esc_url($base . 'bynefit-mark-sm.png'); ?>"
+                         srcset="<?php echo esc_url($base . 'bynefit-mark-sm.png'); ?> 1x, <?php echo esc_url($base . 'bynefit-mark-sm@2x.png'); ?> 2x"
+                         width="24" height="24" alt="Bynefit" decoding="async">
                     <span class="bcn-wordmark"><?php echo esc_html($site); ?></span>
                     <span class="bcn-tag">Portal</span>
                 </div>

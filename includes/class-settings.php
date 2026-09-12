@@ -389,8 +389,8 @@ class Bynli_Connect_Settings {
         <header class="bcn-topbar">
             <div class="bcn-brand">
                 <img class="bcn-mark"
-                     src="<?php echo esc_url($assets . 'bynefit-mark.png'); ?>"
-                     srcset="<?php echo esc_url($assets . 'bynefit-mark.png'); ?> 1x, <?php echo esc_url($assets . 'bynefit-mark@2x.png'); ?> 2x"
+                     src="<?php echo esc_url($assets . 'bynefit-mark-sm.png'); ?>"
+                     srcset="<?php echo esc_url($assets . 'bynefit-mark-sm.png'); ?> 1x, <?php echo esc_url($assets . 'bynefit-mark-sm@2x.png'); ?> 2x"
                      width="24" height="24" alt="Bynefit" decoding="async">
                 <span class="bcn-tag">Connect</span>
             </div>

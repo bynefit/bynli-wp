@@ -139,8 +139,7 @@
     border-radius: var(--bcn-r-lg);
     box-shadow: var(--bcn-shadow-2);
 }
-.bcn-brand { display: flex; align-items: center; gap: 9px; }
-.bcn-logo { display: inline-flex; color: var(--bcn-accent); }
+.bcn-brand { display: flex; align-items: center; gap: 6px; }
 /* The mark is near-white with alpha, so it is invisible on the panel it sits
    on. The chip is a fixed hex rather than --bcn-ink: this admin is a single
    light token set today, and a token that gained a dark layer later would take
