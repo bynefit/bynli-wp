@@ -130,8 +130,8 @@ class Bynli_Connect_Visibility {
         $name = esc_html(get_bloginfo('name'));
         $tag  = esc_html(get_bloginfo('description'));
         $login = esc_url(wp_login_url());
-        $mark  = esc_url(plugins_url('assets/bynefit-mark-sm.png', BYNLI_CONNECT_PLUGIN_FILE));
-        $mark2 = esc_url(plugins_url('assets/bynefit-mark-sm@2x.png', BYNLI_CONNECT_PLUGIN_FILE));
+        $mark  = esc_url(plugins_url('assets/bynefit-mark.png', BYNLI_CONNECT_PLUGIN_FILE));
+        $mark2 = esc_url(plugins_url('assets/bynefit-mark@2x.png', BYNLI_CONNECT_PLUGIN_FILE));
         header('Content-Type: text/html; charset=utf-8');
         echo <<<HTML
 <!doctype html>
