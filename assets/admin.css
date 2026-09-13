@@ -147,7 +147,7 @@
 .bcn-mark {
     display: block; flex-shrink: 0;
     background: #1a120c; box-sizing: content-box;
-    padding: 4px; border-radius: 8px;
+    padding: 4px; border-radius: var(--bcn-r-sm);
 }
 .bcn-wordmark { font-weight: 700; font-size: 16px; letter-spacing: -0.02em; color: var(--bcn-ink); }
 .bcn-tag {
@@ -421,7 +421,7 @@
 .bcn-log { list-style: none; margin: 0; padding: 0; }
 .bcn-log-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--bcn-rule-2); }
 .bcn-log-item:last-child { border-bottom: none; }
-.bcn-log-ico { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; }
+.bcn-log-ico { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--bcn-r-sm); flex-shrink: 0; }
 .bcn-log-ico .dashicons { font-size: 16px; width: 16px; height: 16px; }
 .bcn-log-ico.ok   { background: var(--bcn-ok-soft);     color: var(--bcn-ok); }
 .bcn-log-ico.down { background: var(--bcn-down-soft);   color: var(--bcn-down); }

@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.23.0
+Stable tag:        0.23.1
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -138,10 +138,18 @@ Open a ticket from **Settings → Bynefit Tickets → Open new ticket**. It land
 
 == Upgrade Notice ==
 
+= 0.23.1 =
+Cosmetic only — the Bynefit mark replaces a stand-in glyph in the admin topbar, on the Coming soon holding page, and in the client portal. Nothing about how your site publishes or behaves changes. Coming from 0.22.x? 0.23.0 is in this update too, and it can refuse a layout that publishes today — most often a block spanning more columns than its section has. Open View version details for the full list.
+
 = 0.23.0 =
 Some designs that publish today will be refused after this update. Publishing now checks icon size, alignment, embed ratio, events limit, overlay opacity, gallery gap, gallery columns and block position, and refuses values it used to accept and then quietly change. Most likely to affect you: a block set to span more columns than its section has. Nothing already published changes — you will see this the next time you save that page.
 
 == Changelog ==
+
+= 0.23.1 =
+* **Changed:** The Bynefit mark now appears in place of the stand-in glyph it shipped with — in the admin topbar, on the Coming soon page your visitors see, and in the client portal. In the admin the type-set "Bynefit" wordmark beside it is gone and the mark stands on its own; "Connect" stays, because that is the product name rather than the wordmark. The client portal keeps its wordmark, which carries your site name rather than ours.
+* **Fixed:** The mark on the Coming soon page was being drawn from a 28px image in a 56px space, so it rendered soft on a standard screen. It now uses the larger asset.
+* No change to how your site publishes or behaves. Safe to update from 0.23.0 with nothing to check afterwards.
 
 = 0.23.0 =
 * **Please read before updating — some designs that publish today will be refused after this update.** Publishing from the Bynefit app checks your layout values before it saves, and this release adds several checks that were missing. Each one refuses a value that used to save and then render as something other than what you asked for. Publishing will now tell you, rather than quietly changing it, if your design uses:
