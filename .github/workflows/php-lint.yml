@@ -1,0 +1,66 @@
+name: PHP Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: php-lint-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: php -l (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Lint every PHP file
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.php' \
+            -not -path './vendor/*' \
+            -not -path './node_modules/*' \
+            -print0 \
+            | xargs -0 -r -n1 -P4 sh -c 'php -l "$1" || exit 1' _
+
+  floor:
+    name: Declared PHP floor is covered by the matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Requires PHP headers agree and appear in the lint matrix
+        run: |
+          set -euo pipefail
+          plugin="$(sed -n 's/^[[:space:]]*\*[[:space:]]*Requires PHP:[[:space:]]*//p' bynli-connect.php | tr -d '[:space:]')"
+          readme="$(sed -n 's/^Requires PHP:[[:space:]]*//p' readme.txt | tr -d '[:space:]')"
+          if [ -z "$plugin" ]; then
+            echo "::error file=bynli-connect.php::No 'Requires PHP' header found."
+            exit 1
+          fi
+          if [ "$plugin" != "$readme" ]; then
+            echo "::error file=readme.txt::readme.txt declares PHP '${readme}' but bynli-connect.php declares '${plugin}'. They must match."
+            exit 1
+          fi
+          echo "Plugin declares PHP $plugin"
+          if ! grep -E '^[[:space:]]*php:[[:space:]]*\[' .github/workflows/php-lint.yml | grep -Fq "'${plugin}'"; then
+            echo "::error::Plugin declares PHP ${plugin} but the lint matrix does not include it. Add it to the matrix or update the header."
+            exit 1
+          fi
+          echo "Matrix covers the declared floor."

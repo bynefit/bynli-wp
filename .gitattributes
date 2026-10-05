@@ -3,3 +3,4 @@
 # dropping them from the archive stays green.
 .gitignore      export-ignore
 .gitattributes  export-ignore
+.github export-ignore
