@@ -1,0 +1,11 @@
+#adminmenu .toplevel_page_bynefit-portal .wp-menu-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#adminmenu .toplevel_page_bynefit-portal .wp-menu-image img {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+}

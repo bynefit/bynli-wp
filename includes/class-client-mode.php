@@ -91,6 +91,7 @@ class Bynli_Connect_Client_Mode {
 
         add_action('init',                 [$this, 'ensure_role']);
         add_action('admin_menu',           [$this, 'register_portal'], 1);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_menu_icon']);
         add_action('admin_menu',           [$this, 'lockdown_menus'], 9999);
         add_action('admin_init',           [$this, 'restrict_admin_pages']);
         add_action('admin_bar_menu',       [$this, 'trim_admin_bar'], 999);
@@ -352,10 +353,28 @@ class Bynli_Connect_Client_Mode {
             'read_bynefit_portal',   // only the Client role holds this — keeps subscribers/admins out
             self::PORTAL_SLUG,
             [$this, 'render_portal'],
-            'dashicons-admin-home',
+            $this->menu_icon(),
             2
         );
         add_action('admin_print_styles-' . $hook, [$this, 'enqueue']);
+    }
+
+    private function menu_icon(): string {
+        if (get_user_option('admin_color') === 'light') {
+            return 'dashicons-admin-home';
+        }
+        return plugins_url('assets/bynefit-mark-sm@2x.png', BYNLI_CONNECT_PLUGIN_FILE);
+    }
+
+    public function enqueue_menu_icon(): void {
+        if (!current_user_can('read_bynefit_portal')) return;
+        if (strpos($this->menu_icon(), 'dashicons-') === 0) return;
+        wp_enqueue_style(
+            'bynli-connect-menu-icon',
+            plugins_url('assets/menu-icon.css', BYNLI_CONNECT_PLUGIN_FILE),
+            [],
+            BYNLI_CONNECT_VERSION
+        );
     }
 
     public function enqueue(): void {
