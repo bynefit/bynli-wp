@@ -91,6 +91,7 @@ class Bynli_Connect_Client_Mode {
 
         add_action('init',                 [$this, 'ensure_role']);
         add_action('admin_menu',           [$this, 'register_portal'], 1);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_menu_icon']);
         add_action('admin_menu',           [$this, 'lockdown_menus'], 9999);
         add_action('admin_init',           [$this, 'restrict_admin_pages']);
         add_action('admin_bar_menu',       [$this, 'trim_admin_bar'], 999);
@@ -352,10 +353,43 @@ class Bynli_Connect_Client_Mode {
             'read_bynefit_portal',   // only the Client role holds this — keeps subscribers/admins out
             self::PORTAL_SLUG,
             [$this, 'render_portal'],
-            'dashicons-admin-home',
+            plugins_url('assets/bynefit-mark-sm@2x.png', BYNLI_CONNECT_PLUGIN_FILE),
             2
         );
         add_action('admin_print_styles-' . $hook, [$this, 'enqueue']);
+    }
+
+    private static function menu_is_light(): bool {
+        $scheme = get_user_option('admin_color') ?: 'fresh';
+        $colors = $GLOBALS['_wp_admin_css_colors'][$scheme]->colors ?? [];
+        $hex = ltrim((string) ($colors[0] ?? ''), '#');
+        if (strlen($hex) === 3) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+        if (!preg_match('/^[0-9a-f]{6}$/i', $hex)) return false;
+        $lin = array_map(static function (string $pair): float {
+            $c = hexdec($pair) / 255;
+            return $c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
+        }, str_split($hex, 2));
+        return (0.2126 * $lin[0] + 0.7152 * $lin[1] + 0.0722 * $lin[2]) > 0.5;
+    }
+
+    public function enqueue_menu_icon(): void {
+        if (!current_user_can('read_bynefit_portal')) return;
+        if (self::menu_is_light()) {
+            foreach ((array) ($GLOBALS['menu'] ?? []) as $i => $item) {
+                if (($item[2] ?? '') === self::PORTAL_SLUG) {
+                    $GLOBALS['menu'][$i][6] = 'dashicons-admin-home';
+                }
+            }
+            return;
+        }
+        wp_enqueue_style(
+            'bynli-connect-menu-icon',
+            plugins_url('assets/menu-icon.css', BYNLI_CONNECT_PLUGIN_FILE),
+            [],
+            BYNLI_CONNECT_VERSION
+        );
     }
 
     public function enqueue(): void {

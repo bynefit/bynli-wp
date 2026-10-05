@@ -1,0 +1,12 @@
+#adminmenu .toplevel_page_bynefit-portal .wp-menu-image img {
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: 0 auto;
+  padding: 7px 0 0;
+}
+
+#adminmenu li.toplevel_page_bynefit-portal.current .wp-menu-image img,
+#adminmenu .toplevel_page_bynefit-portal a:focus .wp-menu-image img {
+  opacity: 1;
+}
