@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.23.1
+Stable tag:        0.23.2
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -145,6 +145,10 @@ Cosmetic only — the Bynefit mark replaces a stand-in glyph in the admin topbar
 Some designs that publish today will be refused after this update. Publishing now checks icon size, alignment, embed ratio, events limit, overlay opacity, gallery gap, gallery columns and block position, and refuses values it used to accept and then quietly change. Most likely to affect you: a block set to span more columns than its section has. Nothing already published changes — you will see this the next time you save that page.
 
 == Changelog ==
+
+= 0.23.2 =
+* **Fixed:** The Bynefit payment option could disappear from the block-based Cart/Checkout. The block checkout decides which payment methods to show before WooCommerce finishes loading its gateways, and the old check tried to look up the live gateway at that moment and came back empty. It now reads the saved on/off setting directly, so Bynefit shows whenever it is enabled and connected — on both the block checkout and the classic checkout.
+* **Added:** Declared compatibility with WooCommerce's High-Performance Order Storage (HPOS). The plugin already reads and writes orders through WooCommerce's order API, so this clears the "incompatible plugin" notice and keeps order sync working on HPOS stores.
 
 = 0.23.1 =
 * **Changed:** The Bynefit mark now appears in place of the stand-in glyph it shipped with — in the admin topbar, on the Coming soon page your visitors see, and in the client portal. In the admin the type-set "Bynefit" wordmark beside it is gone and the mark stands on its own; "Connect" stays, because that is the product name rather than the wordmark. The client portal keeps its wordmark, which carries your site name rather than ours.
