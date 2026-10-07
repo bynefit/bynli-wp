@@ -37,12 +37,15 @@ final class WC_Blocks_Bynefit extends AbstractPaymentMethodType {
     }
 
     /**
-     * Mirror the classic gateway's own availability so the block checkout and
-     * the shortcode checkout can never disagree about whether Bynefit shows.
+     * Read the stored enabled flag + key directly. WooCommerce evaluates block
+     * payment methods early, before WC()->payment_gateways() is populated, so
+     * resolving the live gateway instance here returned null and hid Bynefit
+     * from the block checkout. This mirrors the same enabled+key gate the
+     * classic gateway's is_available() applies, without the registry lookup.
      */
     public function is_active() {
-        $gateway = $this->gateway();
-        return $gateway ? $gateway->is_available() : false;
+        $enabled = !empty($this->settings['enabled']) && 'yes' === $this->settings['enabled'];
+        return $enabled && (bool) Bynli_Connect_Settings::key();
     }
 
     /** Register (no build step — plain browser JS) and hand WC the handle. */
