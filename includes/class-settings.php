@@ -649,6 +649,12 @@ class Bynli_Connect_Settings {
                 <span class="dashicons dashicons-sos"></span> Support
             </a>
         </div>
+        <?php if ($is_connected && !(defined('BYNLI_CONTROL_PLANE_SECRET') && BYNLI_CONTROL_PLANE_SECRET) && !Bynli_Connect_Control_Plane::is_paired()): ?>
+        <div class="bcn-notice bcn-notice-acc">
+            <strong>Design this site from the Bynefit app.</strong>
+            Turn on app editing in <a href="<?php echo esc_url($this->section_url('connection') . '#bcn-app-editing'); ?>">Connection</a>.
+        </div>
+        <?php endif; ?>
         <?php
     }
 
@@ -662,6 +668,7 @@ class Bynli_Connect_Settings {
                     <li>Open <a href="https://bynefit.com/dash/sites/host-keys" target="_blank" rel="noopener">/dash/sites/host-keys</a> signed in as a team admin.</li>
                     <li>Pick this site, <strong>Generate key</strong>, copy the plaintext value — shown once.</li>
                     <li>Paste it into the API key field in Connection and save.</li>
+                    <li>Then turn on <strong>App editing</strong> in Connection to design this site from the Bynefit app.</li>
                 </ol>
                 <a class="bcn-btn primary" href="<?php echo esc_url($this->section_url('connection')); ?>">Go to Connection</a>
             </div>
