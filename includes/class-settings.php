@@ -649,7 +649,7 @@ class Bynli_Connect_Settings {
                 <span class="dashicons dashicons-sos"></span> Support
             </a>
         </div>
-        <?php if ($is_connected && !(defined('BYNLI_CONTROL_PLANE_SECRET') && BYNLI_CONTROL_PLANE_SECRET) && !Bynli_Connect_Control_Plane::is_paired()): ?>
+        <?php if ($is_connected && stripos(home_url(), 'https://') === 0 && !(defined('BYNLI_CONTROL_PLANE_SECRET') && BYNLI_CONTROL_PLANE_SECRET) && !Bynli_Connect_Control_Plane::is_paired()): ?>
         <div class="bcn-notice bcn-notice-acc">
             <strong>Design this site from the Bynefit app.</strong>
             Turn on app editing in <a href="<?php echo esc_url($this->section_url('connection') . '#bcn-app-editing'); ?>">Connection</a>.
