@@ -225,7 +225,7 @@ class Bynli_Connect_Control_Plane {
         $is_https   = stripos(home_url(), 'https://') === 0;
         $nonce      = wp_create_nonce(self::NONCE_PAIR);
         ?>
-        <section class="bcn-card">
+        <section class="bcn-card" id="bcn-app-editing">
             <div class="bcn-card-head">
                 <h2>App editing</h2>
                 <span class="bcn-card-sub">Design this site from the Bynefit app</span>

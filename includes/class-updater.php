@@ -36,12 +36,12 @@ class Bynli_Connect_Updater {
             return $cached;
         }
         if (!defined('WPMU_PLUGIN_DIR') || !defined('BYNLI_CONNECT_PLUGIN_FILE')) {
-            return $cached = false;
+            return false;
         }
         $mu   = realpath(WPMU_PLUGIN_DIR);
         $self = realpath(BYNLI_CONNECT_PLUGIN_FILE);
         if ($mu === false || $self === false) {
-            return $cached = false;
+            return false;
         }
         $mu_n   = rtrim(str_replace('\\', '/', $mu), '/') . '/';
         $self_n = str_replace('\\', '/', $self);
@@ -64,7 +64,7 @@ class Bynli_Connect_Updater {
         // the cache comment that contradicts it.
         $entries = @scandir($mu);
         if ($entries === false) {
-            return $cached = false;
+            return false;
         }
         // Our bootstrap file, or our own plugin directory — NOTHING higher.
         //
