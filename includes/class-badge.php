@@ -80,6 +80,8 @@ class Bynli_Connect_Badge {
             return;
         }
 
+        update_option(self::OPTION, $state, true);
+
         $base = Bynli_Connect_Settings::api_base();
         $res  = wp_remote_get(add_query_arg(array_map('rawurlencode', $query), $base . '/api/sites/runtime-status'), [
             'timeout'             => 5,
@@ -96,7 +98,7 @@ class Bynli_Connect_Badge {
         }
 
         if (is_wp_error($res) || $code !== 200) {
-            error_log('[Bynli Connect] badge: status read failed — ' . (is_wp_error($res) ? $res->get_error_message() : 'HTTP ' . wp_remote_retrieve_response_code($res)));
+            error_log('[Bynli Connect] badge: status read failed — ' . (is_wp_error($res) ? $res->get_error_message() : 'HTTP ' . $code));
             $state['failed_at'] = time();
             $state['fails']     = (int) ($state['fails'] ?? 0) + 1;
             update_option(self::OPTION, $state, true);

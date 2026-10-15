@@ -5,6 +5,7 @@
     var LIFT_MAX = 400;
     var SHEET_TIMEOUT_MS = 8000;
     var RECHECK_MS = [1500, 4000];
+    var SETTLE_MS = 400;
 
     function init(bar) {
         var holdTimer = null;
@@ -96,17 +97,17 @@
         for (var i = 0; i < RECHECK_MS.length; i++) {
             setTimeout(avoidOverlap, RECHECK_MS[i]);
         }
-        var pending = false;
+        var settleTimer = null;
         function scheduleOverlap() {
-            if (pending) { return; }
-            pending = true;
-            window.requestAnimationFrame(function () {
-                pending = false;
+            if (settleTimer) { clearTimeout(settleTimer); }
+            settleTimer = setTimeout(function () {
+                settleTimer = null;
                 avoidOverlap();
-            });
+            }, SETTLE_MS);
         }
         window.addEventListener('resize', scheduleOverlap);
         window.addEventListener('orientationchange', scheduleOverlap);
+        document.addEventListener('click', scheduleOverlap, { passive: true });
     }
 
     function start() {
