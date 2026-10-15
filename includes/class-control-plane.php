@@ -85,6 +85,24 @@ class Bynli_Connect_Control_Plane {
             'callback'            => [$this, 'set_navigation'],
             'permission_callback' => [$this, 'authorize'],
         ]);
+
+        register_rest_route(self::NS, '/capabilities', [
+            'methods'             => 'POST',
+            'callback'            => ['Bynli_Connect_Products', 'handle_capabilities'],
+            'permission_callback' => [$this, 'authorize'],
+        ]);
+
+        register_rest_route(self::NS, '/product', [
+            'methods'             => 'POST',
+            'callback'            => ['Bynli_Connect_Products', 'handle_product'],
+            'permission_callback' => [$this, 'authorize'],
+        ]);
+
+        register_rest_route(self::NS, '/product_remove', [
+            'methods'             => 'POST',
+            'callback'            => ['Bynli_Connect_Products', 'handle_remove'],
+            'permission_callback' => [$this, 'authorize'],
+        ]);
     }
 
     /**
