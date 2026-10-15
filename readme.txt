@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.23.3
+Stable tag:        0.24.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -145,6 +145,9 @@ Cosmetic only — the Bynefit mark replaces a stand-in glyph in the admin topbar
 Some designs that publish today will be refused after this update. Publishing now checks icon size, alignment, embed ratio, events limit, overlay opacity, gallery gap, gallery columns and block position, and refuses values it used to accept and then quietly change. Most likely to affect you: a block set to span more columns than its section has. Nothing already published changes — you will see this the next time you save that page.
 
 == Changelog ==
+
+= 0.24.0 =
+* **Added:** Sites hosted by Bynefit now show the small "Powered by Bynefit" badge in the corner, the same one Bynefit-built sites already show. It stays out of the way on admin screens and in editors. Sites on their own domain do not show it, as before. If the site's owner is a Bynefit partner, the badge links to that partner's page instead of the general one.
 
 = 0.23.3 =
 * **Fixed:** On a site with its own domain, parts of the site could still load their files (plugin scripts, theme styles, uploaded images, icon fonts) from the original Bynefit address instead of your domain. Browsers refuse some of those cross-address files, which broke the Elementor editor and could leave icons missing. The files your site builds now load from your own domain. Images already saved inside your pages are not changed. Nothing to change on your side, and sites without their own domain are unaffected.
