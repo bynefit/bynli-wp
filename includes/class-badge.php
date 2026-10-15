@@ -63,13 +63,16 @@ class Bynli_Connect_Badge {
 
         if (!$query) {
             $state['show'] = false;
+            $state['at']   = time();
             update_option(self::OPTION, $state, false);
             return;
         }
 
         $base = Bynli_Connect_Settings::api_base();
-        $res  = wp_remote_get(add_query_arg($query, $base . '/api/sites/runtime-status'), [
-            'timeout'    => 5,
+        $res  = wp_remote_get(add_query_arg(array_map('rawurlencode', $query), $base . '/api/sites/runtime-status'), [
+            'timeout'             => 5,
+            'redirection'         => 2,
+            'limit_response_size' => 65536,
             'user-agent' => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
             'headers'    => ['Accept' => 'application/json'],
         ]);
