@@ -14,6 +14,7 @@ $bynli_connect_options = [
     'bynli_connect_report_history',
     'bynli_connect_visibility',
     'bynli_connect_client_mode',
+    'bynli_connect_badge',
 ];
 foreach ($bynli_connect_options as $bynli_connect_opt) {
     delete_option($bynli_connect_opt);
