@@ -391,6 +391,7 @@ class Bynli_Connect_Products {
         self::assert_skus_free($p, $product);
 
         if ($product && ($variable ? !$product->is_type('variable') : !$product->is_type('simple'))) {
+            $switched = true;
             wp_set_object_terms($product->get_id(), $variable ? 'variable' : 'simple', 'product_type');
             clean_post_cache($product->get_id());
             wc_delete_product_transients($product->get_id());
@@ -413,7 +414,7 @@ class Bynli_Connect_Products {
 
         $product->set_name($p['name']);
         $product->set_description(wp_kses_post($p['description']));
-        $product->set_status($variable && $created ? 'draft' : $p['status']);
+        $product->set_status($variable && ($created || !empty($switched)) ? 'draft' : $p['status']);
         $product->set_sku($p['sku']);
         if ($p['category'] !== '') {
             $cats = self::category_ids($p['category']);
@@ -424,7 +425,7 @@ class Bynli_Connect_Products {
 
         $kept = [];
         foreach ($product->get_attributes() as $attr) {
-            if (is_object($attr) && method_exists($attr, 'get_name') && $attr->get_name() !== self::ATTR_NAME) {
+            if (is_object($attr) && method_exists($attr, 'get_name') && strcasecmp($attr->get_name(), self::ATTR_NAME) !== 0) {
                 $attr->set_variation(false);
                 $kept[] = $attr;
             }
@@ -463,7 +464,7 @@ class Bynli_Connect_Products {
             wp_delete_attachment((int) $att_id, true);
         }
         if (!$variable) {
-            foreach (get_posts(['post_type' => 'product_variation', 'post_parent' => $id, 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'suppress_filters' => true]) as $child_id) {
+            foreach (get_posts(['post_type' => 'product_variation', 'post_parent' => $id, 'post_status' => ['publish', 'draft', 'pending', 'private', 'trash'], 'numberposts' => -1, 'fields' => 'ids', 'suppress_filters' => true]) as $child_id) {
                 wp_delete_post((int) $child_id, true);
             }
         }
@@ -471,7 +472,7 @@ class Bynli_Connect_Products {
 
         if ($variable) {
             self::sync_variations($id, $p);
-            if ($created && $p['status'] === 'publish') {
+            if (($created || !empty($switched)) && $p['status'] === 'publish') {
                 $fresh = wc_get_product($id);
                 $fresh->set_status('publish');
                 $fresh->save();
