@@ -147,6 +147,7 @@ Some designs that publish today will be refused after this update. Publishing no
 == Changelog ==
 
 = 0.24.0 =
+* **Added:** If your site has WooCommerce, products from your Bynefit Space can now be sent to your store. Bynefit creates, updates and unpublishes them for you, including photos, options, prices and stock. Nothing to set up beyond keeping Bynefit Connect and WooCommerce active. Products stay linked to the Bynefit copy, so a later edit updates the same store product instead of adding a new one.
 * **Added:** Sites hosted by Bynefit now show the small "Powered by Bynefit" badge in the corner, the same one Bynefit-built sites already show. It stays out of the way on admin screens and on preview and editor screens. Sites on their own domain do not show it, as before. There is nothing to set up. If the site's owner is a Bynefit partner, the badge links to that partner's page instead of the general one. The plugin checks the badge status about every six hours, sending your site address and version numbers, never visitor data. While the badge is showing, visitors' browsers load two small files from bynefit.com.
 
 = 0.23.3 =
