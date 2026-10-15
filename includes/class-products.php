@@ -3,6 +3,15 @@ if (!defined('ABSPATH')) { exit; }
 
 class Bynli_Connect_Product_Busy extends Exception {}
 
+class Bynli_Connect_Product_Refused extends Exception {
+    public $violations;
+
+    public function __construct(array $violations) {
+        parent::__construct('refused');
+        $this->violations = $violations;
+    }
+}
+
 class Bynli_Connect_Products {
     const API_VERSION   = 1;
     const META_ID       = '_bynefit_product_id';
@@ -16,7 +25,7 @@ class Bynli_Connect_Products {
     const MAX_STOCK     = 1000000;
     const MAX_IMG_BYTES = 8388608;
     const ATTR_NAME     = 'Option';
-    const IMG_BUDGET_SECONDS = 40;
+    const IMG_BUDGET_SECONDS = 15;
 
     public static function capabilities() {
         return [
@@ -57,6 +66,8 @@ class Bynli_Connect_Products {
             }
             error_log('[Bynli Connect] product upsert refused: ' . $e->getMessage());
             return self::refused([['field' => 'product', 'message' => 'WooCommerce refused this product.']]);
+        } catch (Bynli_Connect_Product_Refused $e) {
+            return self::refused($e->violations);
         } catch (Bynli_Connect_Product_Busy $e) {
             return new WP_Error('busy', 'This product is being saved right now. Try again shortly.', ['status' => 503]);
         } catch (Throwable $e) {
@@ -96,19 +107,19 @@ class Bynli_Connect_Products {
         $v = [];
         $p = [];
 
-        $id = isset($in['id']) ? (int) $in['id'] : 0;
+        $id = isset($in['id']) && is_numeric($in['id']) ? (int) $in['id'] : 0;
         if ($id <= 0) {
             $v[] = ['field' => 'id', 'message' => 'Provide the Bynefit product id.'];
         }
         $p['id'] = $id;
 
-        $name = trim(sanitize_text_field((string) ($in['name'] ?? '')));
+        $name = trim(sanitize_text_field(self::s($in['name'] ?? '')));
         if ($name === '' || self::strlen($name) > self::MAX_NAME) {
             $v[] = ['field' => 'name', 'message' => 'The name must be 1 to ' . self::MAX_NAME . ' characters.'];
         }
         $p['name'] = $name;
 
-        $desc = (string) ($in['description'] ?? '');
+        $desc = self::s($in['description'] ?? '');
         if (self::strlen($desc) > self::MAX_DESC) {
             $v[] = ['field' => 'description', 'message' => 'The description is too long.'];
         }
@@ -130,26 +141,26 @@ class Bynli_Connect_Products {
         }
         $p['compare_at_price'] = $compare;
 
-        $sku = trim(sanitize_text_field((string) ($in['sku'] ?? '')));
+        $sku = trim(sanitize_text_field(self::s($in['sku'] ?? '')));
         if (self::strlen($sku) > 64) {
             $v[] = ['field' => 'sku', 'message' => 'The SKU must be 64 characters or fewer.'];
         }
         $p['sku'] = $sku;
 
-        $category = trim(sanitize_text_field((string) ($in['category'] ?? '')));
+        $category = trim(sanitize_text_field(self::s($in['category'] ?? '')));
         if (self::strlen($category) > 80) {
             $v[] = ['field' => 'category', 'message' => 'The category name is too long.'];
         }
         $p['category'] = $category;
 
-        $status = (string) ($in['status'] ?? 'publish');
+        $status = self::s($in['status'] ?? 'publish');
         if (!in_array($status, ['publish', 'draft'], true)) {
             $v[] = ['field' => 'status', 'message' => 'The status must be publish or draft.'];
             $status = 'draft';
         }
         $p['status'] = $status;
 
-        $stock = isset($in['stock_quantity']) ? (int) $in['stock_quantity'] : -1;
+        $stock = isset($in['stock_quantity']) && is_numeric($in['stock_quantity']) ? (int) $in['stock_quantity'] : (isset($in['stock_quantity']) ? -2 : -1);
         if ($stock < -1 || $stock > self::MAX_STOCK) {
             $v[] = ['field' => 'stock_quantity', 'message' => 'The stock quantity is out of range.'];
             $stock = -1;
@@ -158,7 +169,7 @@ class Bynli_Connect_Products {
 
         $low = null;
         if (isset($in['low_stock_threshold']) && $in['low_stock_threshold'] !== null && $in['low_stock_threshold'] !== '') {
-            $low = (int) $in['low_stock_threshold'];
+            $low = is_numeric($in['low_stock_threshold']) ? (int) $in['low_stock_threshold'] : -1;
             if ($low < 0 || $low > self::MAX_STOCK) {
                 $v[] = ['field' => 'low_stock_threshold', 'message' => 'The low-stock threshold is out of range.'];
                 $low = null;
@@ -168,7 +179,7 @@ class Bynli_Connect_Products {
 
         $images = [];
         foreach ((array) ($in['images'] ?? []) as $url) {
-            $url = trim((string) $url);
+            $url = trim(self::s($url));
             if ($url === '') {
                 continue;
             }
@@ -193,7 +204,7 @@ class Bynli_Connect_Products {
             if (!is_array($row)) {
                 continue;
             }
-            $label = trim(wp_strip_all_tags((string) ($row['label'] ?? '')));
+            $label = trim(wp_strip_all_tags(self::s($row['label'] ?? '')));
             if ($label === '' || self::strlen($label) > 80 || strpos($label, '|') !== false || isset($seen[strtolower($label)])) {
                 $v[] = ['field' => 'variants', 'message' => 'Each option needs a short, different name without the | character.'];
                 continue;
@@ -203,12 +214,12 @@ class Bynli_Connect_Products {
             if (isset($row['price']) && $row['price'] !== null && $row['price'] !== '' && $vp === null) {
                 $v[] = ['field' => 'variants', 'message' => 'An option price is not a valid number.'];
             }
-            $vs = isset($row['stock']) && $row['stock'] !== null && $row['stock'] !== '' ? (int) $row['stock'] : null;
+            $vs = isset($row['stock']) && $row['stock'] !== null && $row['stock'] !== '' ? (is_numeric($row['stock']) ? (int) $row['stock'] : -1) : null;
             if ($vs !== null && ($vs < 0 || $vs > self::MAX_STOCK)) {
                 $v[] = ['field' => 'variants', 'message' => 'An option stock count is out of range.'];
                 $vs = null;
             }
-            $vsku = trim(sanitize_text_field((string) ($row['sku'] ?? '')));
+            $vsku = trim(sanitize_text_field(self::s($row['sku'] ?? '')));
             if (self::strlen($vsku) > 64) {
                 $v[] = ['field' => 'variants', 'message' => 'An option SKU must be 64 characters or fewer.'];
                 $vsku = '';
@@ -232,10 +243,14 @@ class Bynli_Connect_Products {
         return ['violations' => $v, 'product' => $p];
     }
 
+    private static function s($v) {
+        return is_scalar($v) ? (string) $v : '';
+    }
+
     public static function find($bynefit_id) {
         $ids = get_posts([
             'post_type'        => 'product',
-            'post_status'      => 'any',
+            'post_status'      => ['publish', 'draft', 'pending', 'private', 'future', 'trash'],
             'numberposts'      => 1,
             'fields'           => 'ids',
             'meta_key'         => self::META_ID,
@@ -271,13 +286,14 @@ class Bynli_Connect_Products {
             if (!$product) {
                 $product = $variable ? new WC_Product_Variable() : new WC_Product_Simple();
             }
+            self::assert_skus_free($p, $product);
 
             $product->set_name($p['name']);
             $product->set_description(wp_kses_post($p['description']));
             $product->set_status($p['status']);
             $product->set_catalog_visibility('visible');
             $product->set_sku($p['sku']);
-            $product->set_category_ids($p['category'] !== '' ? [self::category_id($p['category'])] : []);
+            $product->set_category_ids($p['category'] !== '' ? self::category_ids($p['category']) : []);
 
             if ($variable) {
                 $product->set_attributes([self::attribute(array_column($p['variants'], 'label'))]);
@@ -317,6 +333,29 @@ class Bynli_Connect_Products {
         }
     }
 
+    private static function assert_skus_free(array $p, $product) {
+        $own = [];
+        if ($product->get_id()) {
+            $own[] = (int) $product->get_id();
+            foreach ($product->get_children() as $child_id) {
+                $own[] = (int) $child_id;
+            }
+        }
+        $skus = [$p['sku']];
+        foreach ($p['variants'] as $row) {
+            $skus[] = $row['sku'];
+        }
+        foreach ($skus as $sku) {
+            if ($sku === '') {
+                continue;
+            }
+            $holder = (int) wc_get_product_id_by_sku($sku);
+            if ($holder > 0 && !in_array($holder, $own, true)) {
+                throw new Bynli_Connect_Product_Refused([['field' => 'sku', 'message' => 'Another product on this site already uses the SKU ' . $sku . '.']]);
+            }
+        }
+    }
+
     private static function attribute(array $labels) {
         $attr = new WC_Product_Attribute();
         $attr->set_id(0);
@@ -345,6 +384,12 @@ class Bynli_Connect_Products {
                 $have[$label] = $child;
             } else {
                 $child->delete(true);
+            }
+        }
+        foreach ($have as $key => $child) {
+            if ((string) $child->get_sku() !== (string) $wanted[$key]['sku']) {
+                $child->set_sku('');
+                $child->save();
             }
         }
         foreach ($wanted as $key => $row) {
@@ -394,6 +439,11 @@ class Bynli_Connect_Products {
         }
         $made = wp_insert_term($name, 'product_cat');
         return is_wp_error($made) ? 0 : (int) $made['term_id'];
+    }
+
+    private static function category_ids($name) {
+        $id = self::category_id($name);
+        return $id > 0 ? [$id] : [];
     }
 
     private static function apply_images($product, array $urls) {
@@ -459,21 +509,26 @@ class Bynli_Connect_Products {
             require_once ABSPATH . 'wp-admin/includes/image.php';
         }
         add_filter('http_request_args', [__CLASS__, 'cap_download_size']);
-        $tmp = download_url($url, 20);
-        remove_filter('http_request_args', [__CLASS__, 'cap_download_size']);
+        try {
+            $tmp = download_url($url, 20);
+        } finally {
+            remove_filter('http_request_args', [__CLASS__, 'cap_download_size']);
+        }
         if (is_wp_error($tmp)) {
             error_log('[Bynli Connect] product image download failed: ' . $tmp->get_error_message());
             return 0;
         }
         $size = @filesize($tmp);
-        $name = basename((string) wp_parse_url($url, PHP_URL_PATH));
-        $type = wp_check_filetype_and_ext($tmp, $name, ['jpg|jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp']);
-        if ($size === false || $size > self::MAX_IMG_BYTES || empty($type['type'])) {
+        $mime = function_exists('wp_get_image_mime') ? wp_get_image_mime($tmp) : false;
+        $ext  = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'][(string) $mime] ?? '';
+        if ($size === false || $size > self::MAX_IMG_BYTES || $ext === '') {
             @unlink($tmp);
-            error_log('[Bynli Connect] product image rejected (type or size): ' . $name);
+            error_log('[Bynli Connect] product image rejected (type or size): ' . basename((string) wp_parse_url($url, PHP_URL_PATH)));
             return 0;
         }
-        $att = media_handle_sideload(['name' => sanitize_file_name($name), 'tmp_name' => $tmp], 0);
+        $base = sanitize_file_name(pathinfo((string) wp_parse_url($url, PHP_URL_PATH), PATHINFO_FILENAME));
+        $base = $base !== '' ? $base : 'product-image';
+        $att  = media_handle_sideload(['name' => $base . '.' . $ext, 'tmp_name' => $tmp], 0);
         if (is_wp_error($att)) {
             @unlink($tmp);
             error_log('[Bynli Connect] product image sideload failed: ' . $att->get_error_message());
