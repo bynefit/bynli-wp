@@ -9,10 +9,11 @@ class Bynli_Connect_Badge {
     const RETRY_AFTER  = 15 * MINUTE_IN_SECONDS;
     const STYLE_PATH   = '/css/bynli.css.php?b=powered&v=20261010.1';
     const MARK_PATH    = '/assets/brand/bynefit-mark@2x.png';
-    const LABEL        = 'Powered by Bynefit. Build a site like this.';
+    const LABEL        = 'Powered by Bynefit. Build yours free. Opens in a new tab.';
+    const LIFT_MAX     = 400;
 
     public function __construct() {
-        add_action('wp_enqueue_scripts', [$this, 'enqueue']);
+        add_action('wp_footer', [$this, 'enqueue'], 5);
         add_action('wp_footer', [$this, 'render'], 99);
         add_action(self::REFRESH_HOOK, [__CLASS__, 'refresh']);
     }
@@ -113,10 +114,20 @@ class Bynli_Connect_Badge {
         if (is_admin() || wp_doing_ajax() || is_feed() || is_embed() || is_customize_preview()) {
             return false;
         }
-        if (isset($_GET['elementor-preview']) || isset($_GET['preview']) || isset($_GET['bynli-preview'])) {
+        foreach (['elementor-preview', 'preview', 'bynli-preview', 'et_fb', 'fl_builder', 'ct_builder', 'brizy-edit', 'siteorigin_panels_live_editor'] as $builder) {
+            if (isset($_GET[$builder])) {
+                return false;
+            }
+        }
+        if (isset($_GET['bricks']) && $_GET['bricks'] === 'run') {
             return false;
         }
         return true;
+    }
+
+    private function lift() {
+        $lift = (int) apply_filters('bynli_connect_badge_lift', 0);
+        return max(0, min(self::LIFT_MAX, $lift));
     }
 
     public function enqueue() {
@@ -128,6 +139,7 @@ class Bynli_Connect_Badge {
             return;
         }
         wp_enqueue_style('bynli-connect-badge', Bynli_Connect_Settings::api_base() . self::STYLE_PATH, [], null);
+        wp_enqueue_script('bynli-connect-badge', plugins_url('assets/badge.js', BYNLI_CONNECT_PLUGIN_FILE), [], BYNLI_CONNECT_VERSION, true);
     }
 
     public function render() {
@@ -140,7 +152,7 @@ class Bynli_Connect_Badge {
         }
         $base = Bynli_Connect_Settings::api_base();
         ?>
-        <a id="bynli-connect-badge" class="bnf-pb bnf-pb--fixed" href="<?php echo esc_url($state['href']); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc_attr(self::LABEL); ?>">
+        <a id="bynli-connect-badge" class="bnf-pb bnf-pb--fixed" dir="ltr" href="<?php echo esc_url($state['href']); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc_attr(self::LABEL); ?>" data-lift="<?php echo (int) $this->lift(); ?>">
             <img class="bnf-pb-mark" src="<?php echo esc_url($base . self::MARK_PATH); ?>" width="18" height="18" alt="" decoding="async">
             <span class="bnf-pb-lx bnf-pb-l1"><span><i>Powered by <b>Bynefit</b></i></span></span>
             <span class="bnf-pb-lx bnf-pb-l2"><span><i> &middot; Build yours free &rarr;</i></span></span>
