@@ -21,6 +21,7 @@ class Bynli_Connect_Products {
     const META_IMAGES   = '_bynefit_image_map';
     const META_OWNER    = '_bynefit_image_owner';
     const META_SEQ      = '_bynefit_sent_at';
+    const TOMB          = 'bynefit_product_removed_';
     const MAX_IMAGES    = 10;
     const MAX_VARIANTS  = 50;
     const MAX_NAME      = 160;
@@ -29,7 +30,7 @@ class Bynli_Connect_Products {
     const MAX_STOCK     = 1000000;
     const MAX_IMG_BYTES = 8388608;
     const MAX_IMG_SIDE  = 6000;
-    const MAX_IMG_AREA  = 25000000;
+    const MAX_IMG_AREA  = 12000000;
     const ATTR_NAME     = 'Option';
     const IMG_BUDGET_SECONDS = 15;
 
@@ -63,9 +64,12 @@ class Bynli_Connect_Products {
         if ($clean['violations']) {
             return self::refused($clean['violations']);
         }
-        $sent_at = self::whole($body['sent_at'] ?? 0);
+        $sent_at = self::whole($body['sent_at'] ?? null);
+        if ($sent_at === null || $sent_at <= 0) {
+            return self::refused([['field' => 'sent_at', 'message' => 'Provide the time this request was sent.']]);
+        }
         try {
-            $out = self::upsert($clean['product'], $sent_at === null ? 0 : $sent_at);
+            $out = self::upsert($clean['product'], $sent_at);
         } catch (WC_Data_Exception $e) {
             $code = $e->getErrorCode();
             if (strpos((string) $code, 'sku') !== false) {
@@ -98,12 +102,20 @@ class Bynli_Connect_Products {
         if (!self::woo_ready()) {
             return new WP_Error('woocommerce_missing', 'WooCommerce is not active on this site.', ['status' => 409]);
         }
-        $sent_at = self::whole($body['sent_at'] ?? 0);
-        $sent_at = $sent_at === null ? 0 : $sent_at;
+        $sent_at = self::whole($body['sent_at'] ?? null);
+        if ($sent_at === null || $sent_at <= 0) {
+            return self::refused([['field' => 'sent_at', 'message' => 'Provide the time this request was sent.']]);
+        }
         try {
             return self::with_lock($id, function () use ($id, $sent_at) {
                 $product = self::find($id);
-                if (!$product || get_post_status($product->get_id()) === 'trash') {
+                if (!$product) {
+                    if ((int) get_option(self::TOMB . $id, 0) < $sent_at) {
+                        update_option(self::TOMB . $id, $sent_at, false);
+                    }
+                    return new WP_REST_Response(['ok' => true, 'removed' => false], 200);
+                }
+                if (get_post_status($product->get_id()) === 'trash') {
                     return new WP_REST_Response(['ok' => true, 'removed' => false], 200);
                 }
                 if (self::is_stale($product->get_id(), $sent_at)) {
@@ -303,18 +315,23 @@ class Bynli_Connect_Products {
     }
 
     public static function find($bynefit_id) {
-        $ids = get_posts([
-            'post_type'        => 'product',
-            'post_status'      => ['publish', 'draft', 'pending', 'private', 'future', 'trash'],
-            'numberposts'      => 1,
-            'orderby'          => 'ID',
-            'order'            => 'ASC',
-            'fields'           => 'ids',
-            'meta_key'         => self::META_ID,
-            'meta_value'       => (string) (int) $bynefit_id,
-            'suppress_filters' => true,
-        ]);
-        return $ids ? wc_get_product((int) $ids[0]) : null;
+        foreach ([['publish', 'draft', 'pending', 'private', 'future'], ['trash']] as $statuses) {
+            $ids = get_posts([
+                'post_type'        => 'product',
+                'post_status'      => $statuses,
+                'numberposts'      => 1,
+                'orderby'          => 'ID',
+                'order'            => 'ASC',
+                'fields'           => 'ids',
+                'meta_key'         => self::META_ID,
+                'meta_value'       => (string) (int) $bynefit_id,
+                'suppress_filters' => true,
+            ]);
+            if ($ids) {
+                return wc_get_product((int) $ids[0]);
+            }
+        }
+        return null;
     }
 
     private static function is_stale($post_id, $sent_at) {
@@ -353,7 +370,10 @@ class Bynli_Connect_Products {
         $variable = count($p['variants']) > 0;
         $product  = self::find($p['id']);
         $created  = !$product;
-        $drop     = [];
+
+        if (!$product && (int) get_option(self::TOMB . $p['id'], 0) > $sent_at) {
+            return ['ok' => true, 'stale' => true, 'id' => 0, 'created' => false, 'type' => $variable ? 'variable' : 'simple', 'status' => '', 'url' => '', 'images_skipped' => [], 'images_pending' => 0];
+        }
 
         if ($product) {
             $post_id = (int) $product->get_id();
@@ -371,9 +391,6 @@ class Bynli_Connect_Products {
         self::assert_skus_free($p, $product);
 
         if ($product && ($variable ? !$product->is_type('variable') : !$product->is_type('simple'))) {
-            if (!$variable) {
-                $drop = array_map('intval', $product->get_children());
-            }
             wp_set_object_terms($product->get_id(), $variable ? 'variable' : 'simple', 'product_type');
             clean_post_cache($product->get_id());
             wc_delete_product_transients($product->get_id());
@@ -408,6 +425,7 @@ class Bynli_Connect_Products {
         $kept = [];
         foreach ($product->get_attributes() as $attr) {
             if (is_object($attr) && method_exists($attr, 'get_name') && $attr->get_name() !== self::ATTR_NAME) {
+                $attr->set_variation(false);
                 $kept[] = $attr;
             }
         }
@@ -422,6 +440,8 @@ class Bynli_Connect_Products {
             $regular = $p['compare_at_price'] !== null ? $p['compare_at_price'] : $p['price'];
             $product->set_regular_price(self::price_string($regular));
             $product->set_sale_price($p['compare_at_price'] !== null ? self::price_string($p['price']) : '');
+            $product->set_date_on_sale_from(null);
+            $product->set_date_on_sale_to(null);
             self::apply_stock($product, $p['stock_quantity'], $p['low_stock_threshold']);
         }
 
@@ -442,9 +462,12 @@ class Bynli_Connect_Products {
         foreach ($images['stale'] as $att_id) {
             wp_delete_attachment((int) $att_id, true);
         }
-        foreach ($drop as $child_id) {
-            wp_delete_post($child_id, true);
+        if (!$variable) {
+            foreach (get_posts(['post_type' => 'product_variation', 'post_parent' => $id, 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'suppress_filters' => true]) as $child_id) {
+                wp_delete_post((int) $child_id, true);
+            }
         }
+        delete_option(self::TOMB . $p['id']);
 
         if ($variable) {
             self::sync_variations($id, $p);
