@@ -82,7 +82,7 @@ class Bynli_Connect_Products {
         if (!is_array($body)) {
             return new WP_Error('invalid_json', 'Body is not valid JSON.', ['status' => 400]);
         }
-        $id = isset($body['id']) ? (int) $body['id'] : 0;
+        $id = isset($body['id']) && is_numeric($body['id']) ? (int) $body['id'] : 0;
         if ($id <= 0) {
             return self::refused([['field' => 'id', 'message' => 'Provide the Bynefit product id.']]);
         }
@@ -91,7 +91,7 @@ class Bynli_Connect_Products {
         }
         try {
             $product = self::find($id);
-            if (!$product) {
+            if (!$product || get_post_status($product->get_id()) === 'trash') {
                 return new WP_REST_Response(['ok' => true, 'removed' => false], 200);
             }
             $product->set_status('draft');
@@ -273,7 +273,14 @@ class Bynli_Connect_Products {
             $product  = self::find($p['id']);
             $created  = !$product;
 
-            if ($product && $variable !== $product->is_type('variable')) {
+            self::assert_skus_free($p, $product);
+
+            if ($product && get_post_status($product->get_id()) === 'trash') {
+                wp_untrash_post($product->get_id());
+                clean_post_cache($product->get_id());
+                $product = wc_get_product($product->get_id());
+            }
+            if ($product && ($variable ? !$product->is_type('variable') : !$product->is_type('simple'))) {
                 if (!$variable) {
                     foreach ($product->get_children() as $child_id) {
                         wp_delete_post((int) $child_id, true);
@@ -286,7 +293,15 @@ class Bynli_Connect_Products {
             if (!$product) {
                 $product = $variable ? new WC_Product_Variable() : new WC_Product_Simple();
             }
-            self::assert_skus_free($p, $product);
+            if ($product->get_id() && $p['sku'] !== '') {
+                foreach ($product->get_children() as $child_id) {
+                    $child = wc_get_product($child_id);
+                    if ($child && strcasecmp((string) $child->get_sku(), $p['sku']) === 0) {
+                        $child->set_sku('');
+                        $child->save();
+                    }
+                }
+            }
 
             $product->set_name($p['name']);
             $product->set_description(wp_kses_post($p['description']));
@@ -301,6 +316,7 @@ class Bynli_Connect_Products {
                 $product->set_regular_price('');
                 $product->set_sale_price('');
             } else {
+                $product->set_attributes([]);
                 $regular = $p['compare_at_price'] !== null ? $p['compare_at_price'] : $p['price'];
                 $product->set_regular_price(self::price_string($regular));
                 $product->set_sale_price($p['compare_at_price'] !== null ? self::price_string($p['price']) : '');
@@ -311,7 +327,14 @@ class Bynli_Connect_Products {
 
             $product->update_meta_data(self::META_ID, (string) (int) $p['id']);
             $product->update_meta_data(self::META_HASH, sha1((string) wp_json_encode($p)));
-            $id = $product->save();
+            try {
+                $id = $product->save();
+            } catch (Throwable $e) {
+                foreach ($images['fresh'] as $att_id) {
+                    wp_delete_attachment((int) $att_id, true);
+                }
+                throw $e;
+            }
 
             if ($variable) {
                 self::sync_variations($id, $p);
@@ -335,7 +358,7 @@ class Bynli_Connect_Products {
 
     private static function assert_skus_free(array $p, $product) {
         $own = [];
-        if ($product->get_id()) {
+        if ($product && $product->get_id()) {
             $own[] = (int) $product->get_id();
             foreach ($product->get_children() as $child_id) {
                 $own[] = (int) $child_id;
@@ -455,6 +478,7 @@ class Bynli_Connect_Products {
         $ids = [];
         $next = [];
         $skipped = [];
+        $fresh = [];
         $pending = 0;
         $started = time();
         foreach ($urls as $url) {
@@ -472,6 +496,7 @@ class Bynli_Connect_Products {
             if ($att > 0) {
                 $ids[] = $att;
                 $next[$url] = $att;
+                $fresh[] = $att;
             } else {
                 $skipped[] = $url;
             }
@@ -492,7 +517,7 @@ class Bynli_Connect_Products {
         $product->set_image_id($ids ? (int) $ids[0] : 0);
         $product->set_gallery_image_ids(array_slice($ids, 1));
         $product->update_meta_data(self::META_IMAGES, $next);
-        return ['skipped' => $skipped, 'pending' => $pending];
+        return ['skipped' => $skipped, 'pending' => $pending, 'fresh' => $fresh];
     }
 
     public static function cap_download_size($args) {
