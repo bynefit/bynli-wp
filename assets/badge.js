@@ -3,14 +3,20 @@
 
     var HOLD_MS = 4000;
     var LIFT_MAX = 400;
+    var SHEET_TIMEOUT_MS = 8000;
+    var RECHECK_MS = [1500, 4000];
 
     function init(bar) {
         var holdTimer = null;
         var lastPointer = '';
+        var base = Math.max(0, Math.min(LIFT_MAX, parseInt(bar.getAttribute('data-lift'), 10) || 0));
 
-        var lift = parseInt(bar.getAttribute('data-lift'), 10);
-        if (lift > 0 && lift <= LIFT_MAX) {
-            bar.style.setProperty('--bnf-pb-lift', lift + 'px');
+        function setLift(px) {
+            if (px > 0) {
+                bar.style.setProperty('--bnf-pb-lift', px + 'px');
+            } else {
+                bar.style.removeProperty('--bnf-pb-lift');
+            }
         }
 
         function outsideTap(ev) {
@@ -56,42 +62,75 @@
             openHeld();
         });
 
-        function avoidOverlap() {
+        function blockingHeight() {
             var r = bar.getBoundingClientRect();
-            if (!r.width || !r.height) { return; }
-            var stack = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-            var base = parseInt(bar.getAttribute('data-lift'), 10) || 0;
-            for (var i = 0; i < stack.length; i++) {
-                var el = stack[i];
-                if (el === bar || bar.contains(el) || el === document.body || el === document.documentElement) { continue; }
-                if (window.getComputedStyle(el).position !== 'fixed') { continue; }
-                var extra = Math.ceil(el.getBoundingClientRect().height) + 8;
-                if (extra > 0 && base + extra <= LIFT_MAX) {
-                    bar.style.setProperty('--bnf-pb-lift', (base + extra) + 'px');
+            if (!r.width || !r.height) { return 0; }
+            var xs = [r.left + 1, r.left + r.width / 2, r.right - 1];
+            var ys = [r.top + 1, r.top + r.height / 2, r.bottom - 1];
+            var tallest = 0;
+            for (var a = 0; a < xs.length; a++) {
+                for (var b = 0; b < ys.length; b++) {
+                    var stack = document.elementsFromPoint(xs[a], ys[b]);
+                    for (var i = 0; i < stack.length; i++) {
+                        var el = stack[i];
+                        if (el === bar || bar.contains(el) || el === document.body || el === document.documentElement) { continue; }
+                        if (window.getComputedStyle(el).position !== 'fixed') { continue; }
+                        var h = Math.ceil(el.getBoundingClientRect().height) + 8;
+                        if (base + h > LIFT_MAX) { continue; }
+                        if (h > tallest) { tallest = h; }
+                        break;
+                    }
                 }
-                return;
             }
+            return tallest;
         }
 
-        function settle() {
-            var link = document.getElementById('bynli-connect-badge-css');
-            if ((!link || !link.sheet) && bar.parentNode) {
-                bar.parentNode.removeChild(bar);
-                return;
-            }
-            avoidOverlap();
+        function avoidOverlap() {
+            setLift(base);
+            var h = blockingHeight();
+            if (h > 0) { setLift(base + h); }
         }
 
-        if (document.readyState === 'complete') {
-            settle();
-        } else {
-            window.addEventListener('load', settle);
+        setLift(base);
+        avoidOverlap();
+        for (var i = 0; i < RECHECK_MS.length; i++) {
+            setTimeout(avoidOverlap, RECHECK_MS[i]);
         }
+        window.addEventListener('resize', avoidOverlap);
+        window.addEventListener('orientationchange', avoidOverlap);
     }
 
     function start() {
-        var bar = document.getElementById('bynli-connect-badge');
-        if (bar) { init(bar); }
+        var tpl = document.getElementById('bynli-connect-badge-tpl');
+        if (!tpl || !tpl.content) { return; }
+        var href = tpl.getAttribute('data-style');
+        if (!href) { return; }
+
+        var done = false;
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.id = 'bynli-connect-badge-css';
+        link.href = href;
+
+        function reveal() {
+            if (done) { return; }
+            done = true;
+            clearTimeout(timer);
+            document.body.appendChild(tpl.content.cloneNode(true));
+            var bar = document.getElementById('bynli-connect-badge');
+            if (bar) { init(bar); }
+        }
+
+        function giveUp() {
+            if (done) { return; }
+            done = true;
+            if (link.parentNode) { link.parentNode.removeChild(link); }
+        }
+
+        var timer = setTimeout(giveUp, SHEET_TIMEOUT_MS);
+        link.addEventListener('load', reveal);
+        link.addEventListener('error', function () { clearTimeout(timer); giveUp(); });
+        document.head.appendChild(link);
     }
 
     if (document.readyState === 'loading') {

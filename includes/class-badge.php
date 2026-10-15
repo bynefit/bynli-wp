@@ -76,7 +76,7 @@ class Bynli_Connect_Badge {
         if (!$query) {
             $state['show'] = false;
             $state['at']   = time();
-            update_option(self::OPTION, $state, false);
+            update_option(self::OPTION, $state, true);
             return;
         }
 
@@ -90,15 +90,16 @@ class Bynli_Connect_Badge {
         ]);
 
         $code = is_wp_error($res) ? 0 : (int) wp_remote_retrieve_response_code($res);
-        if ($code >= 400 && $code < 500) {
-            update_option(self::OPTION, ['show' => false, 'href' => '', 'checked' => time(), 'at' => time()], false);
+        if ($code === 404 || $code === 410) {
+            update_option(self::OPTION, ['show' => false, 'href' => '', 'checked' => time(), 'at' => time()], true);
             return;
         }
 
         if (is_wp_error($res) || $code !== 200) {
             error_log('[Bynli Connect] badge: status read failed — ' . (is_wp_error($res) ? $res->get_error_message() : 'HTTP ' . wp_remote_retrieve_response_code($res)));
             $state['failed_at'] = time();
-            update_option(self::OPTION, $state, false);
+            $state['fails']     = (int) ($state['fails'] ?? 0) + 1;
+            update_option(self::OPTION, $state, true);
             return;
         }
 
@@ -108,7 +109,7 @@ class Bynli_Connect_Badge {
             'href'    => $parsed['href'],
             'checked' => time(),
             'at'      => time(),
-        ], false);
+        ], true);
     }
 
     private function state() {
@@ -117,7 +118,8 @@ class Bynli_Connect_Badge {
             $state = [];
         }
         $age    = time() - (int) ($state['at'] ?? 0);
-        $recent = time() - (int) ($state['checked'] ?? 0) < self::RETRY_AFTER;
+        $wait   = min(self::FRESH_FOR, self::RETRY_AFTER * (2 ** max(0, (int) ($state['fails'] ?? 0) - 1)));
+        $recent = time() - (int) ($state['checked'] ?? 0) < $wait;
         if (($age >= self::FRESH_FOR || empty($state['at'])) && !$recent && !wp_next_scheduled(self::REFRESH_HOOK)) {
             wp_schedule_single_event(time() + 5, self::REFRESH_HOOK);
         }
@@ -155,7 +157,6 @@ class Bynli_Connect_Badge {
         if ($state === null || empty($state['show'])) {
             return;
         }
-        wp_enqueue_style('bynli-connect-badge', Bynli_Connect_Settings::api_base() . self::STYLE_PATH, [], null);
         wp_enqueue_script('bynli-connect-badge', plugins_url('assets/badge.js', BYNLI_CONNECT_PLUGIN_FILE), [], BYNLI_CONNECT_VERSION, true);
     }
 
@@ -169,11 +170,11 @@ class Bynli_Connect_Badge {
         }
         $base = Bynli_Connect_Settings::api_base();
         ?>
-        <a id="bynli-connect-badge" class="bnf-pb bnf-pb--fixed" dir="ltr" href="<?php echo esc_url($state['href']); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc_attr(self::LABEL); ?>" data-lift="<?php echo (int) $this->lift(); ?>">
+        <template id="bynli-connect-badge-tpl" data-style="<?php echo esc_url($base . self::STYLE_PATH); ?>"><a id="bynli-connect-badge" class="bnf-pb bnf-pb--fixed" dir="ltr" href="<?php echo esc_url($state['href']); ?>" target="_blank" rel="noopener" aria-label="<?php echo esc_attr(self::LABEL); ?>" data-lift="<?php echo (int) $this->lift(); ?>">
             <img class="bnf-pb-mark" src="<?php echo esc_url($base . self::MARK_PATH); ?>" width="18" height="18" alt="" decoding="async">
             <span class="bnf-pb-lx bnf-pb-l1"><span><i>Powered by <b>Bynefit</b></i></span></span>
             <span class="bnf-pb-lx bnf-pb-l2"><span><i> &middot; Build yours free &rarr;</i></span></span>
-        </a>
+        </a></template>
         <?php
     }
 }

@@ -104,7 +104,7 @@ Optional: `position`, `label`.
 
 = Does this send any personal data? =
 
-**Site reporting: no.** The daily report sends byte counts, request counts, and version strings. No user data, no post content, and no visitor information leaves your site. **Badge status: your site address only.** About every six hours the plugin asks Bynefit whether this site is hosted by Bynefit so it knows whether to show the badge; that request carries your site address and nothing about your visitors.
+**Site reporting: no.** The daily report sends byte counts, request counts, and version strings. No user data, no post content, and no visitor information leaves your site. **Badge status: your site address only.** About every six hours the plugin asks Bynefit whether this site is hosted by Bynefit so it knows whether to show the badge; that request carries your site address plus the plugin and WordPress version numbers, and nothing about your visitors. While the badge is showing, each visitor's browser also loads one small stylesheet and one small image from bynefit.com, the same way it would load any externally hosted file.
 
 **Bynefit payments: only for orders paid through Bynefit.** If you enable the "Pay with Bynefit" payment method and a shopper chooses it at checkout, that order's details are sent to bynefit.com so the payment can be completed: the buyer's name, email address and phone number, the billing and shipping addresses, and the order's items, quantities, totals and SKUs. This is what lets the Bynefit payment page show the shopper your store and their own order, and pre-fills PayPal so they aren't retyping what you already have.
 
@@ -147,7 +147,7 @@ Some designs that publish today will be refused after this update. Publishing no
 == Changelog ==
 
 = 0.24.0 =
-* **Added:** Sites hosted by Bynefit now show the small "Powered by Bynefit" badge in the corner, the same one Bynefit-built sites already show. It stays out of the way on admin screens and on preview and editor screens. Sites on their own domain do not show it, as before. There is nothing to set up. If the site's owner is a Bynefit partner, the badge links to that partner's page instead of the general one. The plugin checks the badge status about every six hours, sending only your site address and no visitor data.
+* **Added:** Sites hosted by Bynefit now show the small "Powered by Bynefit" badge in the corner, the same one Bynefit-built sites already show. It stays out of the way on admin screens and on preview and editor screens. Sites on their own domain do not show it, as before. There is nothing to set up. If the site's owner is a Bynefit partner, the badge links to that partner's page instead of the general one. The plugin checks the badge status about every six hours, sending your site address and version numbers, never visitor data. While the badge is showing, visitors' browsers load two small files from bynefit.com.
 
 = 0.23.3 =
 * **Fixed:** On a site with its own domain, parts of the site could still load their files (plugin scripts, theme styles, uploaded images, icon fonts) from the original Bynefit address instead of your domain. Browsers refuse some of those cross-address files, which broke the Elementor editor and could leave icons missing. The files your site builds now load from your own domain. Images already saved inside your pages are not changed. Nothing to change on your side, and sites without their own domain are unaffected.
