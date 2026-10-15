@@ -16,6 +16,17 @@ class Bynli_Connect_Badge {
         add_action('wp_footer', [$this, 'enqueue'], 5);
         add_action('wp_footer', [$this, 'render'], 99);
         add_action(self::REFRESH_HOOK, [__CLASS__, 'refresh']);
+        add_filter('wp_resource_hints', [$this, 'hints'], 10, 2);
+    }
+
+    public function hints($urls, $relation) {
+        if ($relation === 'preconnect' && $this->visible()) {
+            $state = $this->state();
+            if ($state !== null && !empty($state['show'])) {
+                $urls[] = Bynli_Connect_Settings::api_base();
+            }
+        }
+        return $urls;
     }
 
     public static function slug_from_host($host) {
@@ -78,7 +89,13 @@ class Bynli_Connect_Badge {
             'headers'    => ['Accept' => 'application/json'],
         ]);
 
-        if (is_wp_error($res) || (int) wp_remote_retrieve_response_code($res) !== 200) {
+        $code = is_wp_error($res) ? 0 : (int) wp_remote_retrieve_response_code($res);
+        if ($code >= 400 && $code < 500) {
+            update_option(self::OPTION, ['show' => false, 'href' => '', 'checked' => time(), 'at' => time()], false);
+            return;
+        }
+
+        if (is_wp_error($res) || $code !== 200) {
             error_log('[Bynli Connect] badge: status read failed — ' . (is_wp_error($res) ? $res->get_error_message() : 'HTTP ' . wp_remote_retrieve_response_code($res)));
             $state['failed_at'] = time();
             update_option(self::OPTION, $state, false);
@@ -114,7 +131,7 @@ class Bynli_Connect_Badge {
         if (is_admin() || wp_doing_ajax() || is_feed() || is_embed() || is_customize_preview()) {
             return false;
         }
-        foreach (['elementor-preview', 'preview', 'bynli-preview', 'et_fb', 'fl_builder', 'ct_builder', 'brizy-edit', 'siteorigin_panels_live_editor'] as $builder) {
+        foreach (['elementor-preview', 'preview', 'bynli-preview', 'et_fb', 'fl_builder', 'ct_builder', 'brizy-edit', 'siteorigin_panels_live_editor', 'et_pb_preview', 'tve', 'vcv-action', 'fb-edit', 'fusion_load_nonce', 'pagelayer-live'] as $builder) {
             if (isset($_GET[$builder])) {
                 return false;
             }

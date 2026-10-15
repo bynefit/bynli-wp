@@ -57,10 +57,35 @@
         openHeld();
     });
 
-    window.addEventListener('load', function () {
-        var link = document.getElementById('bynli-connect-badge-css');
-        if (link && !link.sheet && bar.parentNode) {
-            bar.parentNode.removeChild(bar);
+    function avoidOverlap() {
+        var r = bar.getBoundingClientRect();
+        if (!r.width || !r.height) { return; }
+        var stack = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        var base = parseInt(bar.getAttribute('data-lift'), 10) || 0;
+        for (var i = 0; i < stack.length; i++) {
+            var el = stack[i];
+            if (el === bar || bar.contains(el) || el === document.body || el === document.documentElement) { continue; }
+            if (window.getComputedStyle(el).position !== 'fixed') { continue; }
+            var extra = Math.ceil(el.getBoundingClientRect().height) + 8;
+            if (extra > 0 && base + extra <= LIFT_MAX) {
+                bar.style.setProperty('--bnf-pb-lift', (base + extra) + 'px');
+            }
+            return;
         }
-    });
+    }
+
+    function settle() {
+        var link = document.getElementById('bynli-connect-badge-css');
+        if ((!link || !link.sheet) && bar.parentNode) {
+            bar.parentNode.removeChild(bar);
+            return;
+        }
+        avoidOverlap();
+    }
+
+    if (document.readyState === 'complete') {
+        settle();
+    } else {
+        window.addEventListener('load', settle);
+    }
 })();
