@@ -90,13 +90,17 @@ class Bynli_Connect_Products {
             return new WP_Error('woocommerce_missing', 'WooCommerce is not active on this site.', ['status' => 409]);
         }
         try {
-            $product = self::find($id);
-            if (!$product || get_post_status($product->get_id()) === 'trash') {
-                return new WP_REST_Response(['ok' => true, 'removed' => false], 200);
-            }
-            $product->set_status('draft');
-            $product->save();
-            return new WP_REST_Response(['ok' => true, 'removed' => true, 'id' => $product->get_id()], 200);
+            return self::with_lock($id, function () use ($id) {
+                $product = self::find($id);
+                if (!$product || get_post_status($product->get_id()) === 'trash') {
+                    return new WP_REST_Response(['ok' => true, 'removed' => false], 200);
+                }
+                $product->set_status('draft');
+                $product->save();
+                return new WP_REST_Response(['ok' => true, 'removed' => true, 'id' => $product->get_id()], 200);
+            });
+        } catch (Bynli_Connect_Product_Busy $e) {
+            return new WP_Error('busy', 'This product is being saved right now. Try again shortly.', ['status' => 503]);
         } catch (Throwable $e) {
             error_log('[Bynli Connect] product remove failed: ' . $e->getMessage());
             return new WP_Error('product_failed', 'The product could not be removed.', ['status' => 500]);
@@ -257,6 +261,8 @@ class Bynli_Connect_Products {
             'post_type'        => 'product',
             'post_status'      => ['publish', 'draft', 'pending', 'private', 'future', 'trash'],
             'numberposts'      => 1,
+            'orderby'          => 'ID',
+            'order'            => 'ASC',
             'fields'           => 'ids',
             'meta_key'         => self::META_ID,
             'meta_value'       => (string) (int) $bynefit_id,
@@ -265,100 +271,113 @@ class Bynli_Connect_Products {
         return $ids ? wc_get_product((int) $ids[0]) : null;
     }
 
-    public static function upsert(array $p) {
+    private static function with_lock($bynefit_id, callable $work) {
         global $wpdb;
-        $lock   = 'bynli_product_' . substr(sha1(DB_NAME . '|' . $wpdb->prefix), 0, 16) . '_' . (int) $p['id'];
+        $lock   = 'bynli_product_' . substr(sha1(DB_NAME . '|' . $wpdb->prefix), 0, 16) . '_' . (int) $bynefit_id;
         $locked = (int) $wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s, 3)', $lock)) === 1;
         if (!$locked) {
             throw new Bynli_Connect_Product_Busy();
         }
-        @set_time_limit(120);
         try {
-            $variable = count($p['variants']) > 0;
-            $product  = self::find($p['id']);
-            $created  = !$product;
-
-            self::assert_skus_free($p, $product);
-
-            if ($product && get_post_status($product->get_id()) === 'trash') {
-                wp_untrash_post($product->get_id());
-                clean_post_cache($product->get_id());
-                $product = wc_get_product($product->get_id());
-            }
-            if ($product && ($variable ? !$product->is_type('variable') : !$product->is_type('simple'))) {
-                if (!$variable) {
-                    foreach ($product->get_children() as $child_id) {
-                        wp_delete_post((int) $child_id, true);
-                    }
-                }
-                wp_set_object_terms($product->get_id(), $variable ? 'variable' : 'simple', 'product_type');
-                clean_post_cache($product->get_id());
-                $product = wc_get_product($product->get_id());
-            }
-            if (!$product) {
-                $product = $variable ? new WC_Product_Variable() : new WC_Product_Simple();
-            }
-            if ($product->get_id() && $p['sku'] !== '') {
-                foreach ($product->get_children() as $child_id) {
-                    $child = wc_get_product($child_id);
-                    if ($child && strcasecmp((string) $child->get_sku(), $p['sku']) === 0) {
-                        $child->set_sku('');
-                        $child->save();
-                    }
-                }
-            }
-
-            $product->set_name($p['name']);
-            $product->set_description(wp_kses_post($p['description']));
-            $product->set_status($p['status']);
-            $product->set_catalog_visibility('visible');
-            $product->set_sku($p['sku']);
-            $product->set_category_ids($p['category'] !== '' ? self::category_ids($p['category']) : []);
-
-            if ($variable) {
-                $product->set_attributes([self::attribute(array_column($p['variants'], 'label'))]);
-                $product->set_manage_stock(false);
-                $product->set_regular_price('');
-                $product->set_sale_price('');
-            } else {
-                $product->set_attributes([]);
-                $regular = $p['compare_at_price'] !== null ? $p['compare_at_price'] : $p['price'];
-                $product->set_regular_price(self::price_string($regular));
-                $product->set_sale_price($p['compare_at_price'] !== null ? self::price_string($p['price']) : '');
-                self::apply_stock($product, $p['stock_quantity'], $p['low_stock_threshold']);
-            }
-
-            $images = self::apply_images($product, $p['images']);
-
-            $product->update_meta_data(self::META_ID, (string) (int) $p['id']);
-            $product->update_meta_data(self::META_HASH, sha1((string) wp_json_encode($p)));
-            try {
-                $id = $product->save();
-            } catch (Throwable $e) {
-                foreach ($images['fresh'] as $att_id) {
-                    wp_delete_attachment((int) $att_id, true);
-                }
-                throw $e;
-            }
-
-            if ($variable) {
-                self::sync_variations($id, $p);
-            }
-
-            return [
-                'ok'      => true,
-                'id'      => (int) $id,
-                'created' => $created,
-                'type'    => $variable ? 'variable' : 'simple',
-                'status'  => get_post_status($id),
-                'url'     => get_permalink($id),
-                'hash'    => sha1((string) wp_json_encode($p)),
-                'images_skipped' => $images['skipped'],
-                'images_pending' => $images['pending'],
-            ];
+            return $work();
         } finally {
             $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
         }
+    }
+
+    public static function upsert(array $p) {
+        return self::with_lock($p['id'], function () use ($p) {
+            return self::upsert_locked($p);
+        });
+    }
+
+    private static function upsert_locked(array $p) {
+        @set_time_limit(120);
+        $variable = count($p['variants']) > 0;
+        $product  = self::find($p['id']);
+        $created  = !$product;
+
+        self::assert_skus_free($p, $product);
+
+        if ($product && get_post_status($product->get_id()) === 'trash') {
+            wp_untrash_post($product->get_id());
+            clean_post_cache($product->get_id());
+            $product = wc_get_product($product->get_id());
+        }
+        if ($product && ($variable ? !$product->is_type('variable') : !$product->is_type('simple'))) {
+            if (!$variable) {
+                foreach ($product->get_children() as $child_id) {
+                    wp_delete_post((int) $child_id, true);
+                }
+            }
+            wp_set_object_terms($product->get_id(), $variable ? 'variable' : 'simple', 'product_type');
+            clean_post_cache($product->get_id());
+            $product = wc_get_product($product->get_id());
+        }
+        if (!$product) {
+            $product = $variable ? new WC_Product_Variable() : new WC_Product_Simple();
+        }
+        if ($product->get_id() && $p['sku'] !== '') {
+            foreach ($product->get_children() as $child_id) {
+                $child = wc_get_product($child_id);
+                if ($child && strcasecmp((string) $child->get_sku(), $p['sku']) === 0) {
+                    $child->set_sku('');
+                    $child->save();
+                }
+            }
+        }
+
+        $product->set_name($p['name']);
+        $product->set_description(wp_kses_post($p['description']));
+        $product->set_status($p['status']);
+        $product->set_catalog_visibility('visible');
+        $product->set_sku($p['sku']);
+        $product->set_category_ids($p['category'] !== '' ? self::category_ids($p['category']) : []);
+
+        if ($variable) {
+            $product->set_attributes([self::attribute(array_column($p['variants'], 'label'))]);
+            $product->set_manage_stock(false);
+            $product->set_regular_price('');
+            $product->set_sale_price('');
+        } else {
+            $product->set_attributes([]);
+            $regular = $p['compare_at_price'] !== null ? $p['compare_at_price'] : $p['price'];
+            $product->set_regular_price(self::price_string($regular));
+            $product->set_sale_price($p['compare_at_price'] !== null ? self::price_string($p['price']) : '');
+            self::apply_stock($product, $p['stock_quantity'], $p['low_stock_threshold']);
+        }
+
+        $images = self::apply_images($product, $p['images']);
+
+        $product->update_meta_data(self::META_ID, (string) (int) $p['id']);
+        $product->update_meta_data(self::META_HASH, sha1((string) wp_json_encode($p)));
+        try {
+            $id = $product->save();
+        } catch (Throwable $e) {
+            foreach ($images['fresh'] as $att_id) {
+                wp_delete_attachment((int) $att_id, true);
+            }
+            throw $e;
+        }
+        foreach ($images['stale'] as $att_id) {
+            wp_delete_attachment((int) $att_id, true);
+        }
+
+        if ($variable) {
+            self::sync_variations($id, $p);
+        }
+
+        return [
+            'ok'      => true,
+            'id'      => (int) $id,
+            'created' => $created,
+            'type'    => $variable ? 'variable' : 'simple',
+            'status'  => get_post_status($id),
+            'url'     => get_permalink($id),
+            'hash'    => sha1((string) wp_json_encode($p)),
+            'images_skipped' => $images['skipped'],
+            'images_pending' => $images['pending'],
+        ];
     }
 
     private static function assert_skus_free(array $p, $product) {
@@ -458,12 +477,9 @@ class Bynli_Connect_Products {
     }
 
     private static function category_id($name) {
-        $existing = term_exists($name, 'product_cat');
-        if (is_array($existing)) {
-            return (int) $existing['term_id'];
-        }
-        if ($existing) {
-            return (int) $existing;
+        $existing = get_term_by('name', $name, 'product_cat');
+        if ($existing && !is_wp_error($existing)) {
+            return (int) $existing->term_id;
         }
         $made = wp_insert_term($name, 'product_cat');
         return is_wp_error($made) ? 0 : (int) $made['term_id'];
@@ -506,10 +522,11 @@ class Bynli_Connect_Products {
                 $skipped[] = $url;
             }
         }
+        $stale = [];
         if (!$pending) {
             foreach ($map as $url => $att_id) {
                 if (!isset($next[$url]) && get_post_type((int) $att_id) === 'attachment') {
-                    wp_delete_attachment((int) $att_id, true);
+                    $stale[] = (int) $att_id;
                 }
             }
         } else {
@@ -522,7 +539,7 @@ class Bynli_Connect_Products {
         $product->set_image_id($ids ? (int) $ids[0] : 0);
         $product->set_gallery_image_ids(array_slice($ids, 1));
         $product->update_meta_data(self::META_IMAGES, $next);
-        return ['skipped' => $skipped, 'pending' => $pending, 'fresh' => $fresh];
+        return ['skipped' => $skipped, 'pending' => $pending, 'fresh' => $fresh, 'stale' => $stale];
     }
 
     public static function cap_download_size($args) {
