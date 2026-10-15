@@ -96,8 +96,17 @@
         for (var i = 0; i < RECHECK_MS.length; i++) {
             setTimeout(avoidOverlap, RECHECK_MS[i]);
         }
-        window.addEventListener('resize', avoidOverlap);
-        window.addEventListener('orientationchange', avoidOverlap);
+        var pending = false;
+        function scheduleOverlap() {
+            if (pending) { return; }
+            pending = true;
+            window.requestAnimationFrame(function () {
+                pending = false;
+                avoidOverlap();
+            });
+        }
+        window.addEventListener('resize', scheduleOverlap);
+        window.addEventListener('orientationchange', scheduleOverlap);
     }
 
     function start() {
