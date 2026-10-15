@@ -179,7 +179,11 @@ class Bynli_Connect_Products {
 
         $images = [];
         foreach ((array) ($in['images'] ?? []) as $url) {
-            $url = trim(self::s($url));
+            if (!is_scalar($url)) {
+                $v[] = ['field' => 'images', 'message' => 'One of the image addresses cannot be used.'];
+                continue;
+            }
+            $url = trim((string) $url);
             if ($url === '') {
                 continue;
             }
@@ -202,6 +206,7 @@ class Bynli_Connect_Products {
         $skus     = $sku !== '' ? [strtolower($sku) => true] : [];
         foreach ((array) ($in['variants'] ?? []) as $row) {
             if (!is_array($row)) {
+                $v[] = ['field' => 'variants', 'message' => 'Each option must have a name.'];
                 continue;
             }
             $label = trim(wp_strip_all_tags(self::s($row['label'] ?? '')));
