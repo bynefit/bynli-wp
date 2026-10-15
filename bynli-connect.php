@@ -35,6 +35,7 @@ require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-emitter.php';
 // and load order is not where that should be discovered.
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-blocks.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-publish-contract.php';
+require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-products.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-control-plane.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-reporter.php';
 require_once BYNLI_CONNECT_PLUGIN_DIR . 'includes/class-shortcodes.php';
