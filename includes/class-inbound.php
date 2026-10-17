@@ -27,7 +27,7 @@ class Bynli_Connect_Inbound {
     const BACKOFF         = [60, 300, 900, 3600, 10800];
     const PRODUCT_STATUSES = ['publish', 'draft', 'pending', 'private', 'future', 'trash'];
     const SKIP_ORDER_STATUSES = ['auto-draft', 'checkout-draft', 'trash'];
-    const PRODUCT_OK      = ['created', 'applied', 'unchanged', 'stale', 'archived', 'ignored', 'conflict'];
+    const PRODUCT_OK      = ['created', 'applied', 'unchanged', 'stale', 'archived', 'ignored'];
     const ORDER_OK        = ['created', 'applied', 'unchanged', 'stale'];
 
     private static $muted = 0;
@@ -80,7 +80,7 @@ class Bynli_Connect_Inbound {
     public static function enabled() {
         $v = get_option(self::OPT_ENABLED, null);
         if ($v === null || $v === false || $v === '') {
-            return self::is_managed() && get_option(self::OPT_NOTICE, '') !== '';
+            return self::is_managed() && in_array(get_option(self::OPT_NOTICE, ''), ['shown', 'seen'], true);
         }
         return (string) $v === '1';
     }
@@ -195,7 +195,10 @@ class Bynli_Connect_Inbound {
         $next = $attempt + 1;
         if ($next >= self::MAX_ATTEMPTS) {
             error_log('[Bynli Connect] inbound sync gave up after ' . self::MAX_ATTEMPTS . ' attempts (' . $hook . ' ' . implode(',', $args) . ')');
-            self::problem('gave_up', $hook === self::EV_ORDER ? 'orders' : 'products');
+            $held = get_option(self::OPT_PROBLEM, '');
+            if (!is_array($held) || ($held['code'] ?? '') !== 'conflict') {
+                self::problem('gave_up', $hook === self::EV_ORDER ? 'orders' : 'products');
+            }
             return;
         }
         $delay = self::BACKOFF[min($attempt, count(self::BACKOFF) - 1)];
@@ -536,7 +539,11 @@ class Bynli_Connect_Inbound {
                 continue;
             }
             $out['failed']++;
-            if ($status === 'error') {
+            if ($status === 'conflict') {
+                $out['retry'] = true;
+                $out['code']  = 'conflict';
+                self::problem('conflict', $scope);
+            } elseif ($status === 'error') {
                 $out['retry'] = true;
             } else {
                 $out['code'] = (string) ($r['error'] ?? $status);
@@ -623,6 +630,9 @@ class Bynli_Connect_Inbound {
         if (!self::is_managed() || get_option(self::OPT_NOTICE, '') !== '') {
             return;
         }
+        if (!is_admin() || wp_doing_ajax() || wp_doing_cron() || !current_user_can('manage_options')) {
+            return;
+        }
         $v = get_option(self::OPT_ENABLED, null);
         if ($v === null || $v === false || $v === '') {
             update_option(self::OPT_NOTICE, 'pending', false);
@@ -631,11 +641,15 @@ class Bynli_Connect_Inbound {
     }
 
     public function render_notice() {
-        if (!current_user_can('manage_options') || get_option(self::OPT_NOTICE, '') !== 'pending') {
+        $state = get_option(self::OPT_NOTICE, '');
+        if (!current_user_can('manage_options') || !in_array($state, ['pending', 'shown'], true)) {
             return;
         }
         $url = add_query_arg(['page' => Bynli_Connect_Settings::MENU_SLUG, 'section' => 'connection'], admin_url('options-general.php'));
-        echo '<div class="notice notice-info"><p><strong>Bynefit Connect</strong> is now sending your WooCommerce products and orders to your Bynefit Space. Orders include each customer\'s name, email, phone number and billing and shipping addresses. <a href="' . esc_url($url) . '">Review or turn this off</a>.</p></div>';
+        echo '<div class="notice notice-info"><p><strong>Bynefit Connect</strong> is now sending your WooCommerce products and orders to your Bynefit Space. Orders include each customer\'s name, email, phone number, billing and shipping addresses, order note and the payment transaction id. <a href="' . esc_url($url) . '">Review or turn this off</a>.</p></div>';
+        if ($state === 'pending') {
+            update_option(self::OPT_NOTICE, 'shown', false);
+        }
     }
 
     public function maybe_autostart() {
@@ -715,6 +729,9 @@ class Bynli_Connect_Inbound {
             update_option(self::OPT_BACKFILL, 'failed', false);
             wp_send_json_error(['message' => 'Bynefit did not accept this batch (' . $step['code'] . '). Check Bynefit Connect and try again, or contact support.'], 502);
         }
+        if ($step['retry'] && $step['code'] === 'conflict') {
+            wp_send_json_error(['message' => 'A product was changed in Bynefit at the same time. Bynefit\'s newer edit goes to your store first. Run the sync again in a few minutes.'], 409);
+        }
         if ($step['retry']) {
             wp_send_json_error(['message' => 'Bynefit could not be reached. Try again shortly.'], 502);
         }
@@ -752,7 +769,7 @@ class Bynli_Connect_Inbound {
         $on      = self::enabled();
         $nonce   = wp_create_nonce(self::NONCE);
         $state   = (string) get_option(self::OPT_BACKFILL, '');
-        $notice  = get_option(self::OPT_NOTICE, '') === 'pending';
+        $notice  = in_array(get_option(self::OPT_NOTICE, ''), ['pending', 'shown'], true);
         $problem = get_option(self::OPT_PROBLEM, '');
         if ($notice) {
             update_option(self::OPT_NOTICE, 'seen', false);
@@ -773,13 +790,17 @@ class Bynli_Connect_Inbound {
                 <?php if ($notice): ?>
                     <div class="bcn-note warn">
                         <span class="dashicons dashicons-warning" aria-hidden="true"></span>
-                        <span>Store sync was switched on for this Bynefit-hosted site and has started sending your products and orders, including customer names, emails, phone numbers and addresses, to your Bynefit Space. You can turn it off below.</span>
+                        <span>Store sync was switched on for this Bynefit-hosted site and has started sending your products and orders, including customer names, emails, phone numbers, addresses, order notes and payment transaction ids, to your Bynefit Space. You can turn it off below.</span>
                     </div>
                 <?php endif; ?>
                 <?php if (is_array($problem)): ?>
                     <div class="bcn-note down">
                         <span class="dashicons dashicons-warning" aria-hidden="true"></span>
+                        <?php if (($problem['code'] ?? '') === 'conflict'): ?>
+                            <span>A product was changed in Bynefit and in your store at the same time. Bynefit's newer edit is sent to your store first, then this store change is sent again automatically. If it keeps happening, use Sync all products now.</span>
+                        <?php else: ?>
                         <span>The last <?php echo esc_html((string) ($problem['scope'] ?? 'sync')); ?> sync did not finish (<?php echo esc_html((string) ($problem['code'] ?? 'error')); ?>, <?php echo esc_html(wp_date('M j, g:i a', (int) ($problem['at'] ?? time()))); ?>). Use Sync all products now to try again.</span>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
                 <div class="bcn-field">
@@ -788,7 +809,7 @@ class Bynli_Connect_Inbound {
                         <option value="1" <?php selected($on, true); ?>>On</option>
                         <option value="0" <?php selected($on, false); ?>>Off</option>
                     </select>
-                    <p class="bcn-hint">When on, products you add, edit, trash or restock here, and orders customers place, appear in your Bynefit Space. Orders include the customer's name, email, phone number and billing and shipping addresses. Products removed here are archived in Bynefit, not deleted.</p>
+                    <p class="bcn-hint">When on, products you add, edit, trash or restock here, and orders customers place, appear in your Bynefit Space. Orders include the customer's name, email, phone number, billing and shipping addresses, order note and payment transaction id. Products removed here are archived in Bynefit, not deleted.</p>
                 </div>
                 <?php if ($woo && Bynli_Connect_Settings::key() !== ''): ?>
                     <div class="bcn-field">

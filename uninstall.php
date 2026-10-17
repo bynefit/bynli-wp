@@ -17,11 +17,14 @@ $bynli_connect_options = [
     'bynli_connect_badge',
     'bynli_connect_inbound_sync',
     'bynli_connect_inbound_backfill',
+    'bynli_connect_inbound_notice',
+    'bynli_connect_inbound_problem',
 ];
 foreach ($bynli_connect_options as $bynli_connect_opt) {
     delete_option($bynli_connect_opt);
 }
 delete_transient('bynli_connect_update_check');
+delete_post_meta_by_key('_bynefit_inbound_hash');
 
 // Remove the custom Client role. Any users still holding it fall back to no
 // role, so a site admin should reassign them before deleting the plugin.
