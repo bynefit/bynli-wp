@@ -352,9 +352,11 @@ class Bynli_Connect_Products {
         if (!$locked) {
             throw new Bynli_Connect_Product_Busy();
         }
+        Bynli_Connect_Inbound::mute();
         try {
             return $work();
         } finally {
+            Bynli_Connect_Inbound::unmute();
             $wpdb->query($wpdb->prepare('SELECT RELEASE_LOCK(%s)', $lock));
         }
     }
