@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.24.0
+Stable tag:        0.25.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -145,6 +145,11 @@ Cosmetic only — the Bynefit mark replaces a stand-in glyph in the admin topbar
 Some designs that publish today will be refused after this update. Publishing now checks icon size, alignment, embed ratio, events limit, overlay opacity, gallery gap, gallery columns and block position, and refuses values it used to accept and then quietly change. Most likely to affect you: a block set to span more columns than its section has. Nothing already published changes — you will see this the next time you save that page.
 
 == Changelog ==
+
+= 0.25.0 =
+* **Added:** If your site has WooCommerce, products you add, edit, trash or restock in your store, and orders your customers place, now appear in your Bynefit Space. Orders show who bought what, how they paid, where it ships and where the order stands, so each order sends the customer's name, email address, phone number, billing and shipping addresses, order note and the payment transaction id to your Bynefit Space. Products removed from your store are archived in Bynefit, never deleted there. Changes are sent a few seconds after you save, and retried if Bynefit cannot be reached.
+* **Added:** A Store sync card in Settings, Bynefit Connect, Connection turns this on or off and has a Sync all products now button that sends your whole catalog and recent orders. It is on by default for sites hosted by Bynefit, which show a one-time notice in WordPress admin and in the card, and off for other sites until you turn it on. If a sync cannot finish, the card says so.
+* **Changed:** Products Bynefit sends to your store are not echoed back as new products.
 
 = 0.24.0 =
 * **Added:** If your site has WooCommerce, products from your Bynefit Space can now be sent to your store. Bynefit creates, updates and unpublishes them for you, including photos, options, prices and stock. Nothing to set up beyond keeping Bynefit Connect and WooCommerce active. Products stay linked to the Bynefit copy, so a later edit updates the same store product instead of adding a new one.

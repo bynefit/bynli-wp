@@ -465,6 +465,72 @@
         });
     }
 
+    function wireInbound() {
+        const sel = document.querySelector('[data-bcn-inbound]');
+        const btn = document.querySelector('[data-bcn-inbound-sync]');
+        const statusEl = document.querySelector('[data-role="inbound-status"]');
+        if (!cfg || !cfg.ajaxUrl || (!sel && !btn)) return;
+        const post = async (params) => {
+            try {
+                const res = await fetch(cfg.ajaxUrl, {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams(params).toString(),
+                });
+                return await res.json();
+            } catch (e) {
+                return { success: false, data: { message: 'Network error.' } };
+            }
+        };
+        const failure = (data) => (data && data.data && data.data.message) || 'Request failed.';
+        if (sel) {
+            sel.addEventListener('change', async () => {
+                setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', 'Saving…');
+                const data = await post({
+                    action: 'bynli_connect_inbound_toggle',
+                    _wpnonce: sel.getAttribute('data-nonce') || '',
+                    enabled: sel.value,
+                });
+                if (data && data.success) {
+                    setNote(statusEl, 'is-ok', 'dashicons-yes-alt', sel.value === '1' ? 'Store sync is on.' : 'Store sync is off.');
+                } else {
+                    setNote(statusEl, 'is-err', 'dashicons-warning', failure(data));
+                }
+            });
+        }
+        if (btn) {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                let phase = 'products';
+                let offset = 0;
+                let synced = 0;
+                let failed = 0;
+                for (let guard = 0; guard < 2000; guard++) {
+                    setNote(statusEl, 'is-run', 'dashicons-update bcn-spin', 'Syncing ' + phase + '… ' + synced + ' sent');
+                    const data = await post({
+                        action: 'bynli_connect_inbound_sync_all',
+                        _wpnonce: btn.getAttribute('data-nonce') || '',
+                        phase: phase,
+                        offset: String(offset),
+                    });
+                    if (!data || !data.success) {
+                        setNote(statusEl, 'is-err', 'dashicons-warning', failure(data));
+                        btn.disabled = false;
+                        return;
+                    }
+                    synced += data.data.synced;
+                    failed += data.data.failed;
+                    if (data.data.done) break;
+                    phase = data.data.phase;
+                    offset = data.data.offset;
+                }
+                setNote(statusEl, failed ? 'is-err' : 'is-ok', failed ? 'dashicons-warning' : 'dashicons-yes-alt',
+                    'Done. ' + synced + ' sent' + (failed ? ', ' + failed + ' could not be sent.' : '.'));
+                btn.disabled = false;
+            });
+        }
+    }
+
     // ── Client-mode toggle → save via AJAX ──
     function wireClientMode() {
         const sel = document.querySelector('[data-bcn-client-mode]');
@@ -826,6 +892,7 @@
         wireShortcodePicker();
         wireFormPicker();
         wireVisibility();
+        wireInbound();
         wireClientMode();
         wireClientManage();
         wirePortalSupport();
