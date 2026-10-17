@@ -69,7 +69,7 @@ class Bynli_Connect_Products {
             return self::refused([['field' => 'sent_at', 'message' => 'Provide the time this request was sent.']]);
         }
         try {
-            $out = self::upsert($clean['product'], $sent_at);
+            $out = self::upsert($clean['product'], $sent_at, (int) (self::whole($body['woo_product_id'] ?? null) ?? 0));
         } catch (WC_Data_Exception $e) {
             $code = $e->getErrorCode();
             if (strpos((string) $code, 'sku') !== false) {
@@ -361,16 +361,31 @@ class Bynli_Connect_Products {
         }
     }
 
-    public static function upsert(array $p, $sent_at = 0) {
-        return self::with_lock($p['id'], function () use ($p, $sent_at) {
-            return self::upsert_locked($p, (int) $sent_at);
+    public static function upsert(array $p, $sent_at = 0, $store_id = 0) {
+        return self::with_lock($p['id'], function () use ($p, $sent_at, $store_id) {
+            return self::upsert_locked($p, (int) $sent_at, (int) $store_id);
         });
     }
 
-    private static function upsert_locked(array $p, $sent_at) {
+    private static function adopt($store_id, $bynefit_id) {
+        if ($store_id <= 0 || get_post_type($store_id) !== 'product') {
+            return null;
+        }
+        $held = (string) get_post_meta($store_id, self::META_ID, true);
+        if ($held !== '' && (int) $held !== (int) $bynefit_id) {
+            return null;
+        }
+        $product = wc_get_product($store_id);
+        return $product ? $product : null;
+    }
+
+    private static function upsert_locked(array $p, $sent_at, $store_id = 0) {
         @set_time_limit(120);
         $variable = count($p['variants']) > 0;
         $product  = self::find($p['id']);
+        if (!$product && $store_id > 0) {
+            $product = self::adopt($store_id, $p['id']);
+        }
         $created  = !$product;
 
         if (!$product && (int) get_option(self::TOMB . $p['id'], 0) > $sent_at) {

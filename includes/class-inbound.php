@@ -11,6 +11,8 @@ class Bynli_Connect_Inbound {
     const AJAX_SYNC       = 'bynli_connect_inbound_sync_all';
     const NONCE           = 'bynli_connect_inbound';
     const META_HASH       = '_bynefit_inbound_hash';
+    const OPT_NOTICE      = 'bynli_connect_inbound_notice';
+    const OPT_PROBLEM     = 'bynli_connect_inbound_problem';
     const PRODUCTS_PATH   = '/api/site-host/shop/products';
     const ORDERS_PATH     = '/api/site-host/shop/orders';
     const PRODUCT_DEBOUNCE = 15;
@@ -29,6 +31,7 @@ class Bynli_Connect_Inbound {
     const ORDER_OK        = ['created', 'applied', 'unchanged', 'stale'];
 
     private static $muted = 0;
+    private static $gate = null;
 
     public function __construct() {
         add_action('woocommerce_new_product', [$this, 'on_product'], 20, 1);
@@ -50,7 +53,9 @@ class Bynli_Connect_Inbound {
         add_action(self::EV_ORDER, [$this, 'run_order'], 10, 2);
         add_action(self::EV_BACKFILL, [$this, 'run_backfill'], 10, 3);
 
+        add_action('admin_init', [$this, 'ensure_notice'], 5);
         add_action('admin_init', [$this, 'maybe_autostart']);
+        add_action('admin_notices', [$this, 'render_notice']);
         add_action('wp_ajax_' . self::AJAX_TOGGLE, [$this, 'handle_toggle']);
         add_action('wp_ajax_' . self::AJAX_SYNC, [$this, 'handle_sync']);
         add_filter('woocommerce_duplicate_product_exclude_meta', [__CLASS__, 'exclude_duplicate_meta']);
@@ -75,16 +80,33 @@ class Bynli_Connect_Inbound {
     public static function enabled() {
         $v = get_option(self::OPT_ENABLED, null);
         if ($v === null || $v === false || $v === '') {
-            return self::is_managed();
+            return self::is_managed() && get_option(self::OPT_NOTICE, '') !== '';
         }
         return (string) $v === '1';
     }
 
     public static function active() {
-        return self::enabled()
-            && Bynli_Connect_Settings::key() !== ''
-            && function_exists('wc_get_product')
-            && class_exists('WooCommerce');
+        if (self::$gate === null) {
+            self::$gate = self::enabled()
+                && Bynli_Connect_Settings::key() !== ''
+                && function_exists('wc_get_product')
+                && class_exists('WooCommerce');
+        }
+        return self::$gate;
+    }
+
+    public static function reset_gate() {
+        self::$gate = null;
+    }
+
+    private static function problem($code, $scope) {
+        update_option(self::OPT_PROBLEM, ['code' => (string) $code, 'scope' => (string) $scope, 'at' => time()], false);
+    }
+
+    private static function clear_problem() {
+        if (get_option(self::OPT_PROBLEM, '') !== '') {
+            delete_option(self::OPT_PROBLEM);
+        }
     }
 
     public function on_product($id) {
@@ -173,6 +195,7 @@ class Bynli_Connect_Inbound {
         $next = $attempt + 1;
         if ($next >= self::MAX_ATTEMPTS) {
             error_log('[Bynli Connect] inbound sync gave up after ' . self::MAX_ATTEMPTS . ' attempts (' . $hook . ' ' . implode(',', $args) . ')');
+            self::problem('gave_up', $hook === self::EV_ORDER ? 'orders' : 'products');
             return;
         }
         $delay = self::BACKOFF[min($attempt, count(self::BACKOFF) - 1)];
@@ -181,6 +204,14 @@ class Bynli_Connect_Inbound {
 
     private static function now_ms() {
         return (int) floor(microtime(true) * 1000);
+    }
+
+    private static function modified_ms($object) {
+        $d = is_object($object) && method_exists($object, 'get_date_modified') ? $object->get_date_modified('edit') : null;
+        if ($d && is_object($d) && method_exists($d, 'getTimestamp') && (int) $d->getTimestamp() > 0) {
+            return ((int) $d->getTimestamp()) * 1000;
+        }
+        return self::now_ms();
     }
 
     private static function cents($v) {
@@ -342,7 +373,7 @@ class Bynli_Connect_Inbound {
         }
 
         $marker = (int) $p->get_meta(Bynli_Connect_Products::META_ID);
-        $event  = ['_id' => $id, 'op' => 'upsert', 'woo_id' => $id, 'version' => self::now_ms(), 'product' => $product];
+        $event  = ['_id' => $id, 'op' => 'upsert', 'woo_id' => $id, 'version' => self::modified_ms($p), 'product' => $product];
         if ($marker > 0) {
             $event['bynefit_product_id'] = $marker;
         }
@@ -411,7 +442,7 @@ class Bynli_Connect_Inbound {
             '_id'             => $id,
             '_hash'           => null,
             'woo_id'          => $id,
-            'version'         => self::now_ms(),
+            'version'         => self::modified_ms($order),
             'number'          => (string) $order->get_order_number(),
             'status'          => $status,
             'currency'        => (string) $order->get_currency(),
@@ -449,10 +480,11 @@ class Bynli_Connect_Inbound {
     }
 
     public static function deliver($path, $field, array $events, $resync, array $ok_statuses) {
-        $out = ['synced' => 0, 'failed' => 0, 'retry' => false];
+        $out = ['synced' => 0, 'failed' => 0, 'retry' => false, 'fatal' => false, 'code' => ''];
         if (!$events) {
             return $out;
         }
+        $scope   = $field === 'orders' ? 'orders' : 'products';
         $payload = [];
         foreach ($events as $e) {
             unset($e['_id'], $e['_hash']);
@@ -462,9 +494,27 @@ class Bynli_Connect_Inbound {
         $res  = Bynli_Connect_Api::post_v2($path, [$field => $payload, 'resync' => (bool) $resync], $idem);
         if (empty($res['ok'])) {
             $status = (int) ($res['status'] ?? 0);
-            $out['retry']  = ($res['error'] ?? '') === 'transport' || $status === 0 || $status === 429 || $status >= 500;
+            $code   = (string) ($res['error'] ?? 'unknown');
+            if (($status === 413 || $code === 'body_too_large') && count($events) > 1) {
+                $half = (int) ceil(count($events) / 2);
+                $a    = self::deliver($path, $field, array_slice($events, 0, $half), $resync, $ok_statuses);
+                $b    = self::deliver($path, $field, array_slice($events, $half), $resync, $ok_statuses);
+                return [
+                    'synced' => $a['synced'] + $b['synced'],
+                    'failed' => $a['failed'] + $b['failed'],
+                    'retry'  => $a['retry'] || $b['retry'],
+                    'fatal'  => $a['fatal'] || $b['fatal'],
+                    'code'   => $a['code'] !== '' ? $a['code'] : $b['code'],
+                ];
+            }
+            $out['retry']  = $code === 'transport' || $status === 0 || $status === 429 || $status >= 500;
+            $out['fatal']  = !$out['retry'];
+            $out['code']   = $code;
             $out['failed'] = count($events);
-            error_log('[Bynli Connect] inbound sync request failed: ' . (string) ($res['error'] ?? 'unknown'));
+            error_log('[Bynli Connect] inbound sync request failed: ' . $code);
+            if ($out['fatal']) {
+                self::problem($code, $scope);
+            }
             return $out;
         }
         $results = isset($res['data']['results']) && is_array($res['data']['results']) ? array_values($res['data']['results']) : [];
@@ -473,22 +523,34 @@ class Bynli_Connect_Inbound {
             $status = (string) ($r['status'] ?? 'error');
             if (in_array($status, $ok_statuses, true)) {
                 $out['synced']++;
-                if (!empty($event['_hash']) && $field === 'events' && in_array($status, ['created', 'applied', 'unchanged'], true)) {
-                    update_post_meta((int) $event['_id'], self::META_HASH, (string) $event['_hash']);
+                if ($field === 'events' && in_array($status, ['created', 'applied', 'unchanged'], true)) {
+                    $id = (int) $event['_id'];
+                    if (!empty($event['_hash'])) {
+                        update_post_meta($id, self::META_HASH, (string) $event['_hash']);
+                    }
+                    $bynefit_id = (int) ($r['product_id'] ?? 0);
+                    if ($bynefit_id > 0 && get_post_meta($id, Bynli_Connect_Products::META_ID, true) === '') {
+                        update_post_meta($id, Bynli_Connect_Products::META_ID, (string) $bynefit_id);
+                    }
                 }
                 continue;
             }
             $out['failed']++;
             if ($status === 'error') {
                 $out['retry'] = true;
+            } else {
+                $out['code'] = (string) ($r['error'] ?? $status);
+                self::problem($out['code'], $scope);
             }
             error_log('[Bynli Connect] inbound sync item ' . (int) $event['_id'] . ' not applied: ' . $status . ' ' . (string) ($r['error'] ?? ''));
         }
+        if ($out['failed'] === 0) {
+            self::clear_problem();
+        }
         return $out;
     }
-
     public static function backfill_step($phase, $offset) {
-        $out = ['phase' => $phase, 'offset' => (int) $offset, 'done' => false, 'synced' => 0, 'failed' => 0, 'retry' => false];
+        $out = ['phase' => $phase, 'offset' => (int) $offset, 'done' => false, 'synced' => 0, 'failed' => 0, 'retry' => false, 'fatal' => false, 'code' => ''];
         $offset = max(0, (int) $offset);
         if ($phase === 'products') {
             $q = wc_get_products([
@@ -509,7 +571,7 @@ class Bynli_Connect_Inbound {
             }
             $res = self::deliver(self::PRODUCTS_PATH, 'events', $events, true, self::PRODUCT_OK);
             $out = array_merge($out, $res);
-            if ($res['retry']) {
+            if ($res['retry'] || $res['fatal']) {
                 return $out;
             }
             $next = $offset + self::BATCH;
@@ -545,7 +607,7 @@ class Bynli_Connect_Inbound {
         }
         $res = self::deliver(self::ORDERS_PATH, 'orders', $events, true, self::ORDER_OK);
         $out = array_merge($out, $res);
-        if ($res['retry']) {
+        if ($res['retry'] || $res['fatal']) {
             return $out;
         }
         $next = $offset + $limit;
@@ -555,6 +617,25 @@ class Bynli_Connect_Inbound {
             $out['offset'] = $next;
         }
         return $out;
+    }
+
+    public function ensure_notice() {
+        if (!self::is_managed() || get_option(self::OPT_NOTICE, '') !== '') {
+            return;
+        }
+        $v = get_option(self::OPT_ENABLED, null);
+        if ($v === null || $v === false || $v === '') {
+            update_option(self::OPT_NOTICE, 'pending', false);
+            self::reset_gate();
+        }
+    }
+
+    public function render_notice() {
+        if (!current_user_can('manage_options') || get_option(self::OPT_NOTICE, '') !== 'pending') {
+            return;
+        }
+        $url = add_query_arg(['page' => Bynli_Connect_Settings::MENU_SLUG, 'section' => 'connection'], admin_url('options-general.php'));
+        echo '<div class="notice notice-info"><p><strong>Bynefit Connect</strong> is now sending your WooCommerce products and orders to your Bynefit Space. Orders include each customer\'s name, email, phone number and billing and shipping addresses. <a href="' . esc_url($url) . '">Review or turn this off</a>.</p></div>';
     }
 
     public function maybe_autostart() {
@@ -571,10 +652,15 @@ class Bynli_Connect_Inbound {
         }
         $attempt = (int) $attempt;
         $step    = self::backfill_step($phase, (int) $offset);
+        if ($step['fatal']) {
+            update_option(self::OPT_BACKFILL, 'failed', false);
+            return;
+        }
         if ($step['retry']) {
             $next = $attempt + 1;
             if ($next >= self::MAX_ATTEMPTS) {
                 update_option(self::OPT_BACKFILL, 'failed', false);
+                self::problem('gave_up', 'products');
                 return;
             }
             wp_schedule_single_event(time() + self::BACKOFF[min($attempt, count(self::BACKOFF) - 1)], self::EV_BACKFILL, [$phase, (int) $offset, $next]);
@@ -596,6 +682,8 @@ class Bynli_Connect_Inbound {
         }
         $on = isset($_POST['enabled']) && (string) wp_unslash($_POST['enabled']) === '1';
         update_option(self::OPT_ENABLED, $on ? '1' : '0');
+        update_option(self::OPT_NOTICE, 'seen', false);
+        self::reset_gate();
         if ($on && get_option(self::OPT_BACKFILL, '') === '' && self::active()) {
             update_option(self::OPT_BACKFILL, 'queued', false);
             wp_schedule_single_event(time() + 60, self::EV_BACKFILL, ['products', 0, 0]);
@@ -623,6 +711,10 @@ class Bynli_Connect_Inbound {
         }
         @set_time_limit(60);
         $step = self::backfill_step($phase, $offset);
+        if ($step['fatal']) {
+            update_option(self::OPT_BACKFILL, 'failed', false);
+            wp_send_json_error(['message' => 'Bynefit did not accept this batch (' . $step['code'] . '). Check Bynefit Connect and try again, or contact support.'], 502);
+        }
         if ($step['retry']) {
             wp_send_json_error(['message' => 'Bynefit could not be reached. Try again shortly.'], 502);
         }
@@ -656,10 +748,15 @@ class Bynli_Connect_Inbound {
     }
 
     public static function render_card() {
-        $woo   = class_exists('WooCommerce');
-        $on    = self::enabled();
-        $nonce = wp_create_nonce(self::NONCE);
-        $state = (string) get_option(self::OPT_BACKFILL, '');
+        $woo     = class_exists('WooCommerce');
+        $on      = self::enabled();
+        $nonce   = wp_create_nonce(self::NONCE);
+        $state   = (string) get_option(self::OPT_BACKFILL, '');
+        $notice  = get_option(self::OPT_NOTICE, '') === 'pending';
+        $problem = get_option(self::OPT_PROBLEM, '');
+        if ($notice) {
+            update_option(self::OPT_NOTICE, 'seen', false);
+        }
         ?>
         <section class="bcn-card">
             <div class="bcn-card-head">
@@ -673,13 +770,25 @@ class Bynli_Connect_Inbound {
                         <span>WooCommerce is not active on this site, so there is nothing to sync yet.</span>
                     </div>
                 <?php endif; ?>
+                <?php if ($notice): ?>
+                    <div class="bcn-note warn">
+                        <span class="dashicons dashicons-warning" aria-hidden="true"></span>
+                        <span>Store sync was switched on for this Bynefit-hosted site and has started sending your products and orders, including customer names, emails, phone numbers and addresses, to your Bynefit Space. You can turn it off below.</span>
+                    </div>
+                <?php endif; ?>
+                <?php if (is_array($problem)): ?>
+                    <div class="bcn-note down">
+                        <span class="dashicons dashicons-warning" aria-hidden="true"></span>
+                        <span>The last <?php echo esc_html((string) ($problem['scope'] ?? 'sync')); ?> sync did not finish (<?php echo esc_html((string) ($problem['code'] ?? 'error')); ?>, <?php echo esc_html(wp_date('M j, g:i a', (int) ($problem['at'] ?? time()))); ?>). Use Sync all products now to try again.</span>
+                    </div>
+                <?php endif; ?>
                 <div class="bcn-field">
                     <label class="bcn-label" for="bcn-inbound">Send store changes to Bynefit</label>
                     <select class="bcn-input sans" id="bcn-inbound" data-bcn-inbound data-nonce="<?php echo esc_attr($nonce); ?>">
                         <option value="1" <?php selected($on, true); ?>>On</option>
                         <option value="0" <?php selected($on, false); ?>>Off</option>
                     </select>
-                    <p class="bcn-hint">When on, products you add, edit, trash or restock here, and orders customers place, appear in your Bynefit Space. Products removed here are archived in Bynefit, not deleted.</p>
+                    <p class="bcn-hint">When on, products you add, edit, trash or restock here, and orders customers place, appear in your Bynefit Space. Orders include the customer's name, email, phone number and billing and shipping addresses. Products removed here are archived in Bynefit, not deleted.</p>
                 </div>
                 <?php if ($woo && Bynli_Connect_Settings::key() !== ''): ?>
                     <div class="bcn-field">

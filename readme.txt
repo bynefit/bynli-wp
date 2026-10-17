@@ -147,8 +147,8 @@ Some designs that publish today will be refused after this update. Publishing no
 == Changelog ==
 
 = 0.25.0 =
-* **Added:** If your site has WooCommerce, products you add, edit, trash or restock in your store, and orders your customers place, now appear in your Bynefit Space. Orders show who bought what, how they paid, where it ships and where the order stands. Products removed from your store are archived in Bynefit, never deleted there. Changes are sent a few seconds after you save, and retried if Bynefit cannot be reached.
-* **Added:** A Store sync card in Settings, Bynefit Connect, Connection turns this on or off and has a Sync all products now button that sends your whole catalog and recent orders. It is on by default for sites hosted by Bynefit and off for other sites until you turn it on.
+* **Added:** If your site has WooCommerce, products you add, edit, trash or restock in your store, and orders your customers place, now appear in your Bynefit Space. Orders show who bought what, how they paid, where it ships and where the order stands, so each order sends the customer's name, email address, phone number and billing and shipping addresses to your Bynefit Space. Products removed from your store are archived in Bynefit, never deleted there. Changes are sent a few seconds after you save, and retried if Bynefit cannot be reached.
+* **Added:** A Store sync card in Settings, Bynefit Connect, Connection turns this on or off and has a Sync all products now button that sends your whole catalog and recent orders. It is on by default for sites hosted by Bynefit, which show a one-time notice in WordPress admin and in the card, and off for other sites until you turn it on. If a sync cannot finish, the card says so.
 * **Changed:** Products Bynefit sends to your store are not echoed back as new products.
 
 = 0.24.0 =
