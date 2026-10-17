@@ -23,6 +23,9 @@ $bynli_connect_options = [
 foreach ($bynli_connect_options as $bynli_connect_opt) {
     delete_option($bynli_connect_opt);
 }
+foreach (['bynli_connect_inbound_product', 'bynli_connect_inbound_order', 'bynli_connect_inbound_backfill_step'] as $bynli_connect_hook) {
+    wp_unschedule_hook($bynli_connect_hook);
+}
 delete_transient('bynli_connect_update_check');
 delete_post_meta_by_key('_bynefit_inbound_hash');
 
