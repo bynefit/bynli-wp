@@ -16,6 +16,10 @@ if (!defined('ABSPATH')) { exit; }
  */
 class Bynli_Connect_Api {
 
+    public static function user_agent(): string {
+        return 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version');
+    }
+
     /**
      * POST a JSON body to $path. Same signed-header pattern as get(),
      * but the HMAC is over the actual JSON body bytes (not empty).
@@ -53,7 +57,7 @@ class Bynli_Connect_Api {
                 'Authorization'     => 'Bearer ' . $key,
                 'X-Bynli-Timestamp' => (string)$ts,
                 'X-Bynli-Signature' => $sig,
-                'User-Agent'        => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
+                'User-Agent'        => Bynli_Connect_Api::user_agent(),
             ],
             'body' => (string)$body_raw,
         ]);
@@ -126,7 +130,7 @@ class Bynli_Connect_Api {
                 'X-Bynli-Timestamp'       => (string)$ts,
                 'X-Bynli-Idempotency-Key' => $idempotency_key,
                 'X-Bynli-Signature'       => $sig,
-                'User-Agent'              => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
+                'User-Agent'              => Bynli_Connect_Api::user_agent(),
             ],
             'body' => (string)$body_raw,
         ]);
@@ -187,7 +191,7 @@ class Bynli_Connect_Api {
                 'Authorization'     => 'Bearer ' . $key,
                 'X-Bynli-Timestamp' => (string)$ts,
                 'X-Bynli-Signature' => $sig,
-                'User-Agent'        => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
+                'User-Agent'        => Bynli_Connect_Api::user_agent(),
             ],
         ]);
 

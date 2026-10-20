@@ -87,7 +87,7 @@ class Bynli_Connect_Badge {
             'timeout'             => 5,
             'redirection'         => 2,
             'limit_response_size' => 65536,
-            'user-agent' => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
+            'user-agent' => Bynli_Connect_Api::user_agent(),
             'headers'    => ['Accept' => 'application/json'],
         ]);
 

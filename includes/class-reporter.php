@@ -178,7 +178,7 @@ class Bynli_Connect_Reporter {
                 'Authorization'       => 'Bearer ' . $key,
                 'X-Bynli-Timestamp'   => (string)$ts,
                 'X-Bynli-Signature'   => $sig,
-                'User-Agent'          => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
+                'User-Agent'          => Bynli_Connect_Api::user_agent(),
             ],
             'body' => $body,
         ]);

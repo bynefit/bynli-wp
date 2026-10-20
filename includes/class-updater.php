@@ -704,7 +704,7 @@ class Bynli_Connect_Updater {
         $this->fetched_this_request = true;
         $res = wp_remote_get($url, [
             'timeout'    => 8,
-            'user-agent' => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
+            'user-agent' => Bynli_Connect_Api::user_agent(),
             'headers'    => ['Accept' => 'application/json'],
         ]);
         // Each failure path RETURNS the entry it just cached rather than null. The
