@@ -128,6 +128,12 @@ class Bynli_Connect_Updater {
             return $transient;
         }
 
+        if (Bynli_Connect_Release_Signature::enforced()
+            && Bynli_Connect_Release_Signature::status($remote) !== 'ok') {
+            error_log('[Bynli Connect] update not offered: the release manifest is not signed by a pinned key');
+            return $transient;
+        }
+
         $entry = $this->build_update_entry($remote);
 
         // An mu-plugin install goes in no_update even when a newer version exists.
@@ -251,6 +257,11 @@ class Bynli_Connect_Updater {
      * manifest has carried `download_sha256` since the server side of this landed, and
      * nothing has ever read it, so the field has been decorative.
      *
+     * Threat model: without a pinned release key the hash only proves the bytes match what
+     * the same unauthenticated manifest said, so it covers corruption and a package host
+     * that differs from the manifest host, not a compromised manifest. With a pinned key,
+     * the manifest carries an Ed25519 signature over version and hash that is checked first.
+     *
      * Runs on `upgrader_pre_download` because it is the only hook that sees the package
      * while it is still a FILE — `upgrader_source_selection`, which this class already
      * uses, fires after the unpack, by which point refusing is pointless.
@@ -300,6 +311,9 @@ class Bynli_Connect_Updater {
                 error_log('[Bynli Connect] update: another filter supplied this package before'
                     . ' we could verify it, so this install is proceeding WITHOUT checksum'
                     . ' verification');
+                if (Bynli_Connect_Release_Signature::enforced()) {
+                    return self::unverifiable_refusal('another filter supplied the package');
+                }
             }
             return $reply;
         }
@@ -308,6 +322,9 @@ class Bynli_Connect_Updater {
             return $reply;
         }
         if (!is_string($package) || $package === '') {
+            if ($plugin !== '' && Bynli_Connect_Release_Signature::enforced()) {
+                return self::unverifiable_refusal('no package URL');
+            }
             error_log('[Bynli Connect] update: no package URL to verify, so this install is'
                 . ' proceeding WITHOUT checksum verification');
             return $reply;
@@ -373,6 +390,9 @@ class Bynli_Connect_Updater {
             error_log('[Bynli Connect] update: a package from our own host could not be'
                 . ' identified against the release manifest, so it is being installed'
                 . ' WITHOUT checksum verification');
+            if (Bynli_Connect_Release_Signature::enforced()) {
+                return self::unverifiable_refusal('package not described by the release manifest');
+            }
             return $reply;
         }
 
@@ -428,6 +448,19 @@ class Bynli_Connect_Updater {
                 'bynli_connect_foreign_package',
                 __('This update was going to be downloaded from somewhere other than Bynefit, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
             );
+        }
+
+        if (Bynli_Connect_Release_Signature::enforced()) {
+            $sig_status = is_array($remote) && $describes_this_package
+                ? Bynli_Connect_Release_Signature::status($remote)
+                : 'missing';
+            if ($sig_status !== 'ok') {
+                error_log('[Bynli Connect] update REFUSED: release signature check returned ' . $sig_status);
+                return new WP_Error(
+                    'bynli_connect_signature_failed',
+                    __('This update could not be verified as a genuine Bynefit release, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
+                );
+            }
         }
 
         $expected = $describes_this_package && isset($remote['download_sha256'])
@@ -506,6 +539,9 @@ class Bynli_Connect_Updater {
                 . ' verification (' . preg_replace('/[^\x20-\x7E]/', '', (string) $tmp->get_error_code())
                 . '), so this package is being installed WITHOUT checksum verification');
             // Let WordPress report its own download failure.
+            if (Bynli_Connect_Release_Signature::enforced()) {
+                return self::unverifiable_refusal('package download failed');
+            }
             return $reply;
         }
 
@@ -618,6 +654,15 @@ class Bynli_Connect_Updater {
         return $entry;
     }
 
+    private static function unverifiable_refusal(string $why): WP_Error
+    {
+        error_log('[Bynli Connect] update REFUSED: release signatures are enforced and this package could not be verified (' . $why . ')');
+        return new WP_Error(
+            'bynli_connect_signature_failed',
+            __('This update could not be verified as a genuine Bynefit release, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
+        );
+    }
+
     /**
      * The one host an update package is allowed to come from.
      *
@@ -704,7 +749,7 @@ class Bynli_Connect_Updater {
         $this->fetched_this_request = true;
         $res = wp_remote_get($url, [
             'timeout'    => 8,
-            'user-agent' => 'Bynli-Connect/' . BYNLI_CONNECT_VERSION . ' WP/' . get_bloginfo('version'),
+            'user-agent' => Bynli_Connect_Api::user_agent(),
             'headers'    => ['Accept' => 'application/json'],
         ]);
         // Each failure path RETURNS the entry it just cached rather than null. The

@@ -88,44 +88,90 @@ class Bynli_Connect_Settings {
         }
     }
 
-    /**
-     * Constrain an API base to an absolute https origin, or reject it.
-     *
-     * esc_url_raw alone is not enough here. It preserves a scheme-relative '//host'
-     * and it accepts 'http://', and this value now reaches two front-end <script src>
-     * tags on public pages, so a typo or a hostile option write becomes third-party
-     * script execution for every visitor. Applied on the way IN and again on the way
-     * OUT, because an option saved before this existed is still in the database.
-     */
-    public static function sanitize_api_base($value, bool $allow_http = false): string
+    public static function is_dev_host(string $host): bool
     {
-        $raw = trim((string) $value);
+        $host = strtolower(rtrim($host, '.'));
+        if ($host === 'localhost' || $host === '127.0.0.1' || $host === '[::1]') {
+            return true;
+        }
+        return (bool) preg_match('/^[a-z0-9-]+(\.[a-z0-9-]+)*\.(test|localhost)$/', $host);
+    }
+
+    public static function parse_api_base(string $raw, bool $allow_dev_http = false): array
+    {
+        $raw = trim($raw);
         if ($raw === '') {
-            return '';
+            return ['url' => '', 'error' => ''];
         }
-        $schemes = $allow_http ? ['https', 'http'] : ['https'];
-        $url     = esc_url_raw($raw, $schemes);
-        $parts   = $url === '' ? [] : (array) wp_parse_url($url);
-        if (!empty($parts['host'])) {
-            $parts['host'] = rtrim($parts['host'], '.');
+        $fail = static function (string $msg): array {
+            return ['url' => '', 'error' => $msg];
+        };
+        if (preg_match('/[\x00-\x20\x7f\\\\]/', $raw)) {
+            return $fail('The API base must not contain spaces, control characters or backslashes.');
         }
-        if (empty($parts['scheme']) || !in_array($parts['scheme'], $schemes, true) || empty($parts['host'])) {
-            self::reject_api_base('The API base must be an absolute https:// URL, for example '
+        if (!preg_match('#^(https?)://#i', $raw, $m)) {
+            return $fail('The API base must start with https://, for example '
                 . BYNLI_CONNECT_DEFAULT_API_BASE . '.');
-            return '';
         }
-        if (!empty($parts['user']) || !empty($parts['pass'])) {
-            self::reject_api_base('The API base must not carry a username or password.');
-            return '';
+        $scheme = strtolower($m[1]);
+        $parts  = parse_url($raw);
+        if (!is_array($parts) || empty($parts['host'])) {
+            return $fail('The API base is not a valid URL.');
         }
-        $out = $parts['scheme'] . '://' . $parts['host'];
-        if (!empty($parts['port'])) {
+        if (isset($parts['user']) || isset($parts['pass'])) {
+            return $fail('The API base must not carry a username or password.');
+        }
+        if (isset($parts['query']) || isset($parts['fragment'])) {
+            return $fail('The API base must not carry a query string or fragment.');
+        }
+        $host = strtolower(rtrim($parts['host'], '.'));
+        if (!preg_match('/^(\[[0-9a-f:]+\]|[a-z0-9]([a-z0-9.-]*[a-z0-9])?)$/', $host) || strpos($host, '..') !== false) {
+            return $fail('The API base host is not valid.');
+        }
+        if ($scheme === 'http' && !($allow_dev_http && self::is_dev_host($host))) {
+            return $fail('The API base must use https://. Plain http:// is accepted only for localhost, 127.0.0.1, [::1] and .test or .localhost hosts set through the BYNLI_CONNECT_API_BASE constant.');
+        }
+        if ($scheme === 'https') {
+            if ($host[0] === '[') {
+                return $fail('The API base must not be an IPv6 literal.');
+            }
+            $labels = explode('.', $host);
+            $last   = end($labels);
+            if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                if (!filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                    return $fail('The API base must not be a private, loopback or link-local address.');
+                }
+            } elseif (ctype_digit($last) || stripos($host, '0x') === 0) {
+                return $fail('The API base host is not valid.');
+            }
+        }
+        $out = $scheme . '://' . $host;
+        if (isset($parts['port'])) {
+            if ($parts['port'] < 1 || $parts['port'] > 65535) {
+                return $fail('The API base port is not valid.');
+            }
             $out .= ':' . (int) $parts['port'];
         }
-        if (!empty($parts['path'])) {
-            $out .= rtrim($parts['path'], '/');
+        if (isset($parts['path']) && $parts['path'] !== '' && $parts['path'] !== '/') {
+            $path = rtrim($parts['path'], '/');
+            if (!preg_match('#^(/[A-Za-z0-9._~%-]+)*$#', $path)
+                || preg_match('~(^|/)\.{1,2}(/|$)~', $path)
+                || stripos($path, '%2e') !== false
+                || preg_match('~%(0[0-9a-f]|1[0-9a-f]|7f|2f|5c)~i', $path)) {
+                return $fail('The API base path is not valid.');
+            }
+            $out .= $path;
         }
-        return $out;
+        return ['url' => $out, 'error' => ''];
+    }
+
+    public static function sanitize_api_base($value, bool $allow_dev_http = false): string
+    {
+        $r = self::parse_api_base((string) $value, $allow_dev_http);
+        if ($r['error'] !== '') {
+            self::reject_api_base($r['error']);
+        }
+        return $r['url'];
     }
 
     /**
@@ -151,6 +197,26 @@ class Bynli_Connect_Settings {
         add_settings_error(self::OPTION_BASE, 'bynli_connect_api_base_invalid', $message, 'error');
     }
 
+    public static function resolve_api_base(string $raw, bool $from_constant): string
+    {
+        $r = self::parse_api_base($raw, $from_constant);
+        if ($r['error'] !== '') {
+            if ($from_constant) {
+                error_log('[Bynli Connect] BYNLI_CONNECT_API_BASE ignored, using ' . BYNLI_CONNECT_DEFAULT_API_BASE . ': ' . $r['error']);
+            }
+            return BYNLI_CONNECT_DEFAULT_API_BASE;
+        }
+        $v = $r['url'];
+        if ($v === '') {
+            return BYNLI_CONNECT_DEFAULT_API_BASE;
+        }
+        $host = strtolower((string) parse_url($v, PHP_URL_HOST));
+        if (in_array($host, self::LEGACY_API_HOSTS, true)) {
+            return BYNLI_CONNECT_DEFAULT_API_BASE;
+        }
+        return $v;
+    }
+
     public static function api_base(): string {
         static $memo = [];
         $blog = function_exists('get_current_blog_id') ? (int) get_current_blog_id() : 0;
@@ -161,14 +227,7 @@ class Bynli_Connect_Settings {
         $raw = $from_constant
             ? (string) BYNLI_CONNECT_API_BASE
             : (string) get_option(self::OPTION_BASE, '');
-        $v = self::sanitize_api_base($raw, $from_constant);
-        if ($v !== '') {
-            $host = strtolower((string) (wp_parse_url($v, PHP_URL_HOST) ?: ''));
-            if (in_array($host, self::LEGACY_API_HOSTS, true)) {
-                $v = '';
-            }
-        }
-        return $memo[$blog] = ($v !== '' ? $v : BYNLI_CONNECT_DEFAULT_API_BASE);
+        return $memo[$blog] = self::resolve_api_base($raw, (bool) $from_constant);
     }
     public static function site_slug(): string {
         return (string)get_option(self::OPTION_SLUG, '');
