@@ -654,6 +654,15 @@ class Bynli_Connect_Updater {
         return $entry;
     }
 
+    private static function unverifiable_refusal(string $why): WP_Error
+    {
+        error_log('[Bynli Connect] update REFUSED: release signatures are enforced and this package could not be verified (' . $why . ')');
+        return new WP_Error(
+            'bynli_connect_signature_failed',
+            __('This update could not be verified as a genuine Bynefit release, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
+        );
+    }
+
     /**
      * The one host an update package is allowed to come from.
      *
@@ -670,15 +679,6 @@ class Bynli_Connect_Updater {
      * than Bynefit". A constant gives ops that escape without re-opening the hole: a DB
      * write cannot reach wp-config.php, so the anchor still does not travel with the value.
      */
-    private static function unverifiable_refusal(string $why): WP_Error
-    {
-        error_log('[Bynli Connect] update REFUSED: release signatures are enforced and this package could not be verified (' . $why . ')');
-        return new WP_Error(
-            'bynli_connect_signature_failed',
-            __('This update could not be verified as a genuine Bynefit release, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
-        );
-    }
-
     private static function release_host(): string
     {
         if (defined('BYNLI_CONNECT_RELEASE_HOST')) {

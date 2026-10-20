@@ -12,6 +12,10 @@ if (!class_exists('WP_Error')) {
         {
             $this->code = $code;
         }
+        public function get_error_message()
+        {
+            return $this->code;
+        }
         public function get_error_code()
         {
             return $this->code;
@@ -70,6 +74,10 @@ if (!function_exists('get_transient')) {
     function add_query_arg($a, $u)
     {
         return $u;
+    }
+    function home_url()
+    {
+        return 'https://site.example';
     }
     function wp_remote_get()
     {
@@ -180,3 +188,17 @@ $wpe($u->verify_download(false, $pkg_url, null, $extra), 'enforced: failed downl
 $GLOBALS['t_download_file'] = $file;
 t_eq($u->verify_download(false, 'https://elsewhere.example/x.zip', null, []), false, 'enforced: unrelated third-party package is left alone');
 t_eq($u->verify_download(false, 'https://elsewhere.example/x.zip', null, ['plugin' => 'other/other.php']), false, 'enforced: other plugin is left alone');
+
+$low = ['version' => '0.1.0', 'download_url' => $pkg_url, 'download_sha256' => $good];
+$GLOBALS['t_transients'] = ['bynli_connect_update_check' => $low + ['download_signature' => $sign('0.1.0', $good)]];
+$wpe((new Bynli_Connect_Updater())->verify_download(false, $pkg_url, null, $extra), 'enforced: validly signed manifest below the floor is refused at download');
+$t = (new Bynli_Connect_Updater())->inject_update(new stdClass());
+t_true(empty($t->response), 'enforced: below-floor manifest offers no update');
+
+$GLOBALS['t_transients'] = [];
+$wpe((new Bynli_Connect_Updater())->verify_download(false, $pkg_url, null, $extra), 'enforced: cold cache and unreachable manifest refuses the install');
+t_true(!empty($GLOBALS['t_transients']['bynli_connect_update_check']['error']), 'cold fetch failure is cached as an error entry');
+$GLOBALS['t_transients'] = ['bynli_connect_update_check' => ['version' => '', 'error' => 'HTTP 500']];
+$wpe((new Bynli_Connect_Updater())->verify_download(false, $pkg_url, null, $extra), 'enforced: cached manifest error refuses the install');
+$t = (new Bynli_Connect_Updater())->inject_update(new stdClass());
+t_true(empty($t->response), 'enforced: manifest error offers no update');

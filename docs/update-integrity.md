@@ -49,13 +49,35 @@ fail; it cannot substitute different bytes.
 
 ## Replay protection
 
-The version is inside the signed message, so a signature cannot be moved onto a
-different version or hash. The plugin also only offers a version higher than the
-installed one. What is not prevented: replaying an older, validly signed manifest
-to a site that is behind it. `Bynli_Connect_Release_Signature::MIN_VERSION` is the
-mitigation. A signed manifest for a version below that floor is refused, so raise
-the floor in any release that fixes a vulnerability. There is no issued-at or
-expiry field, so a replay above the floor is not detected.
+The signed message holds only the version and the package hash, so a signature
+cannot be moved onto a different version or hash. Nothing else in the manifest is
+signed: there is no signed minimum version, issued-at or expiry. The plugin also
+only offers a version higher than the installed one.
+
+The only replay floor is the plugin constant
+`Bynli_Connect_Release_Signature::MIN_VERSION`. A validly signed manifest for a
+version below it is refused. This protects a site running a plugin that carries
+the floor against being offered an old, vulnerable release that was once validly
+signed. It does not protect sites on plugin versions from before the floor was
+raised, and it cannot be changed without shipping a plugin release. A replay of a
+signed manifest at or above the floor is not detected. Raise the floor in any
+release that fixes a vulnerability.
+
+## Failure modes when enforced
+
+- A site without the PHP `sodium` extension (and without WordPress's polyfill)
+  cannot verify anything, so it never receives and never installs an update. It
+  fails closed.
+- A manifest that cannot be fetched, or that is unsigned, offers no update and
+  any install of our package is refused.
+
+## Residual gap
+
+The checks run on `upgrader_pre_download` for our plugin's basename. A package
+supplied by another filter for `Plugin_Upgrader::install()` of our zip, where the
+upgrader passes no plugin key, is matched only by host and manifest URL. A filter
+that returns a file for a URL we do not recognise is outside what this class can
+refuse.
 
 ## Keys and rotation
 
