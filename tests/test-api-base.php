@@ -60,3 +60,31 @@ foreach (glob(BYNLI_CONNECT_PLUGIN_DIR . 'includes/*.php') as $f) {
     }
 }
 t_eq($ua_sites, [], 'no second User-Agent literal outside Bynli_Connect_Api');
+
+foreach ([
+    ['https://bynefit.com/a/b-c_d.e~f', 'https://bynefit.com/a/b-c_d.e~f'],
+    ['https://bynefit.com/a/../b', ''],
+    ['https://bynefit.com/a/./b', ''],
+    ['https://bynefit.com/%2e%2e/b', ''],
+    ['https://bynefit.com/a%0d%0ab', ''],
+    ['https://bynefit.com/a%2Fb', ''],
+    ['https://bynefit.com/a b', ''],
+    ['https://bynefit.com/a;b', ''],
+    ['https://169.254.169.254', ''],
+    ['https://10.0.0.5', ''],
+    ['https://172.16.0.1', ''],
+    ['https://172.31.255.255', ''],
+    ['https://192.168.1.1', ''],
+    ['https://127.0.0.1', ''],
+    ['https://0.0.0.0', ''],
+    ['https://[::1]', ''],
+    ['https://[fe80::1]', ''],
+    ['https://2130706433', ''],
+    ['https://0x7f.1', ''],
+    ['https://203.0.113.9', 'https://203.0.113.9'],
+] as $i => [$in, $want]) {
+    t_eq($S::parse_api_base($in, true)['url'], $want, 'hardened parse #' . $i . ' ' . $in);
+}
+t_eq($S::parse_api_base('http://127.0.0.1:8000', true)['url'], 'http://127.0.0.1:8000', 'dev http loopback literal still allowed');
+t_eq($S::parse_api_base('http://[::1]:8000', true)['url'], 'http://[::1]:8000', 'dev http ipv6 loopback still allowed');
+t_eq($S::parse_api_base('http://10.0.0.5', true)['url'], '', 'private literal over http still refused');

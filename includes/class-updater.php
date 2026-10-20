@@ -311,6 +311,9 @@ class Bynli_Connect_Updater {
                 error_log('[Bynli Connect] update: another filter supplied this package before'
                     . ' we could verify it, so this install is proceeding WITHOUT checksum'
                     . ' verification');
+                if (Bynli_Connect_Release_Signature::enforced()) {
+                    return self::unverifiable_refusal('another filter supplied the package');
+                }
             }
             return $reply;
         }
@@ -319,6 +322,9 @@ class Bynli_Connect_Updater {
             return $reply;
         }
         if (!is_string($package) || $package === '') {
+            if ($plugin !== '' && Bynli_Connect_Release_Signature::enforced()) {
+                return self::unverifiable_refusal('no package URL');
+            }
             error_log('[Bynli Connect] update: no package URL to verify, so this install is'
                 . ' proceeding WITHOUT checksum verification');
             return $reply;
@@ -384,6 +390,9 @@ class Bynli_Connect_Updater {
             error_log('[Bynli Connect] update: a package from our own host could not be'
                 . ' identified against the release manifest, so it is being installed'
                 . ' WITHOUT checksum verification');
+            if (Bynli_Connect_Release_Signature::enforced()) {
+                return self::unverifiable_refusal('package not described by the release manifest');
+            }
             return $reply;
         }
 
@@ -530,6 +539,9 @@ class Bynli_Connect_Updater {
                 . ' verification (' . preg_replace('/[^\x20-\x7E]/', '', (string) $tmp->get_error_code())
                 . '), so this package is being installed WITHOUT checksum verification');
             // Let WordPress report its own download failure.
+            if (Bynli_Connect_Release_Signature::enforced()) {
+                return self::unverifiable_refusal('package download failed');
+            }
             return $reply;
         }
 
@@ -658,6 +670,15 @@ class Bynli_Connect_Updater {
      * than Bynefit". A constant gives ops that escape without re-opening the hole: a DB
      * write cannot reach wp-config.php, so the anchor still does not travel with the value.
      */
+    private static function unverifiable_refusal(string $why): WP_Error
+    {
+        error_log('[Bynli Connect] update REFUSED: release signatures are enforced and this package could not be verified (' . $why . ')');
+        return new WP_Error(
+            'bynli_connect_signature_failed',
+            __('This update could not be verified as a genuine Bynefit release, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
+        );
+    }
+
     private static function release_host(): string
     {
         if (defined('BYNLI_CONNECT_RELEASE_HOST')) {

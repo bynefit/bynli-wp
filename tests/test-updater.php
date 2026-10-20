@@ -111,6 +111,8 @@ t_eq($run($base), false, 'absent hash proceeds');
 t_eq($run($base + ['download_sha256' => null]), false, 'null hash proceeds');
 t_eq($run($base + ['download_sha256' => '']), false, 'empty hash proceeds');
 t_eq($run($base + ['download_sha256' => 'nothex']), false, 'unusable hash proceeds');
+t_eq((new Bynli_Connect_Updater())->verify_download('/tmp/other-filter.zip', $pkg_url, null, $extra), '/tmp/other-filter.zip', 'unenforced: filter-supplied package passes through');
+t_eq((new Bynli_Connect_Updater())->verify_download(false, '', null, $extra), false, 'unenforced: empty package passes through');
 t_eq($run($base + ['download_sha256' => strtoupper($good)]), $file, 'uppercase hash matches');
 $evil = 'https://evil.example/x.zip';
 $GLOBALS['t_transients'] = ['bynli_connect_update_check' => ['version' => '9.9.10', 'download_url' => $evil, 'download_sha256' => $good]];
@@ -142,8 +144,10 @@ t_eq(Bynli_Connect_Release_Signature::status($m + ['download_signature' => $sign
 t_eq(Bynli_Connect_Release_Signature::status($m + ['download_signature' => $sign('9.9.10', $good)], [$other, $pk]), 'ok', 'rotation: any pinned key may verify');
 t_eq(Bynli_Connect_Release_Signature::status(['version' => '9.9.10', 'download_signature' => $sign('9.9.10', $good)], [$pk]), 'missing', 'signature without a hash');
 
-define('BYNLI_CONNECT_RELEASE_KEYS', [$pk]);
+define('BYNLI_CONNECT_RELEASE_KEYS', [$pk, 'garbage', base64_encode('short'), 7]);
 t_true(Bynli_Connect_Release_Signature::enforced(), 'constant pins a key');
+t_eq(Bynli_Connect_Release_Signature::keys(), [$pk], 'malformed keys are not counted');
+t_eq(Bynli_Connect_Release_Signature::status(['version' => '0.1.0', 'download_sha256' => $good, 'download_signature' => $sign('0.1.0', $good)], [$pk]), 'below_floor', 'validly signed version under the floor is refused');
 
 $r = $run($m);
 t_true($r instanceof WP_Error && $r->code === 'bynli_connect_signature_failed', 'enforced: unsigned manifest refused even with a matching hash');
@@ -161,3 +165,18 @@ t_true(empty($t->response), 'enforced: unsigned manifest offers no update');
 $GLOBALS['t_transients'] = ['bynli_connect_update_check' => $m + ['download_signature' => $sign('9.9.10', $good)]];
 $t = (new Bynli_Connect_Updater())->inject_update(new stdClass());
 t_true(!empty($t->response['bynli-connect/bynli-connect.php']), 'enforced: signed manifest offers the update');
+
+$GLOBALS['t_transients'] = ['bynli_connect_update_check' => $m + ['download_signature' => $sign('9.9.10', $good)]];
+$u = new Bynli_Connect_Updater();
+$wpe = function ($v, $name) {
+    t_true($v instanceof WP_Error && $v->code === 'bynli_connect_signature_failed', $name);
+};
+$wpe($u->verify_download('/tmp/other-filter.zip', $pkg_url, null, $extra), 'enforced: package supplied by another filter is refused');
+$wpe($u->verify_download(false, '', null, $extra), 'enforced: empty package for our plugin is refused');
+$wpe($u->verify_download(false, 'https://bynefit.com/releases/wp/other.zip', null, []), 'enforced: our-host package the manifest does not describe is refused');
+file_put_contents($file, $bytes);
+$GLOBALS['t_download_file'] = new WP_Error('http_request_failed');
+$wpe($u->verify_download(false, $pkg_url, null, $extra), 'enforced: failed download is not handed back to WordPress');
+$GLOBALS['t_download_file'] = $file;
+t_eq($u->verify_download(false, 'https://elsewhere.example/x.zip', null, []), false, 'enforced: unrelated third-party package is left alone');
+t_eq($u->verify_download(false, 'https://elsewhere.example/x.zip', null, ['plugin' => 'other/other.php']), false, 'enforced: other plugin is left alone');

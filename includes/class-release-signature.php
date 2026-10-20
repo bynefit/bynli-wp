@@ -4,7 +4,11 @@ if (!defined('ABSPATH')) { exit; }
 class Bynli_Connect_Release_Signature {
     const PINNED_KEYS = [];
 
+    const MIN_VERSION = '0.25.0';
+
     const CONTEXT = 'bynli-connect-release/v1';
+
+    private static $logged_bad_keys = [];
 
     public static function message(string $version, string $sha256): string
     {
@@ -13,11 +17,24 @@ class Bynli_Connect_Release_Signature {
 
     public static function keys(): array
     {
-        $keys = self::PINNED_KEYS;
+        $configured = self::PINNED_KEYS;
         if (defined('BYNLI_CONNECT_RELEASE_KEYS') && is_array(BYNLI_CONNECT_RELEASE_KEYS)) {
-            $keys = array_merge($keys, BYNLI_CONNECT_RELEASE_KEYS);
+            $configured = array_merge($configured, BYNLI_CONNECT_RELEASE_KEYS);
         }
-        return array_values(array_filter($keys, 'is_string'));
+        $good = [];
+        foreach ($configured as $key) {
+            $raw = is_string($key) ? base64_decode(trim($key), true) : false;
+            if ($raw === false || strlen($raw) !== 32) {
+                $id = is_string($key) ? md5($key) : 'non-string';
+                if (!isset(self::$logged_bad_keys[$id])) {
+                    self::$logged_bad_keys[$id] = true;
+                    error_log('[Bynli Connect] a configured release key is not a base64 32-byte Ed25519 public key and was ignored');
+                }
+                continue;
+            }
+            $good[] = trim($key);
+        }
+        return $good;
     }
 
     public static function enforced(?array $keys = null): bool
@@ -46,15 +63,21 @@ class Bynli_Connect_Release_Signature {
             return 'invalid';
         }
         $msg = self::message($version, $sha);
+        $ok  = false;
         foreach ($keys as $key_b64) {
-            $pk = base64_decode((string) $key_b64, true);
-            if ($pk === false || strlen($pk) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
-                continue;
-            }
-            if (sodium_crypto_sign_verify_detached($sig, $msg, $pk)) {
-                return 'ok';
+            $pk = base64_decode($key_b64, true);
+            if ($pk !== false && strlen($pk) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES
+                && sodium_crypto_sign_verify_detached($sig, $msg, $pk)) {
+                $ok = true;
+                break;
             }
         }
-        return 'invalid';
+        if (!$ok) {
+            return 'invalid';
+        }
+        if (version_compare($version, self::MIN_VERSION, '<')) {
+            return 'below_floor';
+        }
+        return 'ok';
     }
 }

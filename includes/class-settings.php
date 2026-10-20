@@ -131,6 +131,20 @@ class Bynli_Connect_Settings {
         if ($scheme === 'http' && !($allow_dev_http && self::is_dev_host($host))) {
             return $fail('The API base must use https://. Plain http:// is accepted only for localhost, 127.0.0.1, [::1] and .test or .localhost hosts set through the BYNLI_CONNECT_API_BASE constant.');
         }
+        if ($scheme === 'https') {
+            if ($host[0] === '[') {
+                return $fail('The API base must not be an IPv6 literal.');
+            }
+            $labels = explode('.', $host);
+            $last   = end($labels);
+            if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                if (!filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                    return $fail('The API base must not be a private, loopback or link-local address.');
+                }
+            } elseif (ctype_digit($last) || stripos($host, '0x') === 0) {
+                return $fail('The API base host is not valid.');
+            }
+        }
         $out = $scheme . '://' . $host;
         if (isset($parts['port'])) {
             if ($parts['port'] < 1 || $parts['port'] > 65535) {
@@ -139,7 +153,14 @@ class Bynli_Connect_Settings {
             $out .= ':' . (int) $parts['port'];
         }
         if (isset($parts['path']) && $parts['path'] !== '' && $parts['path'] !== '/') {
-            $out .= rtrim($parts['path'], '/');
+            $path = rtrim($parts['path'], '/');
+            if (!preg_match('#^(/[A-Za-z0-9._~%-]+)*$#', $path)
+                || preg_match('~(^|/)\.{1,2}(/|$)~', $path)
+                || stripos($path, '%2e') !== false
+                || preg_match('~%(0[0-9a-f]|1[0-9a-f]|7f|2f|5c)~i', $path)) {
+                return $fail('The API base path is not valid.');
+            }
+            $out .= $path;
         }
         return ['url' => $out, 'error' => ''];
     }
