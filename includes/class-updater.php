@@ -128,6 +128,12 @@ class Bynli_Connect_Updater {
             return $transient;
         }
 
+        if (Bynli_Connect_Release_Signature::enforced()
+            && Bynli_Connect_Release_Signature::status($remote) !== 'ok') {
+            error_log('[Bynli Connect] update not offered: the release manifest is not signed by a pinned key');
+            return $transient;
+        }
+
         $entry = $this->build_update_entry($remote);
 
         // An mu-plugin install goes in no_update even when a newer version exists.
@@ -250,6 +256,11 @@ class Bynli_Connect_Updater {
      * fetches whatever `package` says and unzips it over the live plugin directory. The
      * manifest has carried `download_sha256` since the server side of this landed, and
      * nothing has ever read it, so the field has been decorative.
+     *
+     * Threat model: without a pinned release key the hash only proves the bytes match what
+     * the same unauthenticated manifest said, so it covers corruption and a package host
+     * that differs from the manifest host, not a compromised manifest. With a pinned key,
+     * the manifest carries an Ed25519 signature over version and hash that is checked first.
      *
      * Runs on `upgrader_pre_download` because it is the only hook that sees the package
      * while it is still a FILE — `upgrader_source_selection`, which this class already
@@ -428,6 +439,19 @@ class Bynli_Connect_Updater {
                 'bynli_connect_foreign_package',
                 __('This update was going to be downloaded from somewhere other than Bynefit, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
             );
+        }
+
+        if (Bynli_Connect_Release_Signature::enforced()) {
+            $sig_status = is_array($remote) && $describes_this_package
+                ? Bynli_Connect_Release_Signature::status($remote)
+                : 'missing';
+            if ($sig_status !== 'ok') {
+                error_log('[Bynli Connect] update REFUSED: release signature check returned ' . $sig_status);
+                return new WP_Error(
+                    'bynli_connect_signature_failed',
+                    __('This update could not be verified as a genuine Bynefit release, so it was not installed. Contact Bynefit support if you keep seeing this.', 'bynli-connect')
+                );
+            }
         }
 
         $expected = $describes_this_package && isset($remote['download_sha256'])
