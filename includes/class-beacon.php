@@ -4,6 +4,7 @@ if (!defined('ABSPATH')) { exit; }
 class Bynli_Connect_Beacon {
 
     const TRACK_PATH = '/api/sites/track';
+    const EVENT_PATH = '/api/sites/track-event';
 
     public function __construct() {
         add_action('wp_enqueue_scripts', [$this, 'enqueue']);
@@ -51,9 +52,11 @@ class Bynli_Connect_Beacon {
             BYNLI_CONNECT_VERSION,
             true
         );
+        $base = rtrim(Bynli_Connect_Settings::api_base(), '/');
         wp_localize_script('bynli-connect-beacon', 'BynliConnectBeacon', [
-            'endpoint' => rtrim(Bynli_Connect_Settings::api_base(), '/') . self::TRACK_PATH,
-            'slug'     => self::resolve_slug(),
+            'endpoint'      => $base . self::TRACK_PATH,
+            'eventEndpoint' => $base . self::EVENT_PATH,
+            'slug'          => self::resolve_slug(),
         ]);
     }
 }

@@ -804,7 +804,7 @@ class Bynli_Connect_Settings {
                             <input type="checkbox" id="bcn_beacons" name="<?php echo esc_attr(self::OPTION_BEACONS); ?>" value="1" <?php checked(self::beacons_enabled()); ?>>
                             Count page views for this site in Bynefit
                         </label>
-                        <p class="bcn-hint">Off by default. When on, each front-end page sends one anonymous view (the page path) to Bynefit for the site slug above — no cookies, no personal data. Honours Do&nbsp;Not&nbsp;Track and Global Privacy Control. Needs a site slug to count.</p>
+                        <p class="bcn-hint">Off by default. When on, each front-end page sends one anonymous view (the page path) to Bynefit for the site slug above — no cookies, no personal data. Honours Do&nbsp;Not&nbsp;Track and Global Privacy Control. Needs a site slug to count. To count button or link clicks too, add <code>data-beacon="your-id"</code> (or <code>data-beacon-action="name"</code>, <code>data-beacon-form="id"</code>) to an element; ids are lowercase letters, numbers and dashes.</p>
                     </div>
 
                     <div class="bcn-field">
