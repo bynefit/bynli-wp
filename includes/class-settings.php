@@ -6,6 +6,7 @@ class Bynli_Connect_Settings {
     const OPTION_KEY   = 'bynli_connect_api_key';
     const OPTION_BASE  = 'bynli_connect_api_base';
     const OPTION_SLUG  = 'bynli_connect_site_slug';
+    const OPTION_BEACONS = 'bynli_connect_beacons';
     const MENU_SLUG    = 'bynli-connect';
     const NONCE_ACTION = 'bynli_connect_test';
     const NONCE_DISC   = 'bynli_connect_disconnect';
@@ -232,6 +233,9 @@ class Bynli_Connect_Settings {
     public static function site_slug(): string {
         return (string)get_option(self::OPTION_SLUG, '');
     }
+    public static function beacons_enabled(): bool {
+        return get_option(self::OPTION_BEACONS, '') === '1';
+    }
 
     /** Active console section from ?section=, whitelisted, default 'overview'. */
     private function current_section(): string {
@@ -285,6 +289,15 @@ class Bynli_Connect_Settings {
             'sanitize_callback' => [$this, 'sanitize_slug'],
             'default'           => '',
         ]);
+        register_setting(self::OPTION_GROUP, self::OPTION_BEACONS, [
+            'type'              => 'boolean',
+            'sanitize_callback' => [$this, 'sanitize_beacons'],
+            'default'           => '',
+        ]);
+    }
+
+    public function sanitize_beacons($v): string {
+        return $v ? '1' : '';
     }
 
     public function sanitize_key($v): string {
@@ -782,7 +795,16 @@ class Bynli_Connect_Settings {
                             <input class="bcn-input sans" id="bcn_slug" name="<?php echo esc_attr(self::OPTION_SLUG); ?>"
                                    type="text" value="<?php echo esc_attr($slug); ?>" placeholder="my-team-site">
                         </div>
-                        <p class="bcn-hint">Optional. The Bynefit team-site slug this install represents — used only for telemetry.</p>
+                        <p class="bcn-hint">Optional. The Bynefit team-site slug this install represents — used for telemetry and, when web analytics is on below, to attribute page views.</p>
+                    </div>
+
+                    <div class="bcn-field">
+                        <label class="bcn-label" for="bcn_beacons">Web analytics</label>
+                        <label for="bcn_beacons">
+                            <input type="checkbox" id="bcn_beacons" name="<?php echo esc_attr(self::OPTION_BEACONS); ?>" value="1" <?php checked(self::beacons_enabled()); ?>>
+                            Count page views for this site in Bynefit
+                        </label>
+                        <p class="bcn-hint">Off by default. When on, each front-end page sends one anonymous view (path + referrer) to Bynefit for the site slug above — no cookies, no personal data. Honours Do&nbsp;Not&nbsp;Track and Global Privacy Control. Needs a site slug to count.</p>
                     </div>
 
                     <div class="bcn-field">
