@@ -147,7 +147,7 @@ Some designs that publish today will be refused after this update. Publishing no
 == Changelog ==
 
 = 0.26.0 =
-* **Added:** Web analytics. Turn it on in Settings, Bynefit Connect, Connection and this site counts page views in Bynefit for your team-site slug. Each page sends one anonymous view (the path and where the visit came from) — no cookies and no personal data. It stays off until you switch it on, and it honours Do Not Track and Global Privacy Control so visitors who ask not to be counted are not.
+* **Added:** Web analytics. Turn it on in Settings, Bynefit Connect, Connection and this site counts page views in Bynefit for your team-site slug. Each page sends one anonymous view (the page path) — no cookies and no personal data. It stays off until you switch it on, and it honours Do Not Track and Global Privacy Control so visitors who ask not to be counted are not.
 
 = 0.25.0 =
 * **Added:** If your site has WooCommerce, products you add, edit, trash or restock in your store, and orders your customers place, now appear in your Bynefit Space. Orders show who bought what, how they paid, where it ships and where the order stands, so each order sends the customer's name, email address, phone number, billing and shipping addresses, order note and the payment transaction id to your Bynefit Space. Products removed from your store are archived in Bynefit, never deleted there. Changes are sent a few seconds after you save, and retried if Bynefit cannot be reached.
