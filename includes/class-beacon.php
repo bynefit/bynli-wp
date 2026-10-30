@@ -23,7 +23,7 @@ class Bynli_Connect_Beacon {
     }
 
     private function active(): bool {
-        if (is_admin() || wp_doing_ajax() || is_feed() || is_embed() || is_customize_preview()) {
+        if (is_admin() || wp_doing_ajax() || is_feed() || is_embed() || is_customize_preview() || Bynli_Connect_Badge::is_builder_preview()) {
             return false;
         }
         if (!self::enabled()) {

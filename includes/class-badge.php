@@ -131,19 +131,20 @@ class Bynli_Connect_Badge {
         return $state;
     }
 
+    public static function is_builder_preview(): bool {
+        foreach (['elementor-preview', 'preview', 'bynli-preview', 'et_fb', 'fl_builder', 'ct_builder', 'brizy-edit', 'siteorigin_panels_live_editor', 'et_pb_preview', 'tve', 'vcv-action', 'fb-edit', 'fusion_load_nonce', 'pagelayer-live'] as $builder) {
+            if (isset($_GET[$builder])) {
+                return true;
+            }
+        }
+        return isset($_GET['bricks']) && $_GET['bricks'] === 'run';
+    }
+
     private function visible() {
         if (is_admin() || wp_doing_ajax() || is_feed() || is_embed() || is_customize_preview()) {
             return false;
         }
-        foreach (['elementor-preview', 'preview', 'bynli-preview', 'et_fb', 'fl_builder', 'ct_builder', 'brizy-edit', 'siteorigin_panels_live_editor', 'et_pb_preview', 'tve', 'vcv-action', 'fb-edit', 'fusion_load_nonce', 'pagelayer-live'] as $builder) {
-            if (isset($_GET[$builder])) {
-                return false;
-            }
-        }
-        if (isset($_GET['bricks']) && $_GET['bricks'] === 'run') {
-            return false;
-        }
-        return true;
+        return !self::is_builder_preview();
     }
 
     private function lift() {
