@@ -20,6 +20,7 @@ class Bynli_Connect_Plugin {
         new Bynli_Connect_Inbound();
         new Bynli_Connect_Blocks();
         new Bynli_Connect_Badge();
+        new Bynli_Connect_Beacon();
 
         add_action('bynli_connect_daily_report', [Bynli_Connect_Reporter::class, 'send_daily']);
 
