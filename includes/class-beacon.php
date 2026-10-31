@@ -40,19 +40,14 @@ class Bynli_Connect_Beacon {
         return self::enabled();
     }
 
-    /**
-     * The provisioned partner-beacon config, or null. Schedules a one-shot
-     * refresh when the cached key is stale and beacons are on (badge pattern),
-     * and ignores a key past KEY_KEEP_FOR so a revoked site stops reporting.
-     */
     public static function partner_config(): ?array {
         $s = get_option(self::KEY_OPTION, []);
         $s = is_array($s) ? $s : [];
         $age  = time() - (int) ($s['at'] ?? 0);
         $wait = min(self::KEY_FRESH_FOR, self::RETRY_AFTER * (2 ** max(0, (int) ($s['fails'] ?? 0) - 1)));
-        $recent_fail = time() - (int) ($s['failed_at'] ?? 0) < $wait;
+        $checked_recent = time() - (int) ($s['checked'] ?? 0) < $wait;
         if (self::enabled() && Bynli_Connect_Settings::key() !== ''
-            && (empty($s['at']) || $age >= self::KEY_FRESH_FOR) && !$recent_fail
+            && (empty($s['at']) || $age >= self::KEY_FRESH_FOR) && !$checked_recent
             && !wp_next_scheduled(self::REFRESH_HOOK)) {
             wp_schedule_single_event(time() + 5, self::REFRESH_HOOK);
         }
@@ -67,13 +62,16 @@ class Bynli_Connect_Beacon {
         if (!self::enabled() || Bynli_Connect_Settings::key() === '') {
             return;
         }
+        $s = get_option(self::KEY_OPTION, []);
+        $s = is_array($s) ? $s : [];
+        $s['checked'] = time();
+        update_option(self::KEY_OPTION, $s, true);
+
         $res = Bynli_Connect_Api::post(self::ENABLE_PATH, ['origin' => home_url()]);
         if (empty($res['ok']) || empty($res['data']['public_key'])) {
-            $s = get_option(self::KEY_OPTION, []);
-            $s = is_array($s) ? $s : [];
             $s['failed_at'] = time();
             $s['fails']     = (int) ($s['fails'] ?? 0) + 1;
-            update_option(self::KEY_OPTION, $s, false);
+            update_option(self::KEY_OPTION, $s, true);
             error_log('[Bynli Connect] beacon key refresh: ' . (string) ($res['message'] ?? ($res['error'] ?? 'failed')));
             return;
         }
@@ -84,8 +82,9 @@ class Bynli_Connect_Beacon {
             'script_path'    => isset($d['script_path']) ? (string) $d['script_path'] : '/dash/assets/js/beacon.js',
             'script_version' => isset($d['script_version']) ? (int) $d['script_version'] : 3,
             'at'             => time(),
+            'checked'        => time(),
             'fails'          => 0,
-        ], false);
+        ], true);
     }
 
     public function hints($urls, $relation) {
@@ -99,14 +98,11 @@ class Bynli_Connect_Beacon {
         if (!$this->context_ok()) {
             return;
         }
-        // Prefer the partner beacon (A): the full first-party script, served
-        // cross-origin and attributed to this site's own partner key.
         $cfg = self::partner_config();
         if ($cfg !== null) {
             self::$partner = $cfg;
             return;
         }
-        // Fallback (B): the slug-keyed page-view + CTA pixel, until A provisions.
         $slug = self::resolve_slug();
         if (preg_match('/^[a-z0-9\-]{3,100}$/', $slug) !== 1) {
             return;
