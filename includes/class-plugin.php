@@ -53,6 +53,7 @@ class Bynli_Connect_Plugin {
         $ts = wp_next_scheduled('bynli_connect_daily_report');
         if ($ts) wp_unschedule_event($ts, 'bynli_connect_daily_report');
         wp_clear_scheduled_hook(Bynli_Connect_Badge::REFRESH_HOOK);
+        wp_clear_scheduled_hook(Bynli_Connect_Beacon::REFRESH_HOOK);
         Bynli_Connect_Inbound::clear_schedules();
     }
 }

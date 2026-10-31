@@ -4,7 +4,7 @@ Tags:              bynefit, tickets, support, shortcodes, integration
 Requires at least: 6.1
 Tested up to:      6.6
 Requires PHP:      7.4
-Stable tag:        0.27.0
+Stable tag:        0.28.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -145,6 +145,9 @@ Cosmetic only — the Bynefit mark replaces a stand-in glyph in the admin topbar
 Some designs that publish today will be refused after this update. Publishing now checks icon size, alignment, embed ratio, events limit, overlay opacity, gallery gap, gallery columns and block position, and refuses values it used to accept and then quietly change. Most likely to affect you: a block set to span more columns than its section has. Nothing already published changes — you will see this the next time you save that page.
 
 == Changelog ==
+
+= 0.28.0 =
+* **Improved:** Web analytics now reports through Bynefit's first-party analytics when your site is connected — the same engine Bynefit runs on its own pages, so you get page views, time on page, scroll depth and your marked actions in one place, viewable in your Bynefit dashboard. It connects automatically in the background once Web analytics is on; until it does, the lighter page-view counter keeps working, so there is nothing to switch. Same privacy: no cookies, no personal data, and Do Not Track and Global Privacy Control are honoured. Mark actions the same way — `data-beacon="your-id"`, `data-beacon-action="name"`, `data-beacon-form="id"`.
 
 = 0.27.0 =
 * **Added:** Action tracking. With Web analytics on, you can now count clicks on your calls to action, not just page views. Mark any button or link with `data-beacon="your-id"` (or `data-beacon-action="name"` with an optional `data-beacon-target`, or `data-beacon-form="id"` on a form) and Bynefit counts it for your site, alongside the page views. Still anonymous — no cookies, no personal data — and it honours Do Not Track and Global Privacy Control. Your busiest actions show up next to your top pages in Bynefit.
