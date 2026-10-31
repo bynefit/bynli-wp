@@ -593,6 +593,9 @@ class Bynli_Connect_Control_Plane {
         }
 
         $post_id = (int) $post_id;
+        if ($created) {
+            Bynli_Connect_Plugin::request_rewrite_flush();
+        }
         update_post_meta($post_id, self::PAGE_SLUG_META, $scene_slug);
         update_post_meta($post_id, '_wp_page_template', 'page-wide');
         if ($seo_desc !== '') {
@@ -762,6 +765,9 @@ class Bynli_Connect_Control_Plane {
         }
 
         $nav_id = (int) $nav_id;
+        if ($target_id <= 0) {
+            Bynli_Connect_Plugin::request_rewrite_flush();
+        }
         if (!$is_bound) {
             update_post_meta($nav_id, self::NAV_MENU_META, '1');
         }

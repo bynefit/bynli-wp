@@ -496,6 +496,10 @@ class Bynli_Connect_Products {
             }
         }
 
+        if ($created) {
+            Bynli_Connect_Plugin::request_rewrite_flush();
+        }
+
         return self::state(wc_get_product($id), $created, $images) + ['hash' => sha1((string) wp_json_encode($p))];
     }
 
@@ -634,6 +638,7 @@ class Bynli_Connect_Products {
             $dupe = $made->get_error_data('term_exists');
             return $dupe ? (int) $dupe : 0;
         }
+        Bynli_Connect_Plugin::request_rewrite_flush();
         return (int) $made['term_id'];
     }
 

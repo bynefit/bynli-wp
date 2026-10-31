@@ -2,13 +2,27 @@
 if (!defined('ABSPATH')) { exit; }
 
 class Bynli_Connect_Plugin {
+    const FLUSH_OPTION = 'bynli_connect_flush_rewrites';
+
     private static $instance = null;
     public static function instance() {
         if (self::$instance === null) self::$instance = new self();
         return self::$instance;
     }
 
+    public static function request_rewrite_flush(): void {
+        update_option(self::FLUSH_OPTION, '1', false);
+    }
+
+    public function maybe_flush_rewrites(): void {
+        if (get_option(self::FLUSH_OPTION)) {
+            flush_rewrite_rules(false);
+            delete_option(self::FLUSH_OPTION);
+        }
+    }
+
     private function __construct() {
+        add_action('init', [$this, 'maybe_flush_rewrites'], 99);
         new Bynli_Connect_Settings();
         new Bynli_Connect_Control_Plane();
         new Bynli_Connect_Shortcodes();
