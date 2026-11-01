@@ -104,6 +104,38 @@
         else el.textContent = msg;
     }
 
+    function reflectConnected(data) {
+        const pill = document.querySelector('[data-bcn="signal"]');
+        if (pill) {
+            pill.setAttribute('data-state', 'on');
+            const lbl = pill.querySelector('.bcn-signal-label');
+            if (lbl) lbl.textContent = 'Connected';
+        }
+        const hero = document.querySelector('[data-bcn="uplink-hero"]');
+        if (hero) {
+            hero.setAttribute('data-state', 'on');
+            const status = hero.querySelector('[data-bcn="uplink-status"]');
+            if (status) status.textContent = 'CONNECTED';
+            const sub = hero.querySelector('[data-bcn="uplink-sub"]');
+            if (sub) sub.textContent = 'Reporting to Bynefit · last ping ' + (data.last_at_human || 'just now');
+            if (data.first_connect) {
+                const moment = hero.querySelector('[data-bcn="uplink-moment"]');
+                if (moment) moment.hidden = false;
+                hero.classList.remove('is-first-connect');
+                void hero.offsetWidth;
+                hero.classList.add('is-first-connect');
+            }
+        }
+        const tile = document.querySelector('[data-bcn="tile-connection"]');
+        if (tile) {
+            tile.setAttribute('data-state', 'ok');
+            const ico = tile.querySelector('.dashicons');
+            if (ico) ico.className = 'dashicons dashicons-yes-alt';
+            const val = tile.querySelector('.bcn-tile-value');
+            if (val) val.textContent = 'Verified';
+        }
+    }
+
     function wireHeartbeat() {
         const btn = document.getElementById('bcn-heartbeat-btn');
         if (!btn || !cfg || !cfg.ajaxUrl) return;
@@ -139,17 +171,17 @@
             btn.innerHTML = origLabel;
 
             const data = (body && body.data) || {};
+            const seeUplink = statusEl ? statusEl.querySelector('[data-role="see-uplink"]') : null;
+            if (seeUplink) seeUplink.hidden = true;
             if (body && body.success) {
                 const code = data.status ? ' · ' + data.status : '';
-                setNote(statusEl, 'is-ok', 'dashicons-yes-alt',
-                    (data.message || 'Heartbeat OK. Bynefit received the ping.') + code + ' · ' + rtt + 'ms round-trip');
-                // Reflect the now-verified state in the topbar + any last-report readout.
-                const pill = document.querySelector('[data-bcn="signal"]');
-                if (pill) {
-                    pill.setAttribute('data-state', 'on');
-                    const lbl = pill.querySelector('.bcn-signal-label');
-                    if (lbl) lbl.textContent = 'Connected';
-                }
+                const first = !!data.first_connect;
+                const lead = first
+                    ? 'Connected. Bynefit received your first signed heartbeat.'
+                    : (data.message || 'Heartbeat OK. Bynefit received the ping.');
+                setNote(statusEl, 'is-ok', 'dashicons-yes-alt', lead + code + ' · ' + rtt + 'ms round-trip');
+                if (first && seeUplink) seeUplink.hidden = false;
+                reflectConnected(data);
             } else {
                 setNote(statusEl, 'is-err', 'dashicons-warning',
                     (data.message || 'Heartbeat failed.') + ' · ' + rtt + 'ms');
@@ -344,7 +376,7 @@
         // sync (so refresh/share lands on the same section), no reload. The
         // server already rendered every panel + the ?section= fallback works
         // with JS off, so this is pure progressive enhancement.
-        document.querySelectorAll('.bcn-nav-item[data-go]').forEach((a) => {
+        document.querySelectorAll('a[data-go]').forEach((a) => {
             a.addEventListener('click', (ev) => {
                 // Server-rendered surfaces (tickets: remote API call) must do a
                 // real navigation so the server renders fresh content.

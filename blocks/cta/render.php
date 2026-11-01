@@ -14,22 +14,8 @@ $title = (string) ($attributes['title'] ?? '');
 $text  = (string) ($attributes['text'] ?? '');
 $align = ($attributes['align'] ?? 'start') === 'center' ? 'center' : 'start';
 
-$buttons = is_array($attributes['buttons'] ?? null) ? $attributes['buttons'] : [];
-$btn_html = '';
-$count = 0;
-foreach ($buttons as $btn) {
-    if (!is_array($btn) || $count >= 2) {
-        continue;
-    }
-    $label = (string) ($btn['label'] ?? '');
-    $href  = (string) ($btn['href'] ?? '');
-    if (trim($label) === '' || trim($href) === '') {
-        continue;
-    }
-    $variant = ($btn['variant'] ?? 'primary') === 'secondary' ? 'secondary' : 'primary';
-    $btn_html .= '<a class="bynefit-cta__btn bynefit-cta__btn--' . $variant . '" href="' . esc_url($href) . '">' . esc_html($label) . '</a>';
-    $count++;
-}
+$buttons  = is_array($attributes['buttons'] ?? null) ? $attributes['buttons'] : [];
+$btn_html = Bynli_Connect_Blocks::action_buttons_html($buttons, 'cta');
 
 if (trim($title) === '' && $btn_html === '') {
     return '';

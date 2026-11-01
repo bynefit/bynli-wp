@@ -6,7 +6,7 @@
     var motionOk = !window.matchMedia || window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
 
     Array.prototype.forEach.call(vids, function (v) {
-        var shell = v.closest ? v.closest('.bynefit-section-shell') : null;
+        var shell = v.closest ? v.closest('.bynefit-section-shell, .bynefit-hero') : null;
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'bynefit-bgvideo-toggle';

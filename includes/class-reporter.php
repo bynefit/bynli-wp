@@ -231,6 +231,15 @@ class Bynli_Connect_Reporter {
         return is_array($val) ? $val : [];
     }
 
+    public static function has_verified(array $history): bool {
+        foreach ($history as $entry) {
+            if (is_array($entry) && !empty($entry['ok'])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Rolling post history (oldest → newest), each: at, kind, ok, status, storage_bytes. */
     public static function history(): array {
         $val = get_option(self::OPTION_HISTORY, null);
