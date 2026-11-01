@@ -400,7 +400,7 @@ class Bynli_Connect_Publish_Contract {
                     }
                     self::check_token_ref($v, "$bpath.color", $block['color'] ?? null, 'color', $vocab, false);
                 } elseif ($type === 'cta') {
-                    $valid_btn = self::check_action_buttons($v, "$bpath.buttons", $block['buttons'] ?? null, 'cta_button', 'CTA button');
+                    $valid_btn = self::check_action_buttons($v, "$bpath.buttons", $block['buttons'] ?? null, 'cta_button', 'CTA button', true);
                     if (trim((string) ($block['title'] ?? '')) === '' && $valid_btn === 0) {
                         $v[] = self::vio('cta_empty', $bpath, 'CTA needs a title or at least one button.');
                     }
@@ -548,11 +548,17 @@ class Bynli_Connect_Publish_Contract {
     private static function check_action_buttons(array &$v, string $path, $buttons, string $code, string $noun, bool $refuse_rewrites = false): int {
         $valid = 0;
         $list  = is_array($buttons) ? $buttons : [];
+        if ($refuse_rewrites && $buttons !== null && !is_array($buttons)) {
+            $v[] = self::vio($code . '_shape', $path, "$noun list must be a list of objects.");
+        }
         if ($refuse_rewrites && count($list) > Bynli_Connect_Blocks::ACTION_BUTTONS_MAX) {
             $v[] = self::vio($code . '_count', $path, "$noun list can hold at most " . Bynli_Connect_Blocks::ACTION_BUTTONS_MAX . ' buttons.');
         }
         foreach ($list as $i => $btn) {
             if (!is_array($btn)) {
+                if ($refuse_rewrites) {
+                    $v[] = self::vio($code . '_shape', $path . "[$i]", "$noun must be an object.");
+                }
                 continue;
             }
             $label = (string) ($btn['label'] ?? '');
@@ -595,6 +601,11 @@ class Bynli_Connect_Publish_Contract {
             array_keys(Bynli_Connect_Blocks::MIN_HEIGHTS), 'Hero minHeight', 'hero_minheight'
         );
 
+        foreach (['bgMedia', 'overlay'] as $shape_key) {
+            if (isset($block[$shape_key]) && !is_array($block[$shape_key])) {
+                $v[] = self::vio('hero_' . strtolower($shape_key) . '_shape', "$bpath.$shape_key", "Hero $shape_key must be an object.");
+            }
+        }
         $has_media = is_array($block['bgMedia'] ?? null);
         $overlay   = is_array($block['overlay'] ?? null) ? $block['overlay'] : null;
         $bg_kind   = 'image';
@@ -640,10 +651,19 @@ class Bynli_Connect_Publish_Contract {
         $opacity_ok = !isset($overlay['opacity']) || (Bynli_Connect_Blocks::isIntLike($overlay['opacity']) && (int) $overlay['opacity'] >= 0 && (int) $overlay['opacity'] <= 100);
         if ($fg_hex !== null && $bg_hex !== null && $opacity_ok) {
             $percent = isset($overlay['opacity']) ? (int) $overlay['opacity'] : Bynli_Connect_Blocks::HERO_OVERLAY_DEFAULT;
-            $light   = self::luminance($fg_hex);
-            $floor   = ($light !== null && $light >= 0.179) ? '#ffffff' : '#000000';
-            $worst   = self::blend_hex($bg_hex, $floor, $percent / 100);
-            $ratio   = $worst === null ? null : self::contrast_ratio($fg_hex, $worst);
+            $dark    = self::blend_hex($bg_hex, '#000000', $percent / 100);
+            $bright  = self::blend_hex($bg_hex, '#ffffff', $percent / 100);
+            $ratio   = null;
+            if ($dark !== null && $bright !== null) {
+                $l_fg = self::luminance($fg_hex);
+                $l_lo = self::luminance($dark);
+                $l_hi = self::luminance($bright);
+                if ($l_fg !== null && $l_lo !== null && $l_hi !== null) {
+                    $ratio = ($l_fg >= $l_lo && $l_fg <= $l_hi)
+                        ? 1.0
+                        : min(self::contrast_ratio($fg_hex, $dark), self::contrast_ratio($fg_hex, $bright));
+                }
+            }
             if ($ratio !== null && $ratio + 0.005 < self::CONTRAST_NORMAL) {
                 $v[] = self::vio(
                     'contrast_low',

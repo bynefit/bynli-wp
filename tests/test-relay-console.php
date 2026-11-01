@@ -87,12 +87,23 @@ t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') === fal
 $moment = rc_q($live, '//*[@data-bcn="uplink-moment"]');
 t_true(count($moment) === 1 && $moment[0]->hasAttribute('hidden'), 'overview: the first-connect line is hidden on an ordinary load');
 
-$first = rc_page($connected_opts, ['tested' => 'first']);
+$first = rc_page($connected_opts + ['bynli_connect_verified_at' => time()], ['tested' => 'first']);
 $hero = rc_q($first, '//*[@data-bcn="uplink-hero"]');
 t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') !== false, 'overview: the first connect is celebrated after the no-script redirect');
 $moment = rc_q($first, '//*[@data-bcn="uplink-moment"]');
 t_true(count($moment) === 1 && !$moment[0]->hasAttribute('hidden'), 'overview: the first-connect line is shown');
 t_true(strpos(implode(' ', array_map(function ($n) { return $n->textContent; }, rc_q($first, '//div[' . rc_cls('bcn-notice-ok') . ']'))), 'first signed heartbeat') !== false, 'flash: the redirect announces the first connect');
+
+$stale = rc_page($connected_opts + ['bynli_connect_verified_at' => time() - 3600], ['tested' => 'first']);
+$hero = rc_q($stale, '//*[@data-bcn="uplink-hero"]');
+t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') === false, 'overview: an old first-connect URL does not replay the celebration');
+$moment = rc_q($stale, '//*[@data-bcn="uplink-moment"]');
+t_true(count($moment) === 1 && $moment[0]->hasAttribute('hidden'), 'overview: an old first-connect URL does not show the first-connect line');
+t_eq(count(rc_q($stale, '//div[' . rc_cls('bcn-notice-ok') . ']')), 1, 'flash: an old first-connect URL degrades to the plain success banner');
+t_true(strpos(implode(' ', array_map(function ($n) { return $n->textContent; }, rc_q($stale, '//div[' . rc_cls('bcn-notice-ok') . ']'))), 'first signed heartbeat') === false, 'flash: an old first-connect URL does not claim a first heartbeat');
+$unflagged = rc_page($connected_opts, ['tested' => 'first']);
+$hero = rc_q($unflagged, '//*[@data-bcn="uplink-hero"]');
+t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') === false, 'overview: a first-connect URL with no recorded verification does not celebrate');
 
 $plain_ok = rc_page($connected_opts, ['tested' => 'ok']);
 $hero = rc_q($plain_ok, '//*[@data-bcn="uplink-hero"]');

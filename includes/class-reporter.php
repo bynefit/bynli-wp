@@ -10,6 +10,7 @@ class Bynli_Connect_Reporter {
     const OPTION_HISTORY = 'bynli_connect_report_history';
     const HISTORY_MAX    = 14;
     const OPTION_VERIFIED = 'bynli_connect_verified_at';
+    const FIRST_CONNECT_WINDOW = 300;
 
     public static function send_heartbeat(): array {
         return self::post(['kind' => 'heartbeat']);
@@ -233,6 +234,11 @@ class Bynli_Connect_Reporter {
     public static function last_report(): array {
         $val = get_option(self::OPTION_LAST, null);
         return is_array($val) ? $val : [];
+    }
+
+    public static function first_connect_fresh(?int $now = null): bool {
+        $at = (int) get_option(self::OPTION_VERIFIED, 0);
+        return $at > 0 && (($now ?? time()) - $at) < self::FIRST_CONNECT_WINDOW;
     }
 
     public static function was_verified(): bool {

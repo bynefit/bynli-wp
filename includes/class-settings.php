@@ -451,10 +451,18 @@ class Bynli_Connect_Settings {
             'update_actionable' => (!empty($upd['version'])
                 && version_compare($upd['version'], BYNLI_CONNECT_VERSION, '>')
                 && !Bynli_Connect_Updater::is_mu_install()),
-            'tested'           => isset($_GET['tested']) ? sanitize_text_field((string)$_GET['tested']) : '',
+            'tested'           => $this->tested_flag($is_connected),
             'cleared'          => isset($_GET['cleared']) && (string)$_GET['cleared'] === 'updates',
             'discon'           => isset($_GET['disconnected']) && (string)$_GET['disconnected'] === '1',
         ];
+    }
+
+    private function tested_flag(bool $is_connected): string {
+        $tested = isset($_GET['tested']) ? sanitize_text_field((string)$_GET['tested']) : '';
+        if ($tested === 'first' && !($is_connected && Bynli_Connect_Reporter::first_connect_fresh())) {
+            return 'ok';
+        }
+        return $tested;
     }
 
     private function render_topbar(array $ctx): void {
@@ -483,10 +491,10 @@ class Bynli_Connect_Settings {
     }
 
     private function render_flashes(array $ctx): void {
-        if ($ctx['tested'] === 'first' && $ctx['is_connected']): ?>
+        if ($ctx['tested'] === 'first'): ?>
             <div class="bcn-notice bcn-notice-ok" role="status"><span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
                 <span>Connected — Bynefit received your first signed heartbeat.</span></div>
-        <?php elseif (in_array($ctx['tested'], ['ok', 'first'], true) && $ctx['is_connected']): ?>
+        <?php elseif ($ctx['tested'] === 'ok' && $ctx['is_connected']): ?>
             <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-yes-alt"></span>
                 <span>Heartbeat sent — Bynefit received the ping.</span></div>
         <?php elseif ($ctx['tested'] === 'fail'): ?>
@@ -620,7 +628,7 @@ class Bynli_Connect_Settings {
         $series       = $this->spark_series($history);
         $last_ok      = empty($history) ? true : !empty($history[count($history) - 1]['ok']);
 
-        $celebrate  = $is_connected && $ctx['tested'] === 'first';
+        $celebrate  = $ctx['tested'] === 'first';
         $hero_state = $is_connected ? 'on' : 'off';
         $readout    = $is_connected ? 'CONNECTED' : 'NOT VERIFIED';
         $sub        = $is_connected

@@ -310,6 +310,10 @@ t_true(in_array('hero_button', hg_codes([['type' => 'hero', 'heading' => 'H', 'b
 $three_btns = [['label' => 'a', 'href' => '/a'], ['label' => 'b', 'href' => '/b'], ['label' => 'c', 'href' => '/c']];
 t_true(in_array('hero_button_count', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => $three_btns]]), true), 'gate: a third hero button is refused, not dropped');
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => array_slice($three_btns, 0, 2)]]), [], 'gate: two hero buttons pass');
+t_true(in_array('hero_button_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => 'Go']]), true), 'gate: a string where the hero buttons list belongs is refused');
+t_true(in_array('hero_button_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => ['Go']]]), true), 'gate: a hero button that is not an object is refused');
+t_true(in_array('hero_bgmedia_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => 'm1']]), true), 'gate: a background that is not an object is refused');
+t_true(in_array('hero_overlay_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'overlay' => 60]]), true), 'gate: an overlay that is not an object is refused');
 t_true(in_array('hero_button_variant', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => 'a', 'href' => '/a', 'variant' => 'ghost']]]]), true), 'gate: an unknown button variant is refused, not rendered as primary');
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => 'a', 'href' => '/a', 'variant' => 'primary'], ['label' => 'b', 'href' => '/b', 'variant' => 'secondary']]]]), [], 'gate: primary and secondary pass');
 
@@ -321,7 +325,7 @@ t_true(in_array('card_nesting', hg_codes([['type' => 'card', 'blocks' => [['type
 
 $GLOBALS['hb_palette'] = [
     ['slug' => 'ink', 'color' => '#000000'], ['slug' => 'white', 'color' => '#ffffff'],
-    ['slug' => 'surface', 'color' => '#ffffff'], ['slug' => 'brand', 'color' => '#0b7a70'], ['slug' => 'mid', 'color' => '#888888'],
+    ['slug' => 'surface', 'color' => '#ffffff'], ['slug' => 'brand', 'color' => '#0b7a70'], ['slug' => 'mid', 'color' => '#888888'], ['slug' => 'grey', 'color' => '#757575'],
 ];
 t_eq(hg_codes([$hero_ok]), [], 'gate: defaults are legible with a palette present');
 t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.ink']])]), true), 'gate: dark text over the default dark scrim is refused');
@@ -329,6 +333,11 @@ t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['overlay' => ['
 t_eq(hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.ink'], 'overlay' => ['color' => 'color.white', 'opacity' => 60]])]), [], 'gate: dark text over a light scrim passes');
 t_eq(hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.white'], 'overlay' => ['color' => 'color.ink', 'opacity' => 60]])]), [], 'gate: light text over a dark scrim passes');
 t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.ink'], 'overlay' => ['color' => 'color.mid', 'opacity' => 40]])]), true), 'gate: dark text is judged against a dark photo, not only a bright one');
+foreach ([90, 95] as $heavy) {
+    t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.grey'], 'overlay' => ['color' => 'color.ink', 'opacity' => $heavy]])]), true), 'gate: mid-grey text on a ' . $heavy . '% dark scrim is judged against a photo as light as the text');
+}
+t_eq(hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.grey'], 'overlay' => ['color' => 'color.ink', 'opacity' => 100]])]), [], 'gate: a fully opaque dark scrim leaves mid-grey text no photo to fight');
+t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.grey'], 'overlay' => ['color' => 'color.ink', 'opacity' => 0]])]), true), 'gate: text whose luminance lies inside the scrim range can meet a photo of its own luminance');
 t_true(in_array('contrast_low', hg_codes([['type' => 'hero', 'heading' => 'H', 'style' => ['color' => 'color.white']]]), true), 'gate: without media the text is checked against the section background');
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'style' => ['color' => 'color.ink']]]), [], 'gate: legible text on the section background passes');
 t_true(in_array('token_undefined', hg_codes([array_merge($hero_ok, ['overlay' => ['color' => 'color.nope', 'opacity' => 60]])]), true), 'gate: a scrim token the theme does not define is refused');
@@ -342,6 +351,11 @@ t_true(in_array('bg_needs_overlay', hg_codes([['type' => 'text', 'text' => 'x']]
 t_true(in_array('section_minheight', hg_codes([['type' => 'text', 'text' => 'x']], ['minHeight' => 'huge']), true), 'gate: the section minHeight is still checked');
 $cv = hg_violation([['type' => 'cta', 'title' => 'T', 'buttons' => [['label' => 'ok', 'href' => '/ok'], ['label' => '', 'href' => '/x']]]], 'cta_button');
 t_true($cv !== null && $cv['path'] === 'sections[0].blocks[0].buttons[1]' && $cv['message'] === 'CTA button needs a label and a valid http(s)/relative URL.', 'gate: the cta button message and path are unchanged');
+$cta_three = [['label' => 'a', 'href' => '/a'], ['label' => 'b', 'href' => '/b'], ['label' => 'c', 'href' => '/c']];
+t_true(in_array('cta_button_count', hg_codes([['type' => 'cta', 'title' => 'T', 'buttons' => $cta_three]]), true), 'gate: a third cta button is refused, not dropped');
+t_eq(hg_codes([['type' => 'heading', 'level' => 1, 'text' => 'Title'], ['type' => 'cta', 'title' => 'T', 'buttons' => array_slice($cta_three, 0, 2)]]), [], 'gate: two cta buttons pass');
+t_true(in_array('cta_button_variant', hg_codes([['type' => 'cta', 'title' => 'T', 'buttons' => [['label' => 'a', 'href' => '/a', 'variant' => 'ghost']]]]), true), 'gate: an unknown cta variant is refused, not rendered as primary');
+t_true(in_array('cta_button_shape', hg_codes([['type' => 'cta', 'title' => 'T', 'buttons' => ['junk']]]), true), 'gate: a cta button that is not an object is refused');
 t_true(in_array('cta_empty', hg_codes([['type' => 'cta', 'title' => '', 'buttons' => [['label' => '', 'href' => '']]]]), true), 'gate: a cta with nothing usable is still refused');
 
 function hb_node(string ...$args): ?array
