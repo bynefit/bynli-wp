@@ -561,6 +561,10 @@ class Bynli_Connect_Publish_Contract {
                 }
                 continue;
             }
+            if ($refuse_rewrites && ((isset($btn['label']) && !is_string($btn['label'])) || (isset($btn['href']) && !is_string($btn['href'])))) {
+                $v[] = self::vio($code . '_shape', $path . "[$i]", "$noun label and URL must be text.");
+                continue;
+            }
             $label = (string) ($btn['label'] ?? '');
             $href  = (string) ($btn['href'] ?? '');
             if (trim($label) === '' || $href === '' || !self::href_ok($href)) {
@@ -576,7 +580,12 @@ class Bynli_Connect_Publish_Contract {
     }
 
     private static function check_hero(array &$v, string $bpath, array $block, array $vocab, array $media, ?string $bg_slug, array &$heading_levels, int &$priority_images): void {
-        if (trim((string) ($block['heading'] ?? '')) === '') {
+        foreach (['heading', 'eyebrow', 'text'] as $text_key) {
+            if (isset($block[$text_key]) && !is_string($block[$text_key])) {
+                $v[] = self::vio('hero_' . $text_key . '_shape', "$bpath.$text_key", "Hero $text_key must be text.");
+            }
+        }
+        if (!isset($block['heading']) || (is_string($block['heading']) && trim($block['heading']) === '')) {
             $v[] = self::vio('hero_heading_empty', "$bpath.heading", 'Hero has no heading.');
         }
 
@@ -654,21 +663,28 @@ class Bynli_Connect_Publish_Contract {
             $dark    = self::blend_hex($bg_hex, '#000000', $percent / 100);
             $bright  = self::blend_hex($bg_hex, '#ffffff', $percent / 100);
             $ratio   = null;
+            $case    = '';
             if ($dark !== null && $bright !== null) {
                 $l_fg = self::luminance($fg_hex);
                 $l_lo = self::luminance($dark);
                 $l_hi = self::luminance($bright);
                 if ($l_fg !== null && $l_lo !== null && $l_hi !== null) {
-                    $ratio = ($l_fg >= $l_lo && $l_fg <= $l_hi)
-                        ? 1.0
-                        : min(self::contrast_ratio($fg_hex, $dark), self::contrast_ratio($fg_hex, $bright));
+                    if ($l_fg >= $l_lo && $l_fg <= $l_hi) {
+                        $ratio = 1.0;
+                        $case  = 'a photo as light as the text';
+                    } else {
+                        $r_dark   = self::contrast_ratio($fg_hex, $dark);
+                        $r_bright = self::contrast_ratio($fg_hex, $bright);
+                        $ratio    = min($r_dark, $r_bright);
+                        $case     = $r_dark <= $r_bright ? 'a dark photo' : 'a bright photo';
+                    }
                 }
             }
             if ($ratio !== null && $ratio + 0.005 < self::CONTRAST_NORMAL) {
                 $v[] = self::vio(
                     'contrast_low',
                     "$bpath.style.color",
-                    sprintf('Contrast %.2f:1 between the hero text and its scrim over a bright photo is below the %.1f:1 minimum. Raise the overlay opacity or change the colours.', $ratio, self::CONTRAST_NORMAL)
+                    sprintf('Contrast %.2f:1 between the hero text and its scrim over %s is below the %.1f:1 minimum. Change the text or scrim colour, or raise the overlay opacity.', $ratio, $case, self::CONTRAST_NORMAL)
                 );
             }
         }

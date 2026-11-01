@@ -314,6 +314,11 @@ t_true(in_array('hero_button_shape', hg_codes([['type' => 'hero', 'heading' => '
 t_true(in_array('hero_button_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => ['Go']]]), true), 'gate: a hero button that is not an object is refused');
 t_true(in_array('hero_bgmedia_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => 'm1']]), true), 'gate: a background that is not an object is refused');
 t_true(in_array('hero_overlay_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'overlay' => 60]]), true), 'gate: an overlay that is not an object is refused');
+t_true(in_array('hero_heading_shape', hg_codes([['type' => 'hero', 'heading' => ['x']]]), true), 'gate: a heading that is not text is refused');
+t_true(in_array('hero_eyebrow_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'eyebrow' => ['x']]]), true), 'gate: an eyebrow that is not text is refused');
+t_true(in_array('hero_text_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'text' => 12]]), true), 'gate: a supporting line that is not text is refused');
+t_true(in_array('hero_button_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => ['x'], 'href' => '/a']]]]), true), 'gate: a button label that is not text is refused');
+t_true(in_array('hero_button_shape', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => 'a', 'href' => ['x']]]]]), true), 'gate: a button URL that is not text is refused');
 t_true(in_array('hero_button_variant', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => 'a', 'href' => '/a', 'variant' => 'ghost']]]]), true), 'gate: an unknown button variant is refused, not rendered as primary');
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => 'a', 'href' => '/a', 'variant' => 'primary'], ['label' => 'b', 'href' => '/b', 'variant' => 'secondary']]]]), [], 'gate: primary and secondary pass');
 
@@ -333,6 +338,21 @@ t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['overlay' => ['
 t_eq(hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.ink'], 'overlay' => ['color' => 'color.white', 'opacity' => 60]])]), [], 'gate: dark text over a light scrim passes');
 t_eq(hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.white'], 'overlay' => ['color' => 'color.ink', 'opacity' => 60]])]), [], 'gate: light text over a dark scrim passes');
 t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.ink'], 'overlay' => ['color' => 'color.mid', 'opacity' => 40]])]), true), 'gate: dark text is judged against a dark photo, not only a bright one');
+$msg = function (array $block): string {
+    $p = hg_page([$block]);
+    foreach (Bynli_Connect_Publish_Contract::validate($p['page'], $p['media'])['violations'] as $viol) {
+        if ($viol['code'] === 'contrast_low') {
+            return $viol['message'];
+        }
+    }
+    return '';
+};
+t_true(strpos($msg(array_merge($hero_ok, ['style' => ['color' => 'color.ink'], 'overlay' => ['color' => 'color.mid', 'opacity' => 40]])), 'a dark photo') !== false, 'gate: dark text on a thin mid scrim blames a dark photo');
+t_true(strpos($msg(array_merge($hero_ok, ['overlay' => ['color' => 'color.ink', 'opacity' => 40]])), 'a bright photo') !== false, 'gate: light text on a thin dark scrim blames a bright photo');
+t_true(strpos($msg(array_merge($hero_ok, ['style' => ['color' => 'color.grey'], 'overlay' => ['color' => 'color.ink', 'opacity' => 0]])), 'as light as the text') !== false, 'gate: mid-grey text with no scrim blames a photo as light as the text');
+t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['overlay' => ['color' => 'color.white']])]), true), 'gate: a light scrim with the default opacity is refused for the default light text');
+t_eq(hg_codes([array_merge($hero_ok, ['overlay' => ['color' => 'color.ink']])]), [], 'gate: a dark scrim with the default opacity is accepted');
+t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.grey'], 'overlay' => ['color' => 'color.ink']])]), true), 'gate: the default opacity is the one that is judged, not a fully opaque scrim');
 foreach ([90, 95] as $heavy) {
     t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.grey'], 'overlay' => ['color' => 'color.ink', 'opacity' => $heavy]])]), true), 'gate: mid-grey text on a ' . $heavy . '% dark scrim is judged against a photo as light as the text');
 }

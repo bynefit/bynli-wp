@@ -54,6 +54,7 @@ $twice = fc_run('first', 'twice');
 t_eq($twice['runs'][0]['data']['first_connect'] ?? null, true, 'heartbeat: the first run is the first connect');
 t_eq($twice['runs'][1]['data']['first_connect'] ?? null, false, 'heartbeat: the second run is not, even with the report history gone');
 t_eq($twice['verified'] ?? null, true, 'heartbeat: a successful ping is remembered');
+t_eq($twice['stored'] ?? null, 123, 'heartbeat: a later successful ping does not move the remembered time');
 $failed_twice = fc_run('server-down', 'twice');
 t_eq($failed_twice['verified'] ?? null, false, 'heartbeat: a failed ping is not remembered as verified');
 

@@ -136,8 +136,11 @@ if (($argv[2] ?? '') === 'redirect') {
             $runs[] = json_decode($e->getMessage(), true);
         }
         unset($GLOBALS['opts']['bynli_connect_report_history'], $GLOBALS['opts']['bynli_connect_last_report']);
+        if ($i === 0 && isset($GLOBALS['opts']['bynli_connect_verified_at'])) {
+            $GLOBALS['opts']['bynli_connect_verified_at'] = 123;
+        }
     }
-    echo json_encode(['runs' => $runs, 'verified' => isset($GLOBALS['opts']['bynli_connect_verified_at'])]);
+    echo json_encode(['runs' => $runs, 'verified' => isset($GLOBALS['opts']['bynli_connect_verified_at']), 'stored' => $GLOBALS['opts']['bynli_connect_verified_at'] ?? null]);
 } else {
     $handler->handle_ajax_heartbeat();
 }

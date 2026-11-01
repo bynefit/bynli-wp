@@ -66,6 +66,8 @@ const hero = el({
     attrs: { 'data-state': 'off' },
     subs: { '[data-bcn="uplink-status"]': status, '[data-bcn="uplink-sub"]': sub, '[data-bcn="uplink-moment"]': moment },
 });
+const lastVal = el({ text: 'never' });
+const lastTile = el({ attrs: { 'data-state': 'warn' }, subs: { '.bcn-tile-value': lastVal } });
 const tileVal = el({ text: 'Unverified' });
 const tileIco = el({ className: 'dashicons dashicons-warning' });
 const tile = el({ attrs: { 'data-state': 'warn' }, subs: { '.bcn-tile-value': tileVal, '.dashicons': tileIco } });
@@ -88,6 +90,7 @@ const singles = {
     '[data-bcn="signal"]': pill,
     '[data-bcn="uplink-hero"]': hero,
     '[data-bcn="tile-connection"]': tile,
+    '[data-bcn="tile-last"]': lastTile,
     '[data-bcn="onramp"]': onrampList,
     '[data-bcn="onramp-cta"]': cta,
     '.bcn-rail': el(),
@@ -154,6 +157,8 @@ new Function(src)();
         celebrating: hero.classList.contains('is-first-connect'),
         tile: tileVal.textContent,
         tileState: tile.getAttribute('data-state'),
+        lastTile: lastVal.textContent,
+        lastTileState: lastTile.getAttribute('data-state'),
         pill: pillLabel.textContent,
         linkHidden: seeUplink.hidden,
         ctaHidden: cta.hidden,

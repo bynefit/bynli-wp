@@ -176,6 +176,12 @@
             const val = tile.querySelector('.bcn-tile-value');
             if (val) val.textContent = 'Verified';
         }
+        const last = document.querySelector('[data-bcn="tile-last"]');
+        if (last) {
+            last.setAttribute('data-state', 'ok');
+            const when = last.querySelector('.bcn-tile-value');
+            if (when) when.textContent = data.last_at_human || 'just now';
+        }
         advanceOnramp();
     }
 

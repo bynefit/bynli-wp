@@ -238,7 +238,8 @@ class Bynli_Connect_Reporter {
 
     public static function first_connect_fresh(?int $now = null): bool {
         $at = (int) get_option(self::OPTION_VERIFIED, 0);
-        return $at > 0 && (($now ?? time()) - $at) < self::FIRST_CONNECT_WINDOW;
+        $age = ($now ?? time()) - $at;
+        return $at > 0 && $age >= 0 && $age < self::FIRST_CONNECT_WINDOW;
     }
 
     public static function was_verified(): bool {

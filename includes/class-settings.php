@@ -689,7 +689,7 @@ class Bynli_Connect_Settings {
                 <span class="bcn-tile-label">Connection</span>
                 <span class="bcn-tile-value"><?php echo $is_connected ? 'Verified' : 'Unverified'; ?></span>
             </div>
-            <div class="bcn-tile" data-state="<?php echo $daily_recent ? 'ok' : 'warn'; ?>">
+            <div class="bcn-tile" data-bcn="tile-last" data-state="<?php echo $daily_recent ? 'ok' : 'warn'; ?>">
                 <span class="dashicons dashicons-backup" aria-hidden="true"></span>
                 <span class="bcn-tile-label">Daily report</span>
                 <span class="bcn-tile-value"><?php echo !empty($last['at']) ? esc_html(human_time_diff((int)$last['at']) . ' ago') : 'never'; ?></span>

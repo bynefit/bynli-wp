@@ -101,6 +101,9 @@ $moment = rc_q($stale, '//*[@data-bcn="uplink-moment"]');
 t_true(count($moment) === 1 && $moment[0]->hasAttribute('hidden'), 'overview: an old first-connect URL does not show the first-connect line');
 t_eq(count(rc_q($stale, '//div[' . rc_cls('bcn-notice-ok') . ']')), 1, 'flash: an old first-connect URL degrades to the plain success banner');
 t_true(strpos(implode(' ', array_map(function ($n) { return $n->textContent; }, rc_q($stale, '//div[' . rc_cls('bcn-notice-ok') . ']'))), 'first signed heartbeat') === false, 'flash: an old first-connect URL does not claim a first heartbeat');
+$skewed = rc_page($connected_opts + ['bynli_connect_verified_at' => time() + 9999], ['tested' => 'first']);
+$hero = rc_q($skewed, '//*[@data-bcn="uplink-hero"]');
+t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') === false, 'overview: a verification time in the future does not count as fresh');
 $unflagged = rc_page($connected_opts, ['tested' => 'first']);
 $hero = rc_q($unflagged, '//*[@data-bcn="uplink-hero"]');
 t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') === false, 'overview: a first-connect URL with no recorded verification does not celebrate');
@@ -128,6 +131,7 @@ t_eq(count(rc_q($fresh, '//label[' . rc_cls('bcn-check') . '][@for="bcn_beacons"
 $link = rc_q($fresh, '//a[@data-role="see-uplink"]');
 t_true(count($link) === 1 && $link[0]->hasAttribute('hidden') && $link[0]->getAttribute('data-go') === 'overview', 'connection: the see-your-uplink link starts hidden and targets Overview');
 t_eq(count(rc_q($fresh, '//*[@data-bcn="tile-connection"]')), 1, 'overview: the connection tile can be updated in place');
+t_eq(count(rc_q($fresh, '//*[@data-bcn="tile-last"]')), 1, 'overview: the daily report tile can be updated in place');
 
 function rc_node(array $responses): ?array
 {
@@ -157,6 +161,7 @@ if ($js === null) {
     t_eq($a['momentHidden'] ?? null, false, 'script: the first-connect line is revealed');
     t_eq($a['celebrating'] ?? null, true, 'script: the hero celebrates the first connect');
     t_eq([$a['tile'] ?? null, $a['tileState'] ?? null, $a['pill'] ?? null], ['Verified', 'ok', 'Connected'], 'script: the tile and topbar pill follow');
+    t_eq([$a['lastTile'] ?? null, $a['lastTileState'] ?? null], ['1 min ago', 'ok'], 'script: the daily report tile shows the ping time instead of never');
     t_eq($a['linkHidden'] ?? null, false, 'script: the see-your-uplink link appears');
     t_eq([$a['stepTwoDone'] ?? null, $a['stepTwoCurrent'] ?? null, $a['stepThreeCurrent'] ?? null, $a['stepThreeNext'] ?? null], [true, false, 'step', true], 'script: the on-ramp moves on to the daily report');
     t_eq($a['ctaHidden'] ?? null, true, 'script: the on-ramp call to action is hidden once connected');
