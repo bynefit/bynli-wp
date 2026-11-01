@@ -103,6 +103,12 @@ class Bynli_Connect_Control_Plane {
             'callback'            => ['Bynli_Connect_Products', 'handle_remove'],
             'permission_callback' => [$this, 'authorize'],
         ]);
+
+        register_rest_route(self::NS, '/page_remove', [
+            'methods'             => 'POST',
+            'callback'            => [$this, 'remove_page'],
+            'permission_callback' => [$this, 'authorize'],
+        ]);
     }
 
     /**
@@ -620,6 +626,52 @@ class Bynli_Connect_Control_Plane {
             'page_id' => $post_id,
             'url'     => get_permalink($post_id) ?: '',
         ], 200);
+    }
+
+    /**
+     * page_remove — take a product page offline. Sets the scene-graph page
+     * carrying the slug to draft (reversible: the next page upsert publishes it
+     * again). Only product page slugs are accepted so this route cannot be used
+     * to unpublish the home page or any other page. Idempotent: a slug with no
+     * page, or a page already offline, answers ok with removed 0.
+     */
+    public function remove_page(WP_REST_Request $request) {
+        $body = json_decode((string) $request->get_body(), true);
+        if (!is_array($body)) {
+            return new WP_Error('invalid_json', 'Body is not valid JSON.', ['status' => 400]);
+        }
+
+        $slug = is_string($body['slug'] ?? null) ? $body['slug'] : '';
+        if (!preg_match('/^shop-[0-9]+$/D', $slug)) {
+            return new WP_Error('invalid_slug', 'Only a product page can be removed.', ['status' => 400]);
+        }
+
+        $ids = get_posts([
+            'post_type'        => 'page',
+            'post_status'      => ['publish', 'future', 'pending', 'private'],
+            'numberposts'      => -1,
+            'fields'           => 'ids',
+            'meta_key'         => self::PAGE_SLUG_META,
+            'meta_value'       => $slug,
+            'suppress_filters' => false,
+        ]);
+
+        $removed = 0;
+        foreach ((array) $ids as $id) {
+            $id = (int) $id;
+            $res = wp_update_post(['ID' => $id, 'post_status' => 'draft'], true);
+            if (is_wp_error($res) || !$res) {
+                error_log('[Bynli Connect] remove_page: ' . (is_wp_error($res) ? $res->get_error_message() : 'unknown'));
+                return new WP_Error('write_failed', 'Could not take the page offline.', ['status' => 500]);
+            }
+            $removed++;
+        }
+
+        if ($removed > 0) {
+            do_action('bynli_connect_page_removed', $slug, $removed);
+        }
+
+        return new WP_REST_Response(['ok' => true, 'removed' => $removed], 200);
     }
 
     /**
