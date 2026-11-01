@@ -36,6 +36,7 @@ class Bynli_Connect_Plugin {
         new Bynli_Connect_Badge();
         new Bynli_Connect_Beacon();
 
+        add_action('bynli_connect_daily_report', [Bynli_Connect_Products::class, 'sweep_tombstones'], 5);
         add_action('bynli_connect_daily_report', [Bynli_Connect_Reporter::class, 'send_daily']);
 
         if (!wp_next_scheduled('bynli_connect_daily_report')) {

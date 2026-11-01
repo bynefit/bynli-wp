@@ -22,6 +22,9 @@ class Bynli_Connect_Products {
     const META_OWNER    = '_bynefit_image_owner';
     const META_SEQ      = '_bynefit_sent_at';
     const TOMB          = 'bynefit_product_removed_';
+    const TOMB_TTL      = 2592000;
+    const TOMB_BATCH    = 500;
+    const TOMB_PASSES   = 20;
     const MAX_IMAGES    = 10;
     const MAX_VARIANTS  = 50;
     const MAX_NAME      = 160;
@@ -50,6 +53,51 @@ class Bynli_Connect_Products {
 
     public static function handle_capabilities(WP_REST_Request $request) {
         return new WP_REST_Response(self::capabilities(), 200);
+    }
+
+    public static function sweep_tombstones($now = null) {
+        global $wpdb;
+        if (!isset($wpdb) || !is_object($wpdb)) {
+            return 0;
+        }
+        $now     = is_int($now) ? $now : time();
+        $cutoff  = $now - self::TOMB_TTL;
+        $ceiling = $now + self::TOMB_TTL;
+        $swept   = 0;
+        $cursor  = 0;
+        for ($pass = 0; $pass < self::TOMB_PASSES; $pass++) {
+            try {
+                $rows = $wpdb->get_results($wpdb->prepare(
+                    "SELECT option_id, option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s AND option_id > %d ORDER BY option_id ASC LIMIT %d",
+                    $wpdb->esc_like(self::TOMB) . '%',
+                    $cursor,
+                    self::TOMB_BATCH
+                ));
+            } catch (Throwable $e) {
+                error_log('[Bynli Connect] tombstone sweep failed: ' . $e->getMessage());
+                return $swept;
+            }
+            if ($rows === null || (isset($wpdb->last_error) && (string) $wpdb->last_error !== '')) {
+                error_log('[Bynli Connect] tombstone sweep query failed');
+                return $swept;
+            }
+            foreach ((array) $rows as $row) {
+                $cursor = max($cursor, (int) $row->option_id);
+                $name   = (string) $row->option_name;
+                if (!preg_match('/^' . preg_quote(self::TOMB, '/') . '\d+$/', $name)) {
+                    continue;
+                }
+                $stamp = (int) $row->option_value;
+                if ($stamp < $cutoff || $stamp > $ceiling) {
+                    delete_option($name);
+                    $swept++;
+                }
+            }
+            if (count((array) $rows) < self::TOMB_BATCH) {
+                break;
+            }
+        }
+        return $swept;
     }
 
     public static function handle_product(WP_REST_Request $request) {

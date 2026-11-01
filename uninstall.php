@@ -28,6 +28,13 @@ foreach (['bynli_connect_inbound_product', 'bynli_connect_inbound_order', 'bynli
 }
 delete_transient('bynli_connect_update_check');
 delete_post_meta_by_key('_bynefit_inbound_hash');
+global $wpdb;
+if (isset($wpdb) && is_object($wpdb)) {
+    $wpdb->query($wpdb->prepare(
+        "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+        $wpdb->esc_like('bynefit_product_removed_') . '%'
+    ));
+}
 
 // Remove the custom Client role. Any users still holding it fall back to no
 // role, so a site admin should reassign them before deleting the plugin.
