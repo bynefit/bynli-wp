@@ -22,6 +22,8 @@ class Bynli_Connect_Products {
     const META_OWNER    = '_bynefit_image_owner';
     const META_SEQ      = '_bynefit_sent_at';
     const TOMB          = 'bynefit_product_removed_';
+    const TOMB_TTL      = 2592000;
+    const TOMB_BATCH    = 500;
     const MAX_IMAGES    = 10;
     const MAX_VARIANTS  = 50;
     const MAX_NAME      = 160;
@@ -50,6 +52,36 @@ class Bynli_Connect_Products {
 
     public static function handle_capabilities(WP_REST_Request $request) {
         return new WP_REST_Response(self::capabilities(), 200);
+    }
+
+    public static function sweep_tombstones($now = null) {
+        global $wpdb;
+        if (!isset($wpdb) || !is_object($wpdb)) {
+            return 0;
+        }
+        $cutoff = (is_int($now) ? $now : time()) - self::TOMB_TTL;
+        try {
+            $rows = $wpdb->get_results($wpdb->prepare(
+                "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s ORDER BY option_id ASC LIMIT %d",
+                $wpdb->esc_like(self::TOMB) . '%',
+                self::TOMB_BATCH
+            ));
+        } catch (Throwable $e) {
+            error_log('[Bynli Connect] tombstone sweep failed: ' . $e->getMessage());
+            return 0;
+        }
+        $swept = 0;
+        foreach ((array) $rows as $row) {
+            $name = (string) $row->option_name;
+            if (!preg_match('/^' . preg_quote(self::TOMB, '/') . '\d+$/', $name)) {
+                continue;
+            }
+            if ((int) $row->option_value < $cutoff) {
+                delete_option($name);
+                $swept++;
+            }
+        }
+        return $swept;
     }
 
     public static function handle_product(WP_REST_Request $request) {
