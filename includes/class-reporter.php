@@ -9,6 +9,7 @@ class Bynli_Connect_Reporter {
     // fetch. Capped so the option stays small.
     const OPTION_HISTORY = 'bynli_connect_report_history';
     const HISTORY_MAX    = 14;
+    const OPTION_VERIFIED = 'bynli_connect_verified_at';
 
     public static function send_heartbeat(): array {
         return self::post(['kind' => 'heartbeat']);
@@ -221,6 +222,9 @@ class Bynli_Connect_Reporter {
         update_option(self::OPTION_HISTORY, array_slice($hist, -self::HISTORY_MAX), false);
 
         if ($code >= 200 && $code < 300 && $ok) {
+            if (get_option(self::OPTION_VERIFIED, '') === '') {
+                update_option(self::OPTION_VERIFIED, time(), false);
+            }
             return ['ok' => true, 'status' => $code, 'response' => $json];
         }
         return ['ok' => false, 'status' => $code, 'response' => $json ?: $raw];
@@ -229,6 +233,14 @@ class Bynli_Connect_Reporter {
     public static function last_report(): array {
         $val = get_option(self::OPTION_LAST, null);
         return is_array($val) ? $val : [];
+    }
+
+    public static function was_verified(): bool {
+        if (get_option(self::OPTION_VERIFIED, '') !== '') {
+            return true;
+        }
+        $last = self::last_report();
+        return !empty($last['ok']) || self::has_verified(self::history());
     }
 
     public static function has_verified(array $history): bool {

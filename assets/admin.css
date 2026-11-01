@@ -33,7 +33,7 @@
     --bcn-accent-on-ink: #2dd4c2;
     --bcn-warn-on-ink:   #e0ad4a;
 
-    --bcn-ok:   #1f9d57;  --bcn-ok-soft:   #e6f4ec;  --bcn-ok-line:   #bfe4cd;
+    --bcn-ok:   #1f9d57;  --bcn-ok-soft:   #e6f4ec;  --bcn-ok-line:   #bfe4cd;  --bcn-ok-ink: #16783f;
     --bcn-warn: #b5811a;  --bcn-warn-soft: #f6eed9;  --bcn-warn-line: #e7d3a3;
     --bcn-down: #cf4444;  --bcn-down-soft: #f8e9e9;  --bcn-down-line: #eec6c6;
 
@@ -250,7 +250,7 @@
 .bcn-note.warn { background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); color: var(--bcn-warn); }
 .bcn-note.warn .dashicons { color: var(--bcn-warn); }
 .bcn-note.down { background: var(--bcn-down-soft); border-color: var(--bcn-down-line); color: var(--bcn-down); }
-.bcn-note.is-ok { background: var(--bcn-ok-soft); border-color: var(--bcn-ok-line); color: var(--bcn-ok); }
+.bcn-note.is-ok { background: var(--bcn-ok-soft); border-color: var(--bcn-ok-line); color: var(--bcn-ok-ink); }
 .bcn-note.is-ok .dashicons { color: var(--bcn-ok); }
 .bcn-note.is-err { background: var(--bcn-down-soft); border-color: var(--bcn-down-line); color: var(--bcn-down); }
 .bcn-note.is-err .dashicons { color: var(--bcn-down); }
@@ -491,6 +491,7 @@
 .bcn-btn.danger:hover { background: var(--bcn-down-soft); }
 .bcn-btn.sm { padding: 6px 11px; font-size: 12px; }
 .bcn-btn[disabled], .bcn-btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.bcn-btn[hidden] { display: none; }
 .bcn-wrap :focus-visible { outline: 2px solid var(--bcn-accent); outline-offset: 2px; border-radius: 3px; }
 
 /* Fields */
@@ -555,7 +556,7 @@
     padding: 11px 14px; margin-bottom: 14px; border-radius: var(--bcn-r-md);
     font-size: 13px; border: 1px solid var(--bcn-rule);
 }
-.bcn-notice-ok   { color: var(--bcn-ok);   background: var(--bcn-ok-soft);   border-color: var(--bcn-ok-line); }
+.bcn-notice-ok   { color: var(--bcn-ok-ink);   background: var(--bcn-ok-soft);   border-color: var(--bcn-ok-line); }
 .bcn-notice-warn { color: var(--bcn-warn); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
 .bcn-notice-acc  { color: var(--bcn-accent-ink); background: var(--bcn-accent-soft); border-color: var(--bcn-accent-line); }
 .bcn-notice-err  { color: var(--bcn-down); background: var(--bcn-down-soft); border-color: var(--bcn-down-line); }
@@ -686,6 +687,7 @@
     .bcn-new-ticket > summary { display: flex; align-items: center; }
     .bcn-resolve-details summary { padding-block: 11px; }
     .bcn-note-link { display: inline-flex; align-items: center; min-height: 44px; }
+    .bcn-check { display: flex; align-items: center; gap: 8px; min-height: 44px; }
     .bcn-note-link[hidden] { display: none; }
 }
 

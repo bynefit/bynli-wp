@@ -15,6 +15,9 @@ if ($scenario === 'after-success') {
         ['at' => 1, 'kind' => 'heartbeat', 'ok' => false, 'status' => 401],
         ['at' => 2, 'kind' => 'daily', 'ok' => true, 'status' => 200],
     ];
+} elseif ($scenario === 'long-failing') {
+    $opts['bynli_connect_verified_at'] = 1;
+    $opts['bynli_connect_report_history'] = array_fill(0, 14, ['at' => 5, 'kind' => 'daily', 'ok' => false, 'status' => 401]);
 } elseif ($scenario === 'after-failures') {
     $opts['bynli_connect_report_history'] = [
         ['at' => 1, 'kind' => 'heartbeat', 'ok' => false, 'status' => 401],
@@ -76,12 +79,20 @@ function wp_remote_retrieve_body($r)
 }
 function wp_send_json_success($data = null, $status = null)
 {
-    echo json_encode(['success' => true, 'data' => $data]);
+    $payload = ['success' => true, 'data' => $data];
+    if (!empty($GLOBALS['multi'])) {
+        throw new RuntimeException(json_encode($payload));
+    }
+    echo json_encode($payload);
     exit(0);
 }
 function wp_send_json_error($data = null, $status = null)
 {
-    echo json_encode(['success' => false, 'data' => $data, 'http' => $status]);
+    $payload = ['success' => false, 'data' => $data, 'http' => $status];
+    if (!empty($GLOBALS['multi'])) {
+        throw new RuntimeException(json_encode($payload));
+    }
+    echo json_encode($payload);
     exit(0);
 }
 
@@ -115,6 +126,18 @@ function wp_safe_redirect($url)
 $handler = new Bynli_Connect_Settings();
 if (($argv[2] ?? '') === 'redirect') {
     $handler->handle_test();
+} elseif (($argv[2] ?? '') === 'twice') {
+    $GLOBALS['multi'] = true;
+    $runs = [];
+    for ($i = 0; $i < 2; $i++) {
+        try {
+            $handler->handle_ajax_heartbeat();
+        } catch (RuntimeException $e) {
+            $runs[] = json_decode($e->getMessage(), true);
+        }
+        unset($GLOBALS['opts']['bynli_connect_report_history'], $GLOBALS['opts']['bynli_connect_last_report']);
+    }
+    echo json_encode(['runs' => $runs, 'verified' => isset($GLOBALS['opts']['bynli_connect_verified_at'])]);
 } else {
     $handler->handle_ajax_heartbeat();
 }

@@ -545,9 +545,13 @@ class Bynli_Connect_Publish_Contract {
         }
     }
 
-    private static function check_action_buttons(array &$v, string $path, $buttons, string $code, string $noun): int {
+    private static function check_action_buttons(array &$v, string $path, $buttons, string $code, string $noun, bool $refuse_rewrites = false): int {
         $valid = 0;
-        foreach ((is_array($buttons) ? $buttons : []) as $i => $btn) {
+        $list  = is_array($buttons) ? $buttons : [];
+        if ($refuse_rewrites && count($list) > Bynli_Connect_Blocks::ACTION_BUTTONS_MAX) {
+            $v[] = self::vio($code . '_count', $path, "$noun list can hold at most " . Bynli_Connect_Blocks::ACTION_BUTTONS_MAX . ' buttons.');
+        }
+        foreach ($list as $i => $btn) {
             if (!is_array($btn)) {
                 continue;
             }
@@ -557,6 +561,9 @@ class Bynli_Connect_Publish_Contract {
                 $v[] = self::vio($code, $path . "[$i]", "$noun needs a label and a valid http(s)/relative URL.");
             } else {
                 $valid++;
+            }
+            if ($refuse_rewrites && isset($btn['variant']) && $btn['variant'] !== 'primary' && $btn['variant'] !== 'secondary') {
+                $v[] = self::vio($code . '_variant', $path . "[$i].variant", "$noun variant must be primary or secondary.");
             }
         }
         return $valid;
@@ -581,7 +588,7 @@ class Bynli_Connect_Publish_Contract {
             $heading_levels[] = (int) $level;
         }
 
-        self::check_action_buttons($v, "$bpath.buttons", $block['buttons'] ?? null, 'hero_button', 'Hero button');
+        self::check_action_buttons($v, "$bpath.buttons", $block['buttons'] ?? null, 'hero_button', 'Hero button', true);
 
         self::check_enum(
             $v, "$bpath.minHeight", $block['minHeight'] ?? null,
@@ -607,7 +614,7 @@ class Bynli_Connect_Publish_Contract {
             $scrim_slug = self::check_token_ref($v, "$bpath.overlay.color", $overlay['color'] ?? null, 'color', $vocab, false);
             self::check_bounded_int(
                 $v, "$bpath.overlay.opacity", $overlay['opacity'] ?? null,
-                Bynli_Connect_Blocks::HERO_OVERLAY_MIN, 100, 'Hero overlay opacity', 'hero_overlay_opacity'
+                0, 100, 'Hero overlay opacity', 'hero_overlay_opacity'
             );
         }
 
@@ -630,13 +637,18 @@ class Bynli_Connect_Publish_Contract {
         $bg_hex  = $scrim_slug === null
             ? (($overlay !== null && isset($overlay['color']) && $overlay['color'] !== '') ? null : Bynli_Connect_Blocks::SCRIM_FALLBACK)
             : ($palette[$scrim_slug] ?? null);
-        if ($fg_hex !== null && $bg_hex !== null) {
-            $ratio = self::contrast_ratio($fg_hex, $bg_hex);
+        $opacity_ok = !isset($overlay['opacity']) || (Bynli_Connect_Blocks::isIntLike($overlay['opacity']) && (int) $overlay['opacity'] >= 0 && (int) $overlay['opacity'] <= 100);
+        if ($fg_hex !== null && $bg_hex !== null && $opacity_ok) {
+            $percent = isset($overlay['opacity']) ? (int) $overlay['opacity'] : Bynli_Connect_Blocks::HERO_OVERLAY_DEFAULT;
+            $light   = self::luminance($fg_hex);
+            $floor   = ($light !== null && $light >= 0.179) ? '#ffffff' : '#000000';
+            $worst   = self::blend_hex($bg_hex, $floor, $percent / 100);
+            $ratio   = $worst === null ? null : self::contrast_ratio($fg_hex, $worst);
             if ($ratio !== null && $ratio + 0.005 < self::CONTRAST_NORMAL) {
                 $v[] = self::vio(
                     'contrast_low',
                     "$bpath.style.color",
-                    sprintf('Contrast %.2f:1 between the hero text and its scrim is below the %.1f:1 minimum.', $ratio, self::CONTRAST_NORMAL)
+                    sprintf('Contrast %.2f:1 between the hero text and its scrim over a bright photo is below the %.1f:1 minimum. Raise the overlay opacity or change the colours.', $ratio, self::CONTRAST_NORMAL)
                 );
             }
         }
@@ -985,6 +997,29 @@ class Bynli_Connect_Publish_Contract {
         $hi = max($l1, $l2);
         $lo = min($l1, $l2);
         return ($hi + 0.05) / ($lo + 0.05);
+    }
+
+    private static function blend_hex(string $top, string $under, float $alpha): ?string {
+        $rgb = static function (string $hex): ?array {
+            $hex = ltrim(trim($hex), '#');
+            if (strlen($hex) === 3) {
+                $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+            }
+            if (!preg_match('/^[0-9a-fA-F]{6}$/', $hex)) {
+                return null;
+            }
+            return [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
+        };
+        $a = $rgb($top);
+        $b = $rgb($under);
+        if ($a === null || $b === null) {
+            return null;
+        }
+        $out = '#';
+        for ($i = 0; $i < 3; $i++) {
+            $out .= sprintf('%02x', (int) round($a[$i] * $alpha + $b[$i] * (1 - $alpha)));
+        }
+        return $out;
     }
 
     private static function luminance(string $hex): ?float {

@@ -1,47 +1,19 @@
 <?php
 ini_set('error_log', sys_get_temp_dir() . '/bynli-connect-test-error.log');
 
-if (!function_exists('esc_html')) {
-    function esc_html($s)
-    {
-        return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
-    }
-    function esc_attr($s)
-    {
-        return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
-    }
-    function esc_url_raw($u)
-    {
-        $u = trim((string) $u);
-        return ($u !== '' && preg_match('#^(https?://|/|\#)#i', $u)) ? $u : '';
-    }
-    function esc_url($u)
-    {
-        return htmlspecialchars(esc_url_raw($u), ENT_QUOTES, 'UTF-8');
-    }
-    function get_block_wrapper_attributes($extra = [])
-    {
-        $out = [];
-        foreach (['class', 'style'] as $k) {
-            if (!empty($extra[$k])) {
-                $out[] = $k . '="' . esc_attr($extra[$k]) . '"';
-            }
-        }
-        return implode(' ', $out);
-    }
-    function wp_enqueue_script($handle)
-    {
-        $GLOBALS['hb_enqueued'][] = $handle;
-    }
-    function serialize_block_attributes($attrs)
-    {
-        return json_encode($attrs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
-    function wp_get_global_settings()
-    {
-        return $GLOBALS['hb_palette']
-            ? ['color' => ['palette' => ['theme' => $GLOBALS['hb_palette']]]]
-            : [];
+$hb_stubs = [
+    'esc_html' => 'function esc_html($s) { return htmlspecialchars((string) $s, ENT_QUOTES, "UTF-8"); }',
+    'esc_attr' => 'function esc_attr($s) { return htmlspecialchars((string) $s, ENT_QUOTES, "UTF-8"); }',
+    'esc_url_raw' => 'function esc_url_raw($u) { $u = trim((string) $u); return ($u !== "" && preg_match("#^(https?://|/|\\#)#i", $u)) ? $u : ""; }',
+    'esc_url' => 'function esc_url($u) { return htmlspecialchars(esc_url_raw($u), ENT_QUOTES, "UTF-8"); }',
+    'get_block_wrapper_attributes' => 'function get_block_wrapper_attributes($extra = []) { $out = []; foreach (["class", "style"] as $k) { if (!empty($extra[$k])) { $out[] = $k . "=\"" . esc_attr($extra[$k]) . "\""; } } return implode(" ", $out); }',
+    'wp_enqueue_script' => 'function wp_enqueue_script($handle) { $GLOBALS["hb_enqueued"][] = $handle; }',
+    'serialize_block_attributes' => 'function serialize_block_attributes($attrs) { return json_encode($attrs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); }',
+    'wp_get_global_settings' => 'function wp_get_global_settings() { return $GLOBALS["hb_palette"] ? ["color" => ["palette" => ["theme" => $GLOBALS["hb_palette"]]]] : []; }',
+];
+foreach ($hb_stubs as $hb_name => $hb_src) {
+    if (!function_exists($hb_name)) {
+        eval($hb_src);
     }
 }
 $GLOBALS['hb_enqueued'] = [];
@@ -120,8 +92,8 @@ t_true(strpos(hb_render(['heading' => 'H', 'align' => 'center']), 'bynefit-hero-
 t_true(strpos(hb_render(['heading' => 'H', 'align' => 'end']), 'bynefit-hero--start') !== false, 'render: an unknown alignment is start');
 
 $framed = hb_render(['heading' => 'H', 'bgMedia' => $img, 'overlay' => ['opacity' => 60]]);
-t_true(strpos($framed, '<img class="bynefit-hero__bgel" src="https://cdn.example/hero.jpg" alt="" width="1600" height="900" loading="lazy" decoding="async">') !== false, 'render: background image has explicit dimensions, empty alt and lazy loading by default');
-t_true(strpos($framed, 'fetchpriority') === false, 'render: a non-priority background is not fetchpriority high');
+t_true(strpos($framed, '<img class="bynefit-hero__bgel" src="https://cdn.example/hero.jpg" alt="" width="1600" height="900" decoding="async">') !== false, 'render: background image has explicit dimensions, an empty alt and is never lazy');
+t_true(strpos($framed, 'fetchpriority') === false && strpos($framed, 'loading="lazy"') === false, 'render: a non-priority background is neither fetchpriority high nor lazy');
 t_true(strpos($framed, '--bynefit-scrim-opacity:0.6;') !== false, 'render: the scrim carries the overlay opacity');
 t_true(strpos($framed, '--bynefit-scrim-color:#0e0d10;') !== false, 'render: the scrim has a colour when none is declared');
 t_true(strpos($framed, 'bynefit-hero--framed') !== false, 'render: a hero with media is marked framed');
@@ -136,7 +108,7 @@ $prio = hb_render(['heading' => 'H', 'bgMedia' => $img, 'overlay' => ['opacity' 
 t_true(strpos($prio, 'fetchpriority="high"') !== false && strpos($prio, 'loading="lazy"') === false, 'render: a priority background is eager and high priority');
 
 $default_scrim = hb_render(['heading' => 'H', 'bgMedia' => $img]);
-t_true(strpos($default_scrim, '--bynefit-scrim-opacity:0.5;') !== false, 'render: a missing overlay still gets the default scrim');
+t_true(strpos($default_scrim, '--bynefit-scrim-opacity:0.6;') !== false, 'render: a missing overlay still gets the default scrim');
 
 t_true(strpos(hb_render(['heading' => 'H', 'bgMedia' => $img, 'overlay' => ['opacity' => 250]]), '--bynefit-scrim-opacity:1;') !== false, 'render: opacity above 100 clamps');
 t_true(strpos(hb_render(['heading' => 'H', 'bgMedia' => $img, 'overlay' => ['opacity' => -5]]), '--bynefit-scrim-opacity:0;') !== false, 'render: opacity below 0 clamps');
@@ -160,7 +132,7 @@ $pic = hb_render(['heading' => 'H', 'bgMedia' => $img + ['sources' => ['avif' =>
 t_true(strpos($pic, '<picture><source type="image/avif" srcset="https://cdn.example/h.avif"><source type="image/webp" srcset="https://cdn.example/h.webp"><img') !== false, 'render: avif then webp then the original');
 
 $GLOBALS['hb_enqueued'] = [];
-$video = hb_render(['heading' => 'H', 'bgMedia' => ['url' => 'https://cdn.example/h.mp4', 'kind' => 'video', 'poster' => 'https://cdn.example/h.jpg'], 'overlay' => ['opacity' => 50], 'priority' => true]);
+$video = hb_render(['heading' => 'H', 'bgMedia' => ['url' => 'https://cdn.example/h.mp4', 'kind' => 'video', 'poster' => 'https://cdn.example/h.jpg'], 'overlay' => ['opacity' => 60], 'priority' => true]);
 t_true(strpos($video, '<video class="bynefit-hero__bgel" src="https://cdn.example/h.mp4" poster="https://cdn.example/h.jpg" muted loop playsinline preload="metadata" data-bynefit-bgvideo aria-hidden="true"></video>') !== false, 'render: video is muted, looping, inline, hidden from assistive tech, with a poster');
 t_true(strpos($video, 'autoplay') === false, 'render: video never autoplays without the script');
 t_true(in_array('bynefit-blocks', $GLOBALS['hb_enqueued'], true), 'render: a background video loads the script that adds the pause control');
@@ -216,12 +188,12 @@ t_eq($e['bgMedia']['focal'] ?? null, ['x' => 0.25, 'y' => 0.75], 'emit: focal po
 t_true(!array_key_exists('alt', $e['bgMedia'] ?? []), 'emit: a decorative background carries no alt');
 t_eq($e['overlay'] ?? null, ['color' => 'ink', 'opacity' => 65], 'emit: overlay colour resolves to a slug');
 
-$e = hb_attrs(hb_emit(['type' => 'hero', 'heading' => 'V', 'priority' => true, 'bgMedia' => ['media' => 'v1'], 'overlay' => ['opacity' => 50]], $vocab_media));
+$e = hb_attrs(hb_emit(['type' => 'hero', 'heading' => 'V', 'priority' => true, 'bgMedia' => ['media' => 'v1'], 'overlay' => ['opacity' => 60]], $vocab_media));
 t_eq($e['bgMedia']['kind'] ?? null, 'video', 'emit: a video background is marked as video');
 t_eq($e['bgMedia']['poster'] ?? null, 'https://cdn.example/p.jpg', 'emit: the video poster travels with it');
 t_true(!array_key_exists('priority', $e ?? []), 'emit: priority means nothing on a video');
 
-$e = hb_attrs(hb_emit(['type' => 'hero', 'heading' => 'U', 'priority' => true, 'bgMedia' => ['media' => 'nope'], 'overlay' => ['opacity' => 50]], $vocab_media));
+$e = hb_attrs(hb_emit(['type' => 'hero', 'heading' => 'U', 'priority' => true, 'bgMedia' => ['media' => 'nope'], 'overlay' => ['opacity' => 60]], $vocab_media));
 t_true(!array_key_exists('bgMedia', $e ?? []) && !array_key_exists('overlay', $e ?? []) && !array_key_exists('priority', $e ?? []), 'emit: an unresolved background drops its overlay and priority with it');
 
 t_eq(hb_attrs(hb_emit(['type' => 'hero', 'heading' => 'L', 'level' => 7]))['level'] ?? null, 1, 'emit: an out-of-range level is h1');
@@ -252,7 +224,7 @@ t_eq(count($cta['buttons'] ?? []), 2, 'cta emit: still at most two buttons');
 $cta_out = hb_render_block('cta', ['title' => 'T', 'buttons' => [['label' => 'a', 'href' => '/a'], ['label' => 'b', 'href' => '/b', 'variant' => 'secondary'], ['label' => 'c', 'href' => '/c']]]);
 t_true(strpos($cta_out, '<a class="bynefit-cta__btn bynefit-cta__btn--primary" href="/a">a</a><a class="bynefit-cta__btn bynefit-cta__btn--secondary" href="/b">b</a>') !== false && strpos($cta_out, '>c<') === false, 'cta render: buttons render as before, capped at two');
 
-function hg_page(array $blocks, array $section = [], array $media = null): array
+function hg_page(array $blocks, array $section = [], ?array $media = null): array
 {
     return [
         'page' => [
@@ -268,14 +240,14 @@ function hg_page(array $blocks, array $section = [], array $media = null): array
     ];
 }
 
-function hg_codes(array $blocks, array $section = [], array $media = null): array
+function hg_codes(array $blocks, array $section = [], ?array $media = null): array
 {
     $p = hg_page($blocks, $section, $media);
     $r = Bynli_Connect_Publish_Contract::validate($p['page'], $p['media']);
     return array_column($r['violations'], 'code');
 }
 
-function hg_violation(array $blocks, string $code, array $section = [], array $media = null): ?array
+function hg_violation(array $blocks, string $code, array $section = [], ?array $media = null): ?array
 {
     $p = hg_page($blocks, $section, $media);
     foreach (Bynli_Connect_Publish_Contract::validate($p['page'], $p['media'])['violations'] as $v) {
@@ -286,10 +258,10 @@ function hg_violation(array $blocks, string $code, array $section = [], array $m
     return null;
 }
 
-$hero_ok = ['type' => 'hero', 'heading' => 'Hi', 'bgMedia' => ['media' => 'm1'], 'overlay' => ['opacity' => 50], 'buttons' => [['label' => 'Go', 'href' => '/go']]];
+$hero_ok = ['type' => 'hero', 'heading' => 'Hi', 'bgMedia' => ['media' => 'm1'], 'overlay' => ['opacity' => 60], 'buttons' => [['label' => 'Go', 'href' => '/go']]];
 t_eq(hg_codes([$hero_ok]), [], 'gate: a complete hero with media and a scrim passes');
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'Hi']]), [], 'gate: a bare hero passes');
-t_eq(hg_codes([['type' => 'hero', 'heading' => 'Hi', 'bgMedia' => ['media' => 'v1'], 'overlay' => ['opacity' => 50]]]), [], 'gate: a video background needs no dimensions');
+t_eq(hg_codes([['type' => 'hero', 'heading' => 'Hi', 'bgMedia' => ['media' => 'v1'], 'overlay' => ['opacity' => 60]]]), [], 'gate: a video background needs no dimensions');
 
 t_true(in_array('hero_heading_empty', hg_codes([['type' => 'hero', 'heading' => ' ']]), true), 'gate: a hero needs a heading');
 t_true(in_array('hero_level_range', hg_codes([['type' => 'hero', 'heading' => 'H', 'level' => 3]]), true), 'gate: level 3 is refused');
@@ -302,34 +274,44 @@ t_true(in_array('h1_multiple', hg_codes([['type' => 'hero', 'heading' => 'H'], [
 t_true(in_array('heading_order', hg_codes([['type' => 'hero', 'heading' => 'H', 'level' => 2], ['type' => 'heading', 'level' => 4, 'text' => 'Skip']]), true), 'gate: a hero level takes part in heading order');
 
 t_true(in_array('hero_needs_overlay', hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'm1']]]), true), 'gate: media without a scrim is refused');
-t_true(in_array('hero_overlay_orphan', hg_codes([['type' => 'hero', 'heading' => 'H', 'overlay' => ['opacity' => 50]]]), true), 'gate: a scrim with nothing to cover is refused');
+t_true(in_array('hero_overlay_orphan', hg_codes([['type' => 'hero', 'heading' => 'H', 'overlay' => ['opacity' => 60]]]), true), 'gate: a scrim with nothing to cover is refused');
 
-foreach ([[29, 'hero_overlay_opacity_range'], [101, 'hero_overlay_opacity_range'], [40.5, 'hero_overlay_opacity_type'], ['x', 'hero_overlay_opacity_type']] as [$op, $code]) {
+foreach ([[-1, 'hero_overlay_opacity_range'], [101, 'hero_overlay_opacity_range'], [40.5, 'hero_overlay_opacity_type'], ['x', 'hero_overlay_opacity_type']] as [$op, $code]) {
     t_true(in_array($code, hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'm1'], 'overlay' => ['opacity' => $op]]]), true), 'gate: overlay opacity ' . var_export($op, true) . ' is ' . $code);
 }
-foreach ([30, 100, 55] as $op) {
+foreach ([60, 100] as $op) {
     t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'm1'], 'overlay' => ['opacity' => $op]]]), [], 'gate: overlay opacity ' . $op . ' passes');
 }
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'm1'], 'overlay' => []]]), [], 'gate: an overlay with defaults passes');
+foreach ([0, 30, 50] as $thin) {
+    t_true(in_array('contrast_low', hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'm1'], 'overlay' => ['opacity' => $thin]]]), true), 'gate: a ' . $thin . '% scrim is too thin for light text over a bright photo');
+}
 
-$v = hg_violation([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'zzz'], 'overlay' => ['opacity' => 50]]], 'media_unresolved');
+$v = hg_violation([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'zzz'], 'overlay' => ['opacity' => 60]]], 'media_unresolved');
 t_true($v !== null && strpos($v['message'], 'Hero background') === 0 && $v['path'] === 'sections[0].blocks[0].bgMedia', 'gate: an unresolved hero background names the hero');
-t_true(in_array('media_no_dimensions', hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'nodim'], 'overlay' => ['opacity' => 50]]]), true), 'gate: a background image needs dimensions (CLS)');
-t_true(in_array('media_bad_url', hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'bad'], 'overlay' => ['opacity' => 50]]]), true), 'gate: a script URL is refused as a background');
+t_true(in_array('media_no_dimensions', hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'nodim'], 'overlay' => ['opacity' => 60]]]), true), 'gate: a background image needs dimensions (CLS)');
+t_true(in_array('media_bad_url', hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'bad'], 'overlay' => ['opacity' => 60]]]), true), 'gate: a script URL is refused as a background');
 
 t_true(in_array('hero_minheight', hg_codes([['type' => 'hero', 'heading' => 'H', 'minHeight' => 'huge']]), true), 'gate: an unknown minHeight is refused');
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'minHeight' => 'full']]), [], 'gate: a known minHeight passes');
 t_true(in_array('block_align', hg_codes([['type' => 'hero', 'heading' => 'H', 'align' => 'end']]), true), 'gate: an unknown alignment is refused');
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'align' => 'center']]), [], 'gate: center passes');
+t_eq(hb_render(['heading' => 'H', 'bgMedia' => $img, 'color' => ['x'], 'overlay' => ['color' => ['y']]]) !== '', true, 'render: array-valued colour tokens do not fatal');
+t_eq(hb_render_block('section', ['minHeight' => ['tall'], 'cols' => ['sm' => 4, 'lg' => 12]]), '', 'render: an array minHeight does not fatal in a section either');
 
 t_eq(hg_codes([array_merge($hero_ok, ['priority' => true])]), [], 'gate: a priority image background passes');
 t_true(in_array('hero_priority', hg_codes([['type' => 'hero', 'heading' => 'H', 'priority' => true]]), true), 'gate: priority without a background is refused');
-t_true(in_array('hero_priority', hg_codes([['type' => 'hero', 'heading' => 'H', 'priority' => true, 'bgMedia' => ['media' => 'v1'], 'overlay' => ['opacity' => 50]]]), true), 'gate: priority on a video is refused');
+t_true(in_array('hero_priority', hg_codes([['type' => 'hero', 'heading' => 'H', 'priority' => true, 'bgMedia' => ['media' => 'v1'], 'overlay' => ['opacity' => 60]]]), true), 'gate: priority on a video is refused');
 t_true(in_array('lcp_multiple', hg_codes([array_merge($hero_ok, ['priority' => true]), ['type' => 'image', 'media' => 'm1', 'alt' => 'a', 'priority' => true]]), true), 'gate: a priority hero counts toward the one-LCP rule');
 
 $b = hg_violation([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => 'ok', 'href' => '/ok'], ['label' => 'bad', 'href' => 'javascript:x']]]], 'hero_button');
 t_true($b !== null && $b['path'] === 'sections[0].blocks[0].buttons[1]', 'gate: a hero button with a script URL is refused at its own path');
 t_true(in_array('hero_button', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => '', 'href' => '/x']]]]), true), 'gate: a hero button needs a label');
+$three_btns = [['label' => 'a', 'href' => '/a'], ['label' => 'b', 'href' => '/b'], ['label' => 'c', 'href' => '/c']];
+t_true(in_array('hero_button_count', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => $three_btns]]), true), 'gate: a third hero button is refused, not dropped');
+t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => array_slice($three_btns, 0, 2)]]), [], 'gate: two hero buttons pass');
+t_true(in_array('hero_button_variant', hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => 'a', 'href' => '/a', 'variant' => 'ghost']]]]), true), 'gate: an unknown button variant is refused, not rendered as primary');
+t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'buttons' => [['label' => 'a', 'href' => '/a', 'variant' => 'primary'], ['label' => 'b', 'href' => '/b', 'variant' => 'secondary']]]]), [], 'gate: primary and secondary pass');
 
 t_true(in_array('style_literal', hg_codes([['type' => 'hero', 'heading' => 'H', 'style' => ['color' => '#fff']]]), true), 'gate: a literal text colour is refused');
 t_eq(array_count_values(hg_codes([['type' => 'hero', 'heading' => 'H', 'style' => ['color' => '#fff']]]))['style_literal'] ?? 0, 1, 'gate: a bad text colour is reported once');
@@ -343,13 +325,14 @@ $GLOBALS['hb_palette'] = [
 ];
 t_eq(hg_codes([$hero_ok]), [], 'gate: defaults are legible with a palette present');
 t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.ink']])]), true), 'gate: dark text over the default dark scrim is refused');
-t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['overlay' => ['color' => 'color.white', 'opacity' => 50]])]), true), 'gate: the default light text over a light scrim is refused');
-t_eq(hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.ink'], 'overlay' => ['color' => 'color.white', 'opacity' => 50]])]), [], 'gate: dark text over a light scrim passes');
-t_eq(hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.white'], 'overlay' => ['color' => 'color.ink', 'opacity' => 50]])]), [], 'gate: light text over a dark scrim passes');
+t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['overlay' => ['color' => 'color.white', 'opacity' => 60]])]), true), 'gate: the default light text over a light scrim is refused');
+t_eq(hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.ink'], 'overlay' => ['color' => 'color.white', 'opacity' => 60]])]), [], 'gate: dark text over a light scrim passes');
+t_eq(hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.white'], 'overlay' => ['color' => 'color.ink', 'opacity' => 60]])]), [], 'gate: light text over a dark scrim passes');
+t_true(in_array('contrast_low', hg_codes([array_merge($hero_ok, ['style' => ['color' => 'color.ink'], 'overlay' => ['color' => 'color.mid', 'opacity' => 40]])]), true), 'gate: dark text is judged against a dark photo, not only a bright one');
 t_true(in_array('contrast_low', hg_codes([['type' => 'hero', 'heading' => 'H', 'style' => ['color' => 'color.white']]]), true), 'gate: without media the text is checked against the section background');
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'style' => ['color' => 'color.ink']]]), [], 'gate: legible text on the section background passes');
-t_true(in_array('token_undefined', hg_codes([array_merge($hero_ok, ['overlay' => ['color' => 'color.nope', 'opacity' => 50]])]), true), 'gate: a scrim token the theme does not define is refused');
-t_true(!in_array('contrast_low', hg_codes([array_merge($hero_ok, ['overlay' => ['color' => 'color.nope', 'opacity' => 50]])]), true), 'gate: an unknown scrim token is not also reported as low contrast');
+t_true(in_array('token_undefined', hg_codes([array_merge($hero_ok, ['overlay' => ['color' => 'color.nope', 'opacity' => 60]])]), true), 'gate: a scrim token the theme does not define is refused');
+t_true(!in_array('contrast_low', hg_codes([array_merge($hero_ok, ['overlay' => ['color' => 'color.nope', 'opacity' => 60]])]), true), 'gate: an unknown scrim token is not also reported as low contrast');
 $GLOBALS['hb_palette'] = [];
 
 $sv = hg_violation([['type' => 'text', 'text' => 'x']], 'media_unresolved', ['bgMedia' => ['media' => 'zzz'], 'overlay' => ['opacity' => 40]]);

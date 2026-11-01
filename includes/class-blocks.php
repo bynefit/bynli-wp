@@ -54,8 +54,8 @@ class Bynli_Connect_Blocks {
      * generated custom property; rejects anything else so block attributes
      * can never inject arbitrary CSS.
      */
-    public static function token(string $group, ?string $slug, ?string $fallback = null): ?string {
-        if ($slug === null || $slug === '' || !preg_match('/^[a-z0-9\-]{1,40}$/', $slug)) {
+    public static function token(string $group, $slug, ?string $fallback = null): ?string {
+        if (!is_string($slug) || $slug === '' || !preg_match('/^[a-z0-9\-]{1,40}$/', $slug)) {
             return null;
         }
         $map = [
@@ -113,8 +113,7 @@ class Bynli_Connect_Blocks {
 
     const HERO_LEVEL_MIN       = 1;
     const HERO_LEVEL_MAX       = 2;
-    const HERO_OVERLAY_DEFAULT = 50;
-    const HERO_OVERLAY_MIN     = 30;
+    const HERO_OVERLAY_DEFAULT = 60;
     const HERO_FG_FALLBACK     = '#ffffff';
     const SCRIM_FALLBACK       = '#0e0d10';
 
@@ -284,7 +283,7 @@ class Bynli_Connect_Blocks {
         return $html;
     }
 
-    public static function bg_media_html(array $bg_media, string $block, bool $eager): string {
+    public static function bg_media_html(array $bg_media, string $block, bool $high_priority): string {
         $url = isset($bg_media['url']) ? esc_url((string) $bg_media['url']) : '';
         if ($url === '') {
             return '';
@@ -304,7 +303,7 @@ class Bynli_Connect_Blocks {
             $w = (isset($bg_media['width']) && is_numeric($bg_media['width'])) ? (int) $bg_media['width'] : 0;
             $h = (isset($bg_media['height']) && is_numeric($bg_media['height'])) ? (int) $bg_media['height'] : 0;
             $dims = ($w > 0 ? ' width="' . $w . '"' : '') . ($h > 0 ? ' height="' . $h . '"' : '');
-            $load = $eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"';
+            $load = $high_priority ? ' fetchpriority="high" decoding="async"' : ' decoding="async"';
             $img  = '<img class="bynefit-' . $block . '__bgel" src="' . $url . '" alt=""' . $dims . $load . '>';
             $sources = is_array($bg_media['sources'] ?? null) ? $bg_media['sources'] : [];
             $picture = '';

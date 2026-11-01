@@ -46,7 +46,21 @@ t_true(!isset($forbidden['data']['first_connect']), 'heartbeat: a refused reques
 $nonce = fc_run('bad-nonce');
 t_eq($nonce['success'] ?? null, false, 'heartbeat: a bad nonce is refused');
 
-t_true(strpos(fc_run('first', 'redirect')['redirect'] ?? '', 'tested=first') !== false, 'redirect: the no-JS path also reports the first connect');
-t_true(strpos(fc_run('after-success', 'redirect')['redirect'] ?? '', 'tested=ok') !== false, 'redirect: a later ping reports a plain ok');
+$long = fc_run('long-failing');
+t_eq($long['success'] ?? null, true, 'heartbeat: recovery after a long failing streak succeeds');
+t_eq($long['data']['first_connect'] ?? null, false, 'heartbeat: a site verified long ago is not celebrated again after 14 failed reports');
+
+$twice = fc_run('first', 'twice');
+t_eq($twice['runs'][0]['data']['first_connect'] ?? null, true, 'heartbeat: the first run is the first connect');
+t_eq($twice['runs'][1]['data']['first_connect'] ?? null, false, 'heartbeat: the second run is not, even with the report history gone');
+t_eq($twice['verified'] ?? null, true, 'heartbeat: a successful ping is remembered');
+$failed_twice = fc_run('server-down', 'twice');
+t_eq($failed_twice['verified'] ?? null, false, 'heartbeat: a failed ping is not remembered as verified');
+
+$redir_first = fc_run('first', 'redirect')['redirect'] ?? '';
+t_true(strpos($redir_first, 'tested=first') !== false, 'redirect: the no-JS path also reports the first connect');
+t_true(strpos($redir_first, 'section=overview') !== false, 'redirect: a first connect lands on Overview, where the hero is');
+$redir_ok = fc_run('after-success', 'redirect')['redirect'] ?? '';
+t_true(strpos($redir_ok, 'tested=ok') !== false && strpos($redir_ok, 'section=connection') !== false, 'redirect: a later ping reports a plain ok on Connection');
 t_true(strpos(fc_run('server-down', 'redirect')['redirect'] ?? '', 'tested=fail') !== false, 'redirect: a rejected ping reports a failure');
 t_eq(fc_run('forbidden', 'redirect')['died'] ?? null, 403, 'redirect: a user without the capability is refused');

@@ -105,6 +105,68 @@ t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') === fal
 $moment = rc_q($spoof, '//*[@data-bcn="uplink-moment"]');
 t_true(count($moment) === 1 && $moment[0]->hasAttribute('hidden'), 'overview: a forged tested=first does not show the first-connect line');
 
+t_eq(count(rc_q($live, '//div[' . rc_cls('bcn-notice-ok') . ']')), 0, 'flash: no banner on an ordinary load');
+t_eq(count(rc_q($spoof, '//div[' . rc_cls('bcn-notice-ok') . ']')), 0, 'flash: a forged tested=first prints no success banner for an unverified site');
+$spoof_ok = rc_page(['bynli_connect_api_key' => RC_KEY], ['tested' => 'ok']);
+t_eq(count(rc_q($spoof_ok, '//div[' . rc_cls('bcn-notice-ok') . ']')), 0, 'flash: a forged tested=ok prints no success banner for an unverified site');
+t_eq(count(rc_q($plain_ok, '//div[' . rc_cls('bcn-notice-ok') . ']')), 1, 'flash: a verified site shows the plain success banner');
+t_eq(count(rc_q($fresh, '//ol[@data-bcn="onramp"][@role="list"]')), 1, 'empty activity: the on-ramp is a list in every browser and the script can find it');
+t_eq(count(rc_q($fresh, '//a[@data-bcn="onramp-cta"]')), 1, 'empty activity: the call to action can be hidden once connected');
+t_eq(count(rc_q($fresh, '//label[' . rc_cls('bcn-check') . '][@for="bcn_beacons"]')), 1, 'connection: the analytics checkbox row takes part in the 44px rule');
+
 $link = rc_q($fresh, '//a[@data-role="see-uplink"]');
 t_true(count($link) === 1 && $link[0]->hasAttribute('hidden') && $link[0]->getAttribute('data-go') === 'overview', 'connection: the see-your-uplink link starts hidden and targets Overview');
 t_eq(count(rc_q($fresh, '//*[@data-bcn="tile-connection"]')), 1, 'overview: the connection tile can be updated in place');
+
+function rc_node(array $responses): ?array
+{
+    $proc = @proc_open(['node', __DIR__ . '/fixtures/admin-child.js', json_encode($responses)], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    if (!is_resource($proc)) {
+        return null;
+    }
+    $out = (string) stream_get_contents($pipes[1]);
+    stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    proc_close($proc);
+    $json = json_decode($out, true);
+    return is_array($json) ? $json : null;
+}
+
+$ok_first = ['success' => true, 'data' => ['message' => 'ok', 'status' => 200, 'last_at_human' => '1 min ago', 'first_connect' => true]];
+$ok_again = ['success' => true, 'data' => ['message' => 'ok', 'status' => 200, 'last_at_human' => '2 min ago', 'first_connect' => false]];
+$js = rc_node([$ok_first, $ok_again]);
+if ($js === null) {
+    echo "SKIP console script tests: node unavailable\n";
+} else {
+    $a = $js['afterFirst'] ?? [];
+    t_eq($a['heroState'] ?? null, 'on', 'script: the hero flips to connected in place');
+    t_eq($a['status'] ?? null, 'CONNECTED', 'script: the readout says CONNECTED');
+    t_eq($a['sub'] ?? null, 'Reporting to Bynefit · last ping 1 min ago', 'script: the supporting line is rewritten');
+    t_eq($a['momentHidden'] ?? null, false, 'script: the first-connect line is revealed');
+    t_eq($a['celebrating'] ?? null, true, 'script: the hero celebrates the first connect');
+    t_eq([$a['tile'] ?? null, $a['tileState'] ?? null, $a['pill'] ?? null], ['Verified', 'ok', 'Connected'], 'script: the tile and topbar pill follow');
+    t_eq($a['linkHidden'] ?? null, false, 'script: the see-your-uplink link appears');
+    t_eq([$a['stepTwoDone'] ?? null, $a['stepTwoCurrent'] ?? null, $a['stepThreeCurrent'] ?? null, $a['stepThreeNext'] ?? null], [true, false, 'step', true], 'script: the on-ramp moves on to the daily report');
+    t_eq($a['ctaHidden'] ?? null, true, 'script: the on-ramp call to action is hidden once connected');
+    t_eq($a['stepTwoSr'] ?? null, 1, 'script: the finished step is announced as done');
+    t_eq($js['afterOtherAnimation'] ?? null, true, 'script: only the ping ends the celebration, not the other animations');
+    t_eq($js['afterPing'] ?? null, false, 'script: the celebration clears when the ping ends, so it cannot replay');
+    t_eq($js['listenersLeft'] ?? null, 0, 'script: the settle listener removes itself');
+    t_eq($js['afterSecond']['celebrating'] ?? null, false, 'script: a later ping does not celebrate');
+    t_eq($js['afterSecond']['linkHidden'] ?? null, true, 'script: a later ping hides the see-your-uplink link');
+    t_eq([$js['afterLink']['overviewActive'] ?? null, $js['afterLink']['connectionActive'] ?? null], [true, false], 'script: the link switches to the Overview panel');
+    t_eq([$js['afterLink']['overviewFocused'] ?? null, $js['afterLink']['navFocused'] ?? null], [true, false], 'script: focus moves into the panel the link opened');
+    t_eq($js['afterNav']['overviewFocused'] ?? null, false, 'script: a rail click leaves focus on the rail');
+}
+
+$unin = proc_open([PHP_BINARY, __DIR__ . '/fixtures/uninstall-child.php'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $unin_pipes);
+$unin_out = is_resource($unin) ? (string) stream_get_contents($unin_pipes[1]) : '';
+if (is_resource($unin)) {
+    fclose($unin_pipes[1]);
+    fclose($unin_pipes[2]);
+    proc_close($unin);
+}
+$deleted = json_decode($unin_out, true) ?: [];
+t_true(in_array('bynli_connect_verified_at', $deleted, true), 'uninstall: the remembered verification is removed');
+t_true(in_array('bynli_connect_report_history', $deleted, true), 'uninstall: the existing options are still removed');

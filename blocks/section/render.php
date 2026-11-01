@@ -85,7 +85,8 @@ $bg_media = is_array($attributes['bgMedia'] ?? null) ? $attributes['bgMedia'] : 
 $overlay  = is_array($attributes['overlay'] ?? null) ? $attributes['overlay'] : null;
 
 $minh_map  = Bynli_Connect_Blocks::MIN_HEIGHTS;
-$minh      = isset($minh_map[$attributes['minHeight'] ?? '']) ? $minh_map[$attributes['minHeight']] : '';
+$minh_key  = $attributes['minHeight'] ?? '';
+$minh      = (is_string($minh_key) && isset($minh_map[$minh_key])) ? $minh_map[$minh_key] : '';
 $valign_map = ['top' => 'flex-start', 'center' => 'center', 'bottom' => 'flex-end'];
 $valign     = $valign_map[$attributes['valign'] ?? ''] ?? '';
 

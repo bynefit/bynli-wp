@@ -543,6 +543,7 @@
 
 .bynefit-hero__eyebrow {
     margin: 0;
+    color: inherit;
     font-size: 0.8125rem;
     font-weight: 600;
     letter-spacing: 0.12em;
@@ -551,6 +552,7 @@
 
 .bynefit-hero__heading {
     margin: 0;
+    color: inherit;
     font-family: var(--wp--preset--font-family--serif);
     font-size: var(--wp--preset--font-size--display, clamp(2.25rem, 6vw, 4.5rem));
     line-height: 1.05;
@@ -560,6 +562,7 @@
 
 .bynefit-hero__text {
     margin: 0;
+    color: inherit;
     max-width: 40rem;
     font-size: 1.125rem;
     line-height: 1.5;

@@ -104,6 +104,47 @@
         else el.textContent = msg;
     }
 
+    function settleUplinkHero(hero) {
+        if (!hero || hero.dataset.bcnSettling === '1') return;
+        hero.dataset.bcnSettling = '1';
+        hero.addEventListener('animationend', function done(e) {
+            if (e.animationName !== 'bcn-uplink-ping') return;
+            hero.classList.remove('is-first-connect');
+            hero.removeEventListener('animationend', done);
+            delete hero.dataset.bcnSettling;
+        });
+    }
+
+    function advanceOnramp() {
+        const list = document.querySelector('[data-bcn="onramp"]');
+        if (!list) return;
+        const steps = list.querySelectorAll('.bcn-onramp-step');
+        if (steps.length < 3) return;
+        const current = steps[1];
+        const upcoming = steps[2];
+        current.classList.remove('is-next');
+        current.classList.add('is-done');
+        current.removeAttribute('aria-current');
+        const mark = current.querySelector('.bcn-onramp-n');
+        if (mark) {
+            mark.textContent = '';
+            const tick = document.createElement('span');
+            tick.className = 'dashicons dashicons-yes';
+            mark.appendChild(tick);
+        }
+        const title = current.querySelector('.bcn-onramp-title');
+        if (title && !title.querySelector('.screen-reader-text')) {
+            const sr = document.createElement('span');
+            sr.className = 'screen-reader-text';
+            sr.textContent = ' (done)';
+            title.appendChild(sr);
+        }
+        upcoming.classList.add('is-next');
+        upcoming.setAttribute('aria-current', 'step');
+        const cta = document.querySelector('[data-bcn="onramp-cta"]');
+        if (cta) cta.hidden = true;
+    }
+
     function reflectConnected(data) {
         const pill = document.querySelector('[data-bcn="signal"]');
         if (pill) {
@@ -124,6 +165,7 @@
                 hero.classList.remove('is-first-connect');
                 void hero.offsetWidth;
                 hero.classList.add('is-first-connect');
+                settleUplinkHero(hero);
             }
         }
         const tile = document.querySelector('[data-bcn="tile-connection"]');
@@ -134,6 +176,7 @@
             const val = tile.querySelector('.bcn-tile-value');
             if (val) val.textContent = 'Verified';
         }
+        advanceOnramp();
     }
 
     function wireHeartbeat() {
@@ -385,6 +428,13 @@
                 if (!section) return;
                 if (!showPanel(section)) return; // fall back to navigation
                 ev.preventDefault();
+                if (!a.classList.contains('bcn-nav-item')) {
+                    const shown = document.querySelector('.bcn-panel.active');
+                    if (shown) {
+                        shown.tabIndex = -1;
+                        shown.focus();
+                    }
+                }
                 try {
                     const url = new URL(a.href, window.location.origin);
                     window.history.pushState({ bcnSection: section }, '', url);
@@ -913,6 +963,7 @@
     }
 
     ready(() => {
+        settleUplinkHero(document.querySelector('[data-bcn="uplink-hero"].is-first-connect'));
         wireRevealToggles();
         wireCopyButtons();
         wireKeyValidation();

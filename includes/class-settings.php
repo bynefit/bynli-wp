@@ -317,11 +317,11 @@ class Bynli_Connect_Settings {
     public function handle_test(): void {
         if (!current_user_can('manage_options')) wp_die('Forbidden.', 403);
         check_admin_referer(self::NONCE_ACTION);
-        $had_verified = Bynli_Connect_Reporter::has_verified(Bynli_Connect_Reporter::history());
+        $had_verified = Bynli_Connect_Reporter::was_verified();
         $res = Bynli_Connect_Reporter::send_heartbeat();
         $msg = empty($res['ok']) ? 'fail' : ($had_verified ? 'ok' : 'first');
         wp_safe_redirect(add_query_arg(
-            ['page' => self::MENU_SLUG, 'section' => 'connection', 'tested' => $msg],
+            ['page' => self::MENU_SLUG, 'section' => $msg === 'first' ? 'overview' : 'connection', 'tested' => $msg],
             admin_url('options-general.php')
         ));
         exit;
@@ -337,7 +337,7 @@ class Bynli_Connect_Settings {
         if (self::key() === '') {
             wp_send_json_error(['message' => 'Save an API key before testing.']);
         }
-        $had_verified = Bynli_Connect_Reporter::has_verified(Bynli_Connect_Reporter::history());
+        $had_verified = Bynli_Connect_Reporter::was_verified();
         $res = Bynli_Connect_Reporter::send_heartbeat();
         $last = Bynli_Connect_Reporter::last_report();
         if (!empty($res['ok'])) {
@@ -483,10 +483,10 @@ class Bynli_Connect_Settings {
     }
 
     private function render_flashes(array $ctx): void {
-        if ($ctx['tested'] === 'first'): ?>
+        if ($ctx['tested'] === 'first' && $ctx['is_connected']): ?>
             <div class="bcn-notice bcn-notice-ok" role="status"><span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
                 <span>Connected — Bynefit received your first signed heartbeat.</span></div>
-        <?php elseif ($ctx['tested'] === 'ok'): ?>
+        <?php elseif (in_array($ctx['tested'], ['ok', 'first'], true) && $ctx['is_connected']): ?>
             <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-yes-alt"></span>
                 <span>Heartbeat sent — Bynefit received the ping.</span></div>
         <?php elseif ($ctx['tested'] === 'fail'): ?>
@@ -808,7 +808,7 @@ class Bynli_Connect_Settings {
 
                     <div class="bcn-field">
                         <label class="bcn-label" for="bcn_beacons">Web analytics</label>
-                        <label for="bcn_beacons">
+                        <label class="bcn-check" for="bcn_beacons">
                             <input type="checkbox" id="bcn_beacons" name="<?php echo esc_attr(self::OPTION_BEACONS); ?>" value="1" <?php checked(self::beacons_enabled()); ?>>
                             Count page views for this site in Bynefit
                         </label>
@@ -1187,7 +1187,7 @@ class Bynli_Connect_Settings {
                         </svg>
                         <p class="bcn-empty-title">Your uplink log starts here.</p>
                         <p class="bcn-empty-lede">Every heartbeat and daily report this site sends to Bynefit is listed in this timeline.</p>
-                        <ol class="bcn-onramp">
+                        <ol class="bcn-onramp" role="list" data-bcn="onramp">
                             <?php foreach ($onramp as $i => $step):
                                 $cls = $step['done'] ? ' is-done' : ($i === $next_step ? ' is-next' : ''); ?>
                                 <li class="bcn-onramp-step<?php echo esc_attr($cls); ?>"<?php echo $i === $next_step ? ' aria-current="step"' : ''; ?>>
@@ -1200,7 +1200,7 @@ class Bynli_Connect_Settings {
                             <?php endforeach; ?>
                         </ol>
                         <?php if ($next_step !== null && $next_step < 2): ?>
-                            <a class="bcn-btn primary" data-go="connection" href="<?php echo esc_url($this->section_url('connection')); ?>">
+                            <a class="bcn-btn primary" data-bcn="onramp-cta" data-go="connection" href="<?php echo esc_url($this->section_url('connection')); ?>">
                                 <span class="dashicons dashicons-admin-network" aria-hidden="true"></span>
                                 <?php echo $next_step === 0 ? 'Add your key' : 'Send a test heartbeat'; ?>
                             </a>

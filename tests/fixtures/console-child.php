@@ -71,10 +71,4 @@ foreach (['class-signer', 'class-settings', 'class-api', 'class-reporter', 'clas
 }
 
 
-foreach (['class-signer', 'class-settings', 'class-api', 'class-reporter', 'class-updater', 'class-release-signature', 'class-visibility', 'class-client-mode', 'class-control-plane', 'class-inbound', 'class-products', 'class-blocks', 'class-emitter', 'class-publish-contract', 'class-tickets', 'class-woo', 'class-badge', 'class-beacon'] as $c) {
-    if (is_file($root . "includes/$c.php")) {
-        require_once $root . "includes/$c.php";
-    }
-}
-
 (new Bynli_Connect_Settings())->render_page();
