@@ -71,6 +71,11 @@ t_true(isset($cta[0]) && strpos($cta[0]->getAttribute('href'), 'section=connecti
 t_eq(count(rc_q($fresh, '//div[' . rc_cls('bcn-empty--onramp') . ']//svg[@aria-hidden="true"]')), 1, 'empty activity: the illustration is hidden from assistive tech');
 t_eq(count(rc_q($fresh, '//ul[' . rc_cls('bcn-log') . ']')), 0, 'empty activity: no log list when there is no history');
 
+$connected_empty = rc_page(['bynli_connect_api_key' => RC_KEY, 'bynli_connect_last_report' => ['at' => time() - 60, 'kind' => 'heartbeat', 'status' => 200, 'ok' => true]]);
+$ce_steps = rc_q($connected_empty, '//li[' . rc_cls('bcn-onramp-step') . ']');
+t_true(count($ce_steps) === 3 && strpos($ce_steps[0]->getAttribute('class'), 'is-done') !== false && strpos($ce_steps[1]->getAttribute('class'), 'is-done') !== false && strpos($ce_steps[2]->getAttribute('class'), 'is-next') !== false, 'empty activity, connected: keys and heartbeat are done and the daily report is current');
+t_eq(count(rc_q($connected_empty, '//a[@data-bcn="onramp-cta"]')), 0, 'empty activity, connected: no call to action once the site is connected');
+
 $nokey = rc_page([]);
 $nokey_steps = rc_q($nokey, '//li[' . rc_cls('bcn-onramp-step') . ']');
 t_true(isset($nokey_steps[0]) && strpos($nokey_steps[0]->getAttribute('class'), 'is-next') !== false, 'empty activity, no key: saving the key is the current step');
@@ -187,6 +192,17 @@ if ($js === null) {
     t_eq([$js['afterLink']['overviewFocused'] ?? null, $js['afterLink']['navFocused'] ?? null], [true, false], 'script: focus moves into the panel the link opened');
     t_eq($js['afterNav']['overviewFocused'] ?? null, false, 'script: a rail click leaves focus on the rail');
 }
+
+$reg_proc = proc_open([PHP_BINARY, __DIR__ . '/fixtures/registration-child.php'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $reg_pipes);
+$reg_out = is_resource($reg_proc) ? (string) stream_get_contents($reg_pipes[1]) : '';
+if (is_resource($reg_proc)) {
+    fclose($reg_pipes[1]);
+    fclose($reg_pipes[2]);
+    proc_close($reg_proc);
+}
+$reg = json_decode($reg_out, true) ?: ['registered' => [], 'on_disk' => ['unreadable']];
+t_true(in_array('hero', $reg['registered'], true), 'blocks: the hero block is registered');
+t_eq($reg['registered'], $reg['on_disk'], 'blocks: every block directory on disk is registered');
 
 $unin = proc_open([PHP_BINARY, __DIR__ . '/fixtures/uninstall-child.php'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $unin_pipes);
 $unin_out = is_resource($unin) ? (string) stream_get_contents($unin_pipes[1]) : '';

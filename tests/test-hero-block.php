@@ -32,11 +32,29 @@ function hb_render(array $attributes): string
     return (string) ob_get_clean();
 }
 
-function hb_render_block(string $name, array $attributes): string
+if (!class_exists('WP_Block')) {
+    class WP_Block
+    {
+        public $parsed_block;
+
+        public function __construct($parsed)
+        {
+            $this->parsed_block = $parsed;
+        }
+    }
+}
+if (!function_exists('render_block')) {
+    function render_block($block)
+    {
+        return '<p>cell</p>';
+    }
+}
+
+function hb_render_block(string $name, array $attributes, bool $with_children = false): string
 {
     ob_start();
-    (function () use ($attributes, $name) {
-        $block = null;
+    (function () use ($attributes, $name, $with_children) {
+        $block = $with_children ? new WP_Block(['innerBlocks' => [['blockName' => 'x']]]) : null;
         include BYNLI_CONNECT_PLUGIN_DIR . 'blocks/' . $name . '/render.php';
     })();
     return (string) ob_get_clean();
@@ -142,6 +160,10 @@ t_eq($GLOBALS['hb_enqueued'], [], 'render: an image background loads no script')
 
 t_true(strpos(hb_render(['heading' => 'H', 'bgMedia' => ['url' => '']]), 'bynefit-hero__scrim') === false, 'render: media with no URL leaves the hero unframed');
 t_true(strpos(hb_render(['heading' => 'H', 'bgMedia' => ['url' => 'javascript:alert(1)']]), 'javascript:') === false, 'render: a script URL is never a background');
+
+$section_bg = hb_render_block('section', ['bgMedia' => $img, 'overlay' => ['opacity' => 40]], true);
+t_true(strpos($section_bg, 'fetchpriority="high"') !== false && strpos($section_bg, 'loading="lazy"') === false, 'section render: a framed section background image is still high priority and not lazy');
+t_true(strpos($section_bg, '--bynefit-scrim-opacity:0.4;') !== false, 'section render: the scrim keeps its 40% default for an explicit overlay');
 
 $vocab_media = ['m1' => $img, 'v1' => ['url' => 'https://cdn.example/h.mp4', 'kind' => 'video', 'poster' => 'https://cdn.example/p.jpg']];
 
@@ -278,6 +300,9 @@ t_true(in_array('heading_order', hg_codes([['type' => 'hero', 'heading' => 'H', 
 t_true(in_array('hero_needs_overlay', hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'm1']]]), true), 'gate: media without a scrim is refused');
 t_true(in_array('hero_overlay_orphan', hg_codes([['type' => 'hero', 'heading' => 'H', 'overlay' => ['opacity' => 60]]]), true), 'gate: a scrim with nothing to cover is refused');
 
+foreach (['x', [], true] as $bad_opacity) {
+    t_eq(hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'm1'], 'overlay' => ['opacity' => $bad_opacity]]]), ['hero_overlay_opacity_type'], 'gate: opacity ' . var_export($bad_opacity, true) . ' is reported once, as a type error, with no contrast guess');
+}
 foreach ([[-1, 'hero_overlay_opacity_range'], [101, 'hero_overlay_opacity_range'], [40.5, 'hero_overlay_opacity_type'], ['x', 'hero_overlay_opacity_type']] as [$op, $code]) {
     t_true(in_array($code, hg_codes([['type' => 'hero', 'heading' => 'H', 'bgMedia' => ['media' => 'm1'], 'overlay' => ['opacity' => $op]]]), true), 'gate: overlay opacity ' . var_export($op, true) . ' is ' . $code);
 }
