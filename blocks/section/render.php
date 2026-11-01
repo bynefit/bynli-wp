@@ -84,8 +84,9 @@ if ($cells === '') {
 $bg_media = is_array($attributes['bgMedia'] ?? null) ? $attributes['bgMedia'] : null;
 $overlay  = is_array($attributes['overlay'] ?? null) ? $attributes['overlay'] : null;
 
-$minh_map  = ['short' => '40vh', 'medium' => '60vh', 'tall' => '80vh', 'full' => '100vh'];
-$minh      = isset($minh_map[$attributes['minHeight'] ?? '']) ? $minh_map[$attributes['minHeight']] : '';
+$minh_map  = Bynli_Connect_Blocks::MIN_HEIGHTS;
+$minh_key  = $attributes['minHeight'] ?? '';
+$minh      = (is_string($minh_key) && isset($minh_map[$minh_key])) ? $minh_map[$minh_key] : '';
 $valign_map = ['top' => 'flex-start', 'center' => 'center', 'bottom' => 'flex-end'];
 $valign     = $valign_map[$attributes['valign'] ?? ''] ?? '';
 
@@ -105,51 +106,9 @@ if ($valign !== '') {
     $shell_style .= '--bynefit-valign:' . $valign . ';';
 }
 
-$bg_layer = '';
-if ($bg_media !== null) {
-    $url = isset($bg_media['url']) ? esc_url((string) $bg_media['url']) : '';
-    if ($url !== '') {
-        $focal = is_array($bg_media['focal'] ?? null) ? $bg_media['focal'] : [];
-        $fx = isset($focal['x']) && is_numeric($focal['x']) ? min(1.0, max(0.0, (float) $focal['x'])) : 0.5;
-        $fy = isset($focal['y']) && is_numeric($focal['y']) ? min(1.0, max(0.0, (float) $focal['y'])) : 0.5;
-        $bg_style = '--bynefit-focal:' . round($fx * 100, 2) . '% ' . round($fy * 100, 2) . '%;';
+$bg_layer = $bg_media !== null ? Bynli_Connect_Blocks::bg_media_html($bg_media, 'section', true) : '';
 
-        if (($bg_media['kind'] ?? 'image') === 'video') {
-            $poster = isset($bg_media['poster']) ? esc_url((string) $bg_media['poster']) : '';
-            $el = '<video class="bynefit-section__bgel" src="' . $url . '"'
-                . ($poster !== '' ? ' poster="' . $poster . '"' : '')
-                . ' muted loop playsinline preload="metadata" data-bynefit-bgvideo aria-hidden="true"></video>';
-            wp_enqueue_script('bynefit-blocks');
-        } else {
-            $w = (isset($bg_media['width']) && is_numeric($bg_media['width'])) ? (int) $bg_media['width'] : 0;
-            $h = (isset($bg_media['height']) && is_numeric($bg_media['height'])) ? (int) $bg_media['height'] : 0;
-            $dims = ($w > 0 ? ' width="' . $w . '"' : '') . ($h > 0 ? ' height="' . $h . '"' : '');
-            $img = '<img class="bynefit-section__bgel" src="' . $url . '" alt=""' . $dims . ' fetchpriority="high" decoding="async">';
-            $sources = is_array($bg_media['sources'] ?? null) ? $bg_media['sources'] : [];
-            $picture = '';
-            foreach (['avif' => 'image/avif', 'webp' => 'image/webp'] as $ext => $mime) {
-                if (!empty($sources[$ext]) && is_string($sources[$ext])) {
-                    $src = esc_url($sources[$ext]);
-                    if ($src !== '') {
-                        $picture .= '<source type="' . esc_attr($mime) . '" srcset="' . $src . '">';
-                    }
-                }
-            }
-            $el = $picture !== '' ? '<picture>' . $picture . $img . '</picture>' : $img;
-        }
-        $bg_layer = '<div class="bynefit-section__bg" style="' . esc_attr($bg_style) . '">' . $el . '</div>';
-    }
-}
-
-$scrim = '';
-if ($overlay !== null) {
-    $oc = Bynli_Connect_Blocks::token('color', $overlay['color'] ?? null);
-    $op = isset($overlay['opacity']) && is_numeric($overlay['opacity'])
-        ? min(100, max(0, (int) $overlay['opacity'])) / 100
-        : 0.4;
-    $scrim_style = ($oc !== null ? '--bynefit-scrim-color:' . $oc . ';' : '') . '--bynefit-scrim-opacity:' . $op . ';';
-    $scrim = '<div class="bynefit-section__scrim" style="' . esc_attr($scrim_style) . '" aria-hidden="true"></div>';
-}
+$scrim = $overlay !== null ? Bynli_Connect_Blocks::scrim_html($overlay, 'section', 40) : '';
 
 $wrapper = get_block_wrapper_attributes([
     'class' => 'bynefit-section-shell',

@@ -444,20 +444,23 @@
     overflow: hidden;
 }
 
-.bynefit-section__bg {
+.bynefit-section__bg,
+.bynefit-hero__bg {
     position: absolute;
     inset: 0;
     z-index: 0;
 }
 
-.bynefit-section__bgel {
+.bynefit-section__bgel,
+.bynefit-hero__bgel {
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: var(--bynefit-focal, 50% 50%);
 }
 
-.bynefit-section__scrim {
+.bynefit-section__scrim,
+.bynefit-hero__scrim {
     position: absolute;
     inset: 0;
     z-index: 1;
@@ -502,6 +505,105 @@
 
 .bynefit-bgvideo-toggle:focus-visible {
     outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+.bynefit-hero {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: var(--bynefit-minh, auto);
+    overflow: hidden;
+    padding: var(--wp--preset--spacing--70, 2.5rem) var(--wp--preset--spacing--50, 1.5rem);
+    color: var(--bynefit-hero-fg, var(--wp--preset--color--text, var(--bynefit-fb-text)));
+}
+
+.bynefit-hero--framed {
+    min-height: var(--bynefit-minh, 24rem);
+    padding-block: var(--wp--preset--spacing--80, 4rem);
+}
+
+.bynefit-hero__content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp--preset--spacing--40, 1rem);
+    width: 100%;
+    max-width: 48rem;
+}
+
+.bynefit-hero--center .bynefit-hero__content {
+    margin-inline: auto;
+    align-items: center;
+    text-align: center;
+}
+
+.bynefit-hero__eyebrow {
+    margin: 0;
+    color: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.bynefit-hero__heading {
+    margin: 0;
+    color: inherit;
+    font-family: var(--wp--preset--font-family--serif);
+    font-size: var(--wp--preset--font-size--display, clamp(2.25rem, 6vw, 4.5rem));
+    line-height: 1.05;
+    font-weight: 500;
+    text-wrap: balance;
+}
+
+.bynefit-hero__text {
+    margin: 0;
+    color: inherit;
+    max-width: 40rem;
+    font-size: 1.125rem;
+    line-height: 1.5;
+    text-wrap: pretty;
+}
+
+.bynefit-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp--preset--spacing--30, 0.75rem);
+}
+
+.bynefit-hero--center .bynefit-hero__actions {
+    justify-content: center;
+}
+
+.bynefit-hero__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-weight: 500;
+    min-height: var(--bynefit-touch-min, 44px);
+    min-width: var(--bynefit-touch-min, 44px);
+    padding: var(--wp--preset--spacing--30, 0.75rem) var(--wp--preset--spacing--50, 1.5rem);
+    border-radius: var(--wp--custom--radius--md, 14px);
+}
+
+.bynefit-hero__btn--primary {
+    background: var(--wp--preset--color--brand, var(--bynefit-fb-brand));
+    color: var(--wp--preset--color--on-brand, var(--bynefit-fb-on-brand));
+}
+
+.bynefit-hero__btn--secondary {
+    background: transparent;
+    color: inherit;
+    box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.bynefit-hero__btn:focus-visible {
+    outline: 2px solid var(--bynefit-hero-fg, var(--wp--preset--color--text, var(--bynefit-fb-text)));
     outline-offset: 2px;
 }
 

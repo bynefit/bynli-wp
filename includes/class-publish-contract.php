@@ -14,12 +14,12 @@ if (!defined('ABSPATH')) {
  */
 class Bynli_Connect_Publish_Contract {
 
-    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos', 'form', 'events', 'tabs', 'carousel'];
+    const SUPPORTED_BLOCKS = ['heading', 'text', 'image', 'button', 'spacer', 'divider', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos', 'form', 'events', 'tabs', 'carousel', 'hero'];
 
     const MAX_TABS     = 12;
     const MAX_CAROUSEL = 30;
 
-    const CONTAINER_BLOCKS = ['section', 'card'];
+    const CONTAINER_BLOCKS = ['section', 'card', 'hero'];
 
     const EMBED_PROVIDERS   = ['youtube', 'vimeo', 'map'];
     const LIST_MARKERS      = ['check', 'arrow', 'dot', 'none'];
@@ -113,20 +113,7 @@ class Bynli_Connect_Publish_Contract {
             }
 
             if (is_array($section['bgMedia'] ?? null)) {
-                $bmid  = (string) ($section['bgMedia']['media'] ?? '');
-                $bdesc = $bmid !== '' && isset($media[$bmid]) && is_array($media[$bmid]) ? $media[$bmid] : null;
-                if ($bdesc === null) {
-                    $v[] = self::vio('media_unresolved', "$spath.bgMedia", "Section background references media '$bmid' not in the media map.");
-                } else {
-                    $burl = trim((string) ($bdesc['url'] ?? ''));
-                    if ($burl === '' || !self::href_ok($burl)) {
-                        $v[] = self::vio('media_bad_url', "$spath.bgMedia", 'Section background URL is missing or not http(s)/relative.');
-                    }
-                    $bkind = $section['bgMedia']['kind'] ?? ($bdesc['kind'] ?? 'image');
-                    if ($bkind !== 'video' && ((int) ($bdesc['width'] ?? 0) <= 0 || (int) ($bdesc['height'] ?? 0) <= 0)) {
-                        $v[] = self::vio('media_no_dimensions', "$spath.bgMedia", 'Section background image needs explicit width and height (CLS).');
-                    }
-                }
+                self::check_background_media($v, "$spath.bgMedia", $section['bgMedia'], $media, 'Section background');
                 // Text over a background image/video needs a scrim to stay legible.
                 if (!is_array($section['overlay'] ?? null)) {
                     $v[] = self::vio('bg_needs_overlay', "$spath.overlay", 'A section with a background image/video needs an overlay scrim so overlaid text stays legible.');
@@ -142,7 +129,7 @@ class Bynli_Connect_Publish_Contract {
                     0, 100, 'Overlay opacity', 'overlay_opacity'
                 );
             }
-            if (isset($section['minHeight']) && !in_array((string) $section['minHeight'], ['short', 'medium', 'tall', 'full'], true)) {
+            if (isset($section['minHeight']) && !(is_string($section['minHeight']) && isset(Bynli_Connect_Blocks::MIN_HEIGHTS[$section['minHeight']]))) {
                 $v[] = self::vio('section_minheight', "$spath.minHeight", 'Section minHeight must be short, medium, tall, or full.');
             }
             if (isset($section['valign']) && !in_array((string) $section['valign'], ['top', 'center', 'bottom'], true)) {
@@ -212,6 +199,7 @@ class Bynli_Connect_Publish_Contract {
                     'image'   => ['radius' => 'radius'],
                     'gallery' => ['radius' => 'radius'],
                     'card'    => ['background' => 'color', 'radius' => 'radius', 'shadow' => 'shadow'],
+                    'hero'    => ['color' => 'color'],
                 ];
                 foreach (($allowed_style[$type] ?? []) as $key => $group) {
                     if (array_key_exists($key, $style)) {
@@ -366,7 +354,7 @@ class Bynli_Connect_Publish_Contract {
                         $v[] = self::vio('embed_title', "$bpath.title", 'Embed needs a title for accessibility.');
                     }
                 }
-                if (in_array($type, ['quote', 'stat', 'cta'], true)) {
+                if (in_array($type, ['quote', 'stat', 'cta', 'hero'], true)) {
                     // The emitter rewrites anything that is not exactly 'center' to
                     // 'start', so "end" or a typo renders left-aligned with no complaint.
                     self::check_enum(
@@ -412,20 +400,7 @@ class Bynli_Connect_Publish_Contract {
                     }
                     self::check_token_ref($v, "$bpath.color", $block['color'] ?? null, 'color', $vocab, false);
                 } elseif ($type === 'cta') {
-                    $cbtns = is_array($block['buttons'] ?? null) ? $block['buttons'] : [];
-                    $valid_btn = 0;
-                    foreach ($cbtns as $ci => $cbtn) {
-                        if (!is_array($cbtn)) {
-                            continue;
-                        }
-                        $clabel = (string) ($cbtn['label'] ?? '');
-                        $chref  = (string) ($cbtn['href'] ?? '');
-                        if (trim($clabel) === '' || $chref === '' || !self::href_ok($chref)) {
-                            $v[] = self::vio('cta_button', "$bpath.buttons[$ci]", 'CTA button needs a label and a valid http(s)/relative URL.');
-                        } else {
-                            $valid_btn++;
-                        }
-                    }
+                    $valid_btn = self::check_action_buttons($v, "$bpath.buttons", $block['buttons'] ?? null, 'cta_button', 'CTA button', true);
                     if (trim((string) ($block['title'] ?? '')) === '' && $valid_btn === 0) {
                         $v[] = self::vio('cta_empty', $bpath, 'CTA needs a title or at least one button.');
                     }
@@ -433,6 +408,8 @@ class Bynli_Connect_Publish_Contract {
                     if ($cta_bg !== null && !in_array($cta_bg, self::CTA_BG_TOKENS, true)) {
                         $v[] = self::vio('cta_bg', "$bpath.bg", 'CTA fill must be a surface token so the title, supporting line, and buttons stay legible.');
                     }
+                } elseif ($type === 'hero') {
+                    self::check_hero($v, $bpath, $block, $vocab, $media, $bg_slug, $heading_levels, $priority_images);
                 } elseif ($type === 'callout') {
                     if (!in_array((string) ($block['variant'] ?? 'info'), self::CALLOUT_VARIANTS, true)) {
                         $v[] = self::vio('callout_variant', "$bpath.variant", 'Callout variant must be info, success, warn, or tip.');
@@ -513,7 +490,7 @@ class Bynli_Connect_Publish_Contract {
                         foreach ($cblocks as $ci => $cb) {
                             $ctype = is_array($cb) ? (string) ($cb['type'] ?? '') : '';
                             if (in_array($ctype, self::CONTAINER_BLOCKS, true)) {
-                                $v[] = self::vio('card_nesting', "$bpath.blocks[$ci]", 'A card can hold content blocks, not sections or other cards.');
+                                $v[] = self::vio('card_nesting', "$bpath.blocks[$ci]", 'A card can hold content blocks, not sections, heroes or other cards.');
                                 continue;
                             }
                             // null, not the section's tracks: a card child's place map is
@@ -549,6 +526,168 @@ class Bynli_Connect_Publish_Contract {
                         }
                     }
                 }
+    }
+
+    private static function check_background_media(array &$v, string $path, array $ref, array $media, string $noun): void {
+        $mid  = (string) ($ref['media'] ?? '');
+        $desc = $mid !== '' && isset($media[$mid]) && is_array($media[$mid]) ? $media[$mid] : null;
+        if ($desc === null) {
+            $v[] = self::vio('media_unresolved', $path, "$noun references media '$mid' not in the media map.");
+            return;
+        }
+        $url = trim((string) ($desc['url'] ?? ''));
+        if ($url === '' || !self::href_ok($url)) {
+            $v[] = self::vio('media_bad_url', $path, "$noun URL is missing or not http(s)/relative.");
+        }
+        $kind = $ref['kind'] ?? ($desc['kind'] ?? 'image');
+        if ($kind !== 'video' && ((int) ($desc['width'] ?? 0) <= 0 || (int) ($desc['height'] ?? 0) <= 0)) {
+            $v[] = self::vio('media_no_dimensions', $path, "$noun image needs explicit width and height (CLS).");
+        }
+    }
+
+    private static function check_action_buttons(array &$v, string $path, $buttons, string $code, string $noun, bool $refuse_rewrites = false): int {
+        $valid = 0;
+        $list  = is_array($buttons) ? $buttons : [];
+        if ($refuse_rewrites && $buttons !== null && !is_array($buttons)) {
+            $v[] = self::vio($code . '_shape', $path, "$noun list must be a list of objects.");
+        }
+        if ($refuse_rewrites && count($list) > Bynli_Connect_Blocks::ACTION_BUTTONS_MAX) {
+            $v[] = self::vio($code . '_count', $path, "$noun list can hold at most " . Bynli_Connect_Blocks::ACTION_BUTTONS_MAX . ' buttons.');
+        }
+        foreach ($list as $i => $btn) {
+            if (!is_array($btn)) {
+                if ($refuse_rewrites) {
+                    $v[] = self::vio($code . '_shape', $path . "[$i]", "$noun must be an object.");
+                }
+                continue;
+            }
+            if ($refuse_rewrites && ((isset($btn['label']) && !is_string($btn['label'])) || (isset($btn['href']) && !is_string($btn['href'])))) {
+                $v[] = self::vio($code . '_shape', $path . "[$i]", "$noun label and URL must be text.");
+                continue;
+            }
+            $label = (string) ($btn['label'] ?? '');
+            $href  = (string) ($btn['href'] ?? '');
+            if (trim($label) === '' || $href === '' || !self::href_ok($href)) {
+                $v[] = self::vio($code, $path . "[$i]", "$noun needs a label and a valid http(s)/relative URL.");
+            } else {
+                $valid++;
+            }
+            if ($refuse_rewrites && isset($btn['variant']) && $btn['variant'] !== 'primary' && $btn['variant'] !== 'secondary') {
+                $v[] = self::vio($code . '_variant', $path . "[$i].variant", "$noun variant must be primary or secondary.");
+            }
+        }
+        return $valid;
+    }
+
+    private static function check_hero(array &$v, string $bpath, array $block, array $vocab, array $media, ?string $bg_slug, array &$heading_levels, int &$priority_images): void {
+        foreach (['heading', 'eyebrow', 'text'] as $text_key) {
+            if (isset($block[$text_key]) && !is_string($block[$text_key])) {
+                $v[] = self::vio('hero_' . $text_key . '_shape', "$bpath.$text_key", "Hero $text_key must be text.");
+            }
+        }
+        if (!isset($block['heading']) || (is_string($block['heading']) && trim($block['heading']) === '')) {
+            $v[] = self::vio('hero_heading_empty', "$bpath.heading", 'Hero has no heading.');
+        }
+
+        $level = $block['level'] ?? null;
+        self::check_bounded_int(
+            $v, "$bpath.level", $level,
+            Bynli_Connect_Blocks::HERO_LEVEL_MIN, Bynli_Connect_Blocks::HERO_LEVEL_MAX,
+            'Hero heading level', 'hero_level'
+        );
+        if ($level === null) {
+            $heading_levels[] = Bynli_Connect_Blocks::HERO_LEVEL_MIN;
+        } elseif (Bynli_Connect_Blocks::isIntLike($level)
+            && (int) $level >= Bynli_Connect_Blocks::HERO_LEVEL_MIN
+            && (int) $level <= Bynli_Connect_Blocks::HERO_LEVEL_MAX) {
+            $heading_levels[] = (int) $level;
+        }
+
+        self::check_action_buttons($v, "$bpath.buttons", $block['buttons'] ?? null, 'hero_button', 'Hero button', true);
+
+        self::check_enum(
+            $v, "$bpath.minHeight", $block['minHeight'] ?? null,
+            array_keys(Bynli_Connect_Blocks::MIN_HEIGHTS), 'Hero minHeight', 'hero_minheight'
+        );
+
+        foreach (['bgMedia', 'overlay'] as $shape_key) {
+            if (isset($block[$shape_key]) && !is_array($block[$shape_key])) {
+                $v[] = self::vio('hero_' . strtolower($shape_key) . '_shape', "$bpath.$shape_key", "Hero $shape_key must be an object.");
+            }
+        }
+        $has_media = is_array($block['bgMedia'] ?? null);
+        $overlay   = is_array($block['overlay'] ?? null) ? $block['overlay'] : null;
+        $bg_kind   = 'image';
+        if ($has_media) {
+            self::check_background_media($v, "$bpath.bgMedia", $block['bgMedia'], $media, 'Hero background');
+            $mid     = (string) ($block['bgMedia']['media'] ?? '');
+            $bg_kind = $block['bgMedia']['kind'] ?? ($media[$mid]['kind'] ?? 'image');
+            if ($overlay === null) {
+                $v[] = self::vio('hero_needs_overlay', "$bpath.overlay", 'A hero with a background image/video needs an overlay scrim so its text stays legible.');
+            }
+        } elseif ($overlay !== null) {
+            $v[] = self::vio('hero_overlay_orphan', "$bpath.overlay", 'A hero overlay needs a background image/video to sit over.');
+        }
+
+        $scrim_slug = null;
+        if ($overlay !== null) {
+            $scrim_slug = self::check_token_ref($v, "$bpath.overlay.color", $overlay['color'] ?? null, 'color', $vocab, false);
+            self::check_bounded_int(
+                $v, "$bpath.overlay.opacity", $overlay['opacity'] ?? null,
+                0, 100, 'Hero overlay opacity', 'hero_overlay_opacity'
+            );
+        }
+
+        if (!empty($block['priority'])) {
+            if ($has_media && $bg_kind !== 'video') {
+                $priority_images++;
+            } else {
+                $v[] = self::vio('hero_priority', "$bpath.priority", 'Only a hero with a background image can be the priority (LCP) image.');
+            }
+        }
+
+        $style = is_array($block['style'] ?? null) ? $block['style'] : [];
+        $fg    = Bynli_Connect_Emitter::resolve_token('color', $style['color'] ?? null);
+        if (!$has_media) {
+            self::check_contrast($v, $bpath, $style, $bg_slug, $vocab, false);
+            return;
+        }
+        $palette = $vocab['_color_hex'] ?? [];
+        $fg_hex  = $fg === null ? Bynli_Connect_Blocks::HERO_FG_FALLBACK : ($palette[$fg] ?? null);
+        $bg_hex  = $scrim_slug === null
+            ? (($overlay !== null && isset($overlay['color']) && $overlay['color'] !== '') ? null : Bynli_Connect_Blocks::SCRIM_FALLBACK)
+            : ($palette[$scrim_slug] ?? null);
+        $opacity_ok = !isset($overlay['opacity']) || (Bynli_Connect_Blocks::isIntLike($overlay['opacity']) && (int) $overlay['opacity'] >= 0 && (int) $overlay['opacity'] <= 100);
+        if ($fg_hex !== null && $bg_hex !== null && $opacity_ok) {
+            $percent = isset($overlay['opacity']) ? (int) $overlay['opacity'] : Bynli_Connect_Blocks::HERO_OVERLAY_DEFAULT;
+            $dark    = self::blend_hex($bg_hex, '#000000', $percent / 100);
+            $bright  = self::blend_hex($bg_hex, '#ffffff', $percent / 100);
+            $ratio   = null;
+            $case    = '';
+            if ($dark !== null && $bright !== null) {
+                $l_fg = self::luminance($fg_hex);
+                $l_lo = self::luminance($dark);
+                $l_hi = self::luminance($bright);
+                if ($l_fg !== null && $l_lo !== null && $l_hi !== null) {
+                    if ($l_fg >= $l_lo && $l_fg <= $l_hi) {
+                        $ratio = 1.0;
+                        $case  = 'a photo as light as the text';
+                    } else {
+                        $r_dark   = self::contrast_ratio($fg_hex, $dark);
+                        $r_bright = self::contrast_ratio($fg_hex, $bright);
+                        $ratio    = min($r_dark, $r_bright);
+                        $case     = $r_dark <= $r_bright ? 'a dark photo' : 'a bright photo';
+                    }
+                }
+            }
+            if ($ratio !== null && $ratio + 0.005 < self::CONTRAST_NORMAL) {
+                $v[] = self::vio(
+                    'contrast_low',
+                    "$bpath.style.color",
+                    sprintf('Contrast %.2f:1 between the hero text and its scrim over %s is below the %.1f:1 minimum. Change the text or scrim colour, or raise the overlay opacity.', $ratio, $case, self::CONTRAST_NORMAL)
+                );
+            }
+        }
     }
 
     /**
@@ -894,6 +1033,29 @@ class Bynli_Connect_Publish_Contract {
         $hi = max($l1, $l2);
         $lo = min($l1, $l2);
         return ($hi + 0.05) / ($lo + 0.05);
+    }
+
+    private static function blend_hex(string $top, string $under, float $alpha): ?string {
+        $rgb = static function (string $hex): ?array {
+            $hex = ltrim(trim($hex), '#');
+            if (strlen($hex) === 3) {
+                $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+            }
+            if (!preg_match('/^[0-9a-fA-F]{6}$/', $hex)) {
+                return null;
+            }
+            return [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
+        };
+        $a = $rgb($top);
+        $b = $rgb($under);
+        if ($a === null || $b === null) {
+            return null;
+        }
+        $out = '#';
+        for ($i = 0; $i < 3; $i++) {
+            $out .= sprintf('%02x', (int) round($a[$i] * $alpha + $b[$i] * (1 - $alpha)));
+        }
+        return $out;
     }
 
     private static function luminance(string $hex): ?float {

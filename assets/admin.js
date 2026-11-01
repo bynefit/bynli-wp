@@ -104,6 +104,87 @@
         else el.textContent = msg;
     }
 
+    function settleUplinkHero(hero) {
+        if (!hero || hero.dataset.bcnSettling === '1') return;
+        hero.dataset.bcnSettling = '1';
+        hero.addEventListener('animationend', function done(e) {
+            if (e.animationName !== 'bcn-uplink-ping') return;
+            hero.classList.remove('is-first-connect');
+            hero.removeEventListener('animationend', done);
+            delete hero.dataset.bcnSettling;
+        });
+    }
+
+    function advanceOnramp() {
+        const list = document.querySelector('[data-bcn="onramp"]');
+        if (!list) return;
+        const steps = list.querySelectorAll('.bcn-onramp-step');
+        if (steps.length < 3) return;
+        const current = steps[1];
+        const upcoming = steps[2];
+        current.classList.remove('is-next');
+        current.classList.add('is-done');
+        current.removeAttribute('aria-current');
+        const mark = current.querySelector('.bcn-onramp-n');
+        if (mark) {
+            mark.textContent = '';
+            const tick = document.createElement('span');
+            tick.className = 'dashicons dashicons-yes';
+            mark.appendChild(tick);
+        }
+        const title = current.querySelector('.bcn-onramp-title');
+        if (title && !title.querySelector('.screen-reader-text')) {
+            const sr = document.createElement('span');
+            sr.className = 'screen-reader-text';
+            sr.textContent = ' (done)';
+            title.appendChild(sr);
+        }
+        upcoming.classList.add('is-next');
+        upcoming.setAttribute('aria-current', 'step');
+        const cta = document.querySelector('[data-bcn="onramp-cta"]');
+        if (cta) cta.hidden = true;
+    }
+
+    function reflectConnected(data) {
+        const pill = document.querySelector('[data-bcn="signal"]');
+        if (pill) {
+            pill.setAttribute('data-state', 'on');
+            const lbl = pill.querySelector('.bcn-signal-label');
+            if (lbl) lbl.textContent = 'Connected';
+        }
+        const hero = document.querySelector('[data-bcn="uplink-hero"]');
+        if (hero) {
+            hero.setAttribute('data-state', 'on');
+            const status = hero.querySelector('[data-bcn="uplink-status"]');
+            if (status) status.textContent = 'CONNECTED';
+            const sub = hero.querySelector('[data-bcn="uplink-sub"]');
+            if (sub) sub.textContent = 'Reporting to Bynefit · last ping ' + (data.last_at_human || 'just now');
+            if (data.first_connect) {
+                const moment = hero.querySelector('[data-bcn="uplink-moment"]');
+                if (moment) moment.hidden = false;
+                hero.classList.remove('is-first-connect');
+                void hero.offsetWidth;
+                hero.classList.add('is-first-connect');
+                settleUplinkHero(hero);
+            }
+        }
+        const tile = document.querySelector('[data-bcn="tile-connection"]');
+        if (tile) {
+            tile.setAttribute('data-state', 'ok');
+            const ico = tile.querySelector('.dashicons');
+            if (ico) ico.className = 'dashicons dashicons-yes-alt';
+            const val = tile.querySelector('.bcn-tile-value');
+            if (val) val.textContent = 'Verified';
+        }
+        const last = document.querySelector('[data-bcn="tile-last"]');
+        if (last) {
+            last.setAttribute('data-state', 'ok');
+            const when = last.querySelector('.bcn-tile-value');
+            if (when) when.textContent = data.last_at_human || 'just now';
+        }
+        advanceOnramp();
+    }
+
     function wireHeartbeat() {
         const btn = document.getElementById('bcn-heartbeat-btn');
         if (!btn || !cfg || !cfg.ajaxUrl) return;
@@ -139,17 +220,17 @@
             btn.innerHTML = origLabel;
 
             const data = (body && body.data) || {};
+            const seeUplink = statusEl ? statusEl.querySelector('[data-role="see-uplink"]') : null;
+            if (seeUplink) seeUplink.hidden = true;
             if (body && body.success) {
                 const code = data.status ? ' · ' + data.status : '';
-                setNote(statusEl, 'is-ok', 'dashicons-yes-alt',
-                    (data.message || 'Heartbeat OK. Bynefit received the ping.') + code + ' · ' + rtt + 'ms round-trip');
-                // Reflect the now-verified state in the topbar + any last-report readout.
-                const pill = document.querySelector('[data-bcn="signal"]');
-                if (pill) {
-                    pill.setAttribute('data-state', 'on');
-                    const lbl = pill.querySelector('.bcn-signal-label');
-                    if (lbl) lbl.textContent = 'Connected';
-                }
+                const first = !!data.first_connect;
+                const lead = first
+                    ? 'Connected. Bynefit received your first signed heartbeat.'
+                    : (data.message || 'Heartbeat OK. Bynefit received the ping.');
+                setNote(statusEl, 'is-ok', 'dashicons-yes-alt', lead + code + ' · ' + rtt + 'ms round-trip');
+                if (first && seeUplink) seeUplink.hidden = false;
+                reflectConnected(data);
             } else {
                 setNote(statusEl, 'is-err', 'dashicons-warning',
                     (data.message || 'Heartbeat failed.') + ' · ' + rtt + 'ms');
@@ -344,7 +425,7 @@
         // sync (so refresh/share lands on the same section), no reload. The
         // server already rendered every panel + the ?section= fallback works
         // with JS off, so this is pure progressive enhancement.
-        document.querySelectorAll('.bcn-nav-item[data-go]').forEach((a) => {
+        document.querySelectorAll('a[data-go]').forEach((a) => {
             a.addEventListener('click', (ev) => {
                 // Server-rendered surfaces (tickets: remote API call) must do a
                 // real navigation so the server renders fresh content.
@@ -353,6 +434,13 @@
                 if (!section) return;
                 if (!showPanel(section)) return; // fall back to navigation
                 ev.preventDefault();
+                if (!a.classList.contains('bcn-nav-item')) {
+                    const shown = document.querySelector('.bcn-panel.active');
+                    if (shown) {
+                        shown.tabIndex = -1;
+                        shown.focus();
+                    }
+                }
                 try {
                     const url = new URL(a.href, window.location.origin);
                     window.history.pushState({ bcnSection: section }, '', url);
@@ -881,6 +969,7 @@
     }
 
     ready(() => {
+        settleUplinkHero(document.querySelector('[data-bcn="uplink-hero"].is-first-connect'));
         wireRevealToggles();
         wireCopyButtons();
         wireKeyValidation();

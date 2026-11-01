@@ -9,6 +9,8 @@ class Bynli_Connect_Reporter {
     // fetch. Capped so the option stays small.
     const OPTION_HISTORY = 'bynli_connect_report_history';
     const HISTORY_MAX    = 14;
+    const OPTION_VERIFIED = 'bynli_connect_verified_at';
+    const FIRST_CONNECT_WINDOW = 300;
 
     public static function send_heartbeat(): array {
         return self::post(['kind' => 'heartbeat']);
@@ -221,6 +223,9 @@ class Bynli_Connect_Reporter {
         update_option(self::OPTION_HISTORY, array_slice($hist, -self::HISTORY_MAX), false);
 
         if ($code >= 200 && $code < 300 && $ok) {
+            if (get_option(self::OPTION_VERIFIED, '') === '') {
+                update_option(self::OPTION_VERIFIED, time(), false);
+            }
             return ['ok' => true, 'status' => $code, 'response' => $json];
         }
         return ['ok' => false, 'status' => $code, 'response' => $json ?: $raw];
@@ -229,6 +234,29 @@ class Bynli_Connect_Reporter {
     public static function last_report(): array {
         $val = get_option(self::OPTION_LAST, null);
         return is_array($val) ? $val : [];
+    }
+
+    public static function first_connect_fresh(?int $now = null): bool {
+        $at = (int) get_option(self::OPTION_VERIFIED, 0);
+        $age = ($now ?? time()) - $at;
+        return $at > 0 && $age >= 0 && $age < self::FIRST_CONNECT_WINDOW;
+    }
+
+    public static function was_verified(): bool {
+        if (get_option(self::OPTION_VERIFIED, '') !== '') {
+            return true;
+        }
+        $last = self::last_report();
+        return !empty($last['ok']) || self::has_verified(self::history());
+    }
+
+    public static function has_verified(array $history): bool {
+        foreach ($history as $entry) {
+            if (is_array($entry) && !empty($entry['ok'])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Rolling post history (oldest → newest), each: at, kind, ok, status, storage_bytes. */

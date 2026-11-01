@@ -98,33 +98,18 @@ class Bynli_Connect_Emitter {
         }
 
         if (is_array($section['bgMedia'] ?? null)) {
-            $bgm = self::media_entry($section['bgMedia'], $media);
+            $bgm = self::bg_media_attr($section['bgMedia'], $media);
             if ($bgm !== null) {
-                $bgm['kind'] = (($section['bgMedia']['kind'] ?? ($media[$section['bgMedia']['media'] ?? '']['kind'] ?? 'image')) === 'video') ? 'video' : 'image';
-                $poster = $media[$section['bgMedia']['media'] ?? '']['poster'] ?? null;
-                if ($bgm['kind'] === 'video' && $poster) {
-                    $bgm['poster'] = esc_url_raw((string) $poster);
-                }
-                unset($bgm['alt']);
                 $attrs['bgMedia'] = $bgm;
             }
         }
 
-        if (is_array($section['overlay'] ?? null)) {
-            $ov = [];
-            $oc = self::resolve_token('color', $section['overlay']['color'] ?? null);
-            if ($oc !== null) {
-                $ov['color'] = $oc;
-            }
-            if (isset($section['overlay']['opacity']) && is_numeric($section['overlay']['opacity'])) {
-                $ov['opacity'] = min(100, max(0, (int) $section['overlay']['opacity']));
-            }
-            if ($ov) {
-                $attrs['overlay'] = $ov;
-            }
+        $ov = self::overlay_attr($section['overlay'] ?? null);
+        if ($ov !== null) {
+            $attrs['overlay'] = $ov;
         }
 
-        if (in_array($section['minHeight'] ?? '', ['short', 'medium', 'tall', 'full'], true)) {
+        if (is_string($section['minHeight'] ?? null) && isset(Bynli_Connect_Blocks::MIN_HEIGHTS[$section['minHeight']])) {
             $attrs['minHeight'] = $section['minHeight'];
         }
         if (in_array($section['valign'] ?? '', ['top', 'center', 'bottom'], true)) {
@@ -198,6 +183,8 @@ class Bynli_Connect_Emitter {
                 return self::emit_tabs($block);
             case 'carousel':
                 return self::emit_carousel($block, $media);
+            case 'hero':
+                return self::emit_hero($block, $media);
             default:
                 return null;
         }
@@ -518,10 +505,10 @@ class Bynli_Connect_Emitter {
         return self::wrap('bynefit/list', $attrs, null);
     }
 
-    private static function emit_cta(array $block): ?string {
+    private static function action_buttons($raw): array {
         $buttons = [];
-        foreach ((is_array($block['buttons'] ?? null) ? $block['buttons'] : []) as $btn) {
-            if (!is_array($btn) || count($buttons) >= 2) {
+        foreach ((is_array($raw) ? $raw : []) as $btn) {
+            if (!is_array($btn) || count($buttons) >= Bynli_Connect_Blocks::ACTION_BUTTONS_MAX) {
                 continue;
             }
             $label = (string) ($btn['label'] ?? '');
@@ -535,6 +522,89 @@ class Bynli_Connect_Emitter {
             }
             $buttons[] = $entry;
         }
+        return $buttons;
+    }
+
+    private static function bg_media_attr(array $ref, array $media): ?array {
+        $bgm = self::media_entry($ref, $media);
+        if ($bgm === null) {
+            return null;
+        }
+        $bgm['kind'] = (($ref['kind'] ?? ($media[$ref['media'] ?? '']['kind'] ?? 'image')) === 'video') ? 'video' : 'image';
+        $poster = $media[$ref['media'] ?? '']['poster'] ?? null;
+        if ($bgm['kind'] === 'video' && $poster) {
+            $bgm['poster'] = esc_url_raw((string) $poster);
+        }
+        unset($bgm['alt']);
+        return $bgm;
+    }
+
+    private static function overlay_attr($raw): ?array {
+        if (!is_array($raw)) {
+            return null;
+        }
+        $ov = [];
+        $oc = self::resolve_token('color', $raw['color'] ?? null);
+        if ($oc !== null) {
+            $ov['color'] = $oc;
+        }
+        if (isset($raw['opacity']) && is_numeric($raw['opacity'])) {
+            $ov['opacity'] = min(100, max(0, (int) $raw['opacity']));
+        }
+        return $ov ?: null;
+    }
+
+    private static function emit_hero(array $block, array $media): ?string {
+        $heading = (string) ($block['heading'] ?? '');
+        if (trim($heading) === '') {
+            return null;
+        }
+        $attrs = ['heading' => $heading];
+
+        $level = (int) ($block['level'] ?? Bynli_Connect_Blocks::HERO_LEVEL_MIN);
+        $attrs['level'] = ($level >= Bynli_Connect_Blocks::HERO_LEVEL_MIN && $level <= Bynli_Connect_Blocks::HERO_LEVEL_MAX)
+            ? $level
+            : Bynli_Connect_Blocks::HERO_LEVEL_MIN;
+
+        foreach (['eyebrow', 'text'] as $key) {
+            $val = (string) ($block[$key] ?? '');
+            if (trim($val) !== '') {
+                $attrs[$key] = $val;
+            }
+        }
+        $attrs['align'] = self::align_or_default($block['align'] ?? null);
+
+        $buttons = self::action_buttons($block['buttons'] ?? null);
+        if ($buttons) {
+            $attrs['buttons'] = $buttons;
+        }
+
+        $color = self::resolve_token('color', self::deep($block, ['style', 'color']));
+        if ($color !== null) {
+            $attrs['color'] = $color;
+        }
+
+        if (is_string($block['minHeight'] ?? null) && isset(Bynli_Connect_Blocks::MIN_HEIGHTS[$block['minHeight']])) {
+            $attrs['minHeight'] = $block['minHeight'];
+        }
+
+        $bgm = is_array($block['bgMedia'] ?? null) ? self::bg_media_attr($block['bgMedia'], $media) : null;
+        if ($bgm !== null) {
+            $attrs['bgMedia'] = $bgm;
+            $ov = self::overlay_attr($block['overlay'] ?? null);
+            if ($ov !== null) {
+                $attrs['overlay'] = $ov;
+            }
+            if (!empty($block['priority']) && $bgm['kind'] === 'image') {
+                $attrs['priority'] = true;
+            }
+        }
+
+        return self::wrap('bynefit/hero', $attrs, null);
+    }
+
+    private static function emit_cta(array $block): ?string {
+        $buttons = self::action_buttons($block['buttons'] ?? null);
 
         $title = (string) ($block['title'] ?? '');
         if (trim($title) === '' && !$buttons) {
@@ -588,7 +658,7 @@ class Bynli_Connect_Emitter {
             }
             // A card is a leaf-content surface: containers (section/card) can't
             // nest inside it, so depth stays bounded at section -> card -> leaf.
-            if (in_array((string) ($child['type'] ?? ''), ['section', 'card'], true)) {
+            if (in_array((string) ($child['type'] ?? ''), Bynli_Connect_Publish_Contract::CONTAINER_BLOCKS, true)) {
                 continue;
             }
             $markup = self::emit_block($child, $media);

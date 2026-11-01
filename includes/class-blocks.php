@@ -40,7 +40,7 @@ class Bynli_Connect_Blocks {
         );
 
         $dir = BYNLI_CONNECT_PLUGIN_DIR . 'blocks';
-        foreach (['section', 'media', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos', 'form', 'events', 'tabs', 'carousel'] as $name) {
+        foreach (['section', 'media', 'gallery', 'quote', 'stat', 'accordion', 'embed', 'icon', 'list', 'cta', 'callout', 'card', 'logos', 'form', 'events', 'tabs', 'carousel', 'hero'] as $name) {
             $path = "$dir/$name";
             if (is_file("$path/block.json")) {
                 register_block_type($path);
@@ -54,8 +54,8 @@ class Bynli_Connect_Blocks {
      * generated custom property; rejects anything else so block attributes
      * can never inject arbitrary CSS.
      */
-    public static function token(string $group, ?string $slug, ?string $fallback = null): ?string {
-        if ($slug === null || $slug === '' || !preg_match('/^[a-z0-9\-]{1,40}$/', $slug)) {
+    public static function token(string $group, $slug, ?string $fallback = null): ?string {
+        if (!is_string($slug) || $slug === '' || !preg_match('/^[a-z0-9\-]{1,40}$/', $slug)) {
             return null;
         }
         $map = [
@@ -106,6 +106,16 @@ class Bynli_Connect_Blocks {
     /** The bounds icon_svg() clamps to. Named for the same reason as the grid bounds. */
     const ICON_SIZE_MIN = 8;
     const ICON_SIZE_MAX = 96;
+
+    const MIN_HEIGHTS = ['short' => '40vh', 'medium' => '60vh', 'tall' => '80vh', 'full' => '100vh'];
+
+    const ACTION_BUTTONS_MAX = 2;
+
+    const HERO_LEVEL_MIN       = 1;
+    const HERO_LEVEL_MAX       = 2;
+    const HERO_OVERLAY_DEFAULT = 60;
+    const HERO_FG_FALLBACK     = '#ffffff';
+    const SCRIM_FALLBACK       = '#0e0d10';
 
     /**
      * Does this value reach grid_int() as the integer it is written as?
@@ -252,6 +262,74 @@ class Bynli_Connect_Blocks {
             'alert-triangle' => '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
             'lightbulb'      => '<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/>',
         ];
+    }
+
+    public static function action_buttons_html(array $buttons, string $block): string {
+        $html  = '';
+        $count = 0;
+        foreach ($buttons as $btn) {
+            if (!is_array($btn) || $count >= self::ACTION_BUTTONS_MAX) {
+                continue;
+            }
+            $label = (string) ($btn['label'] ?? '');
+            $href  = (string) ($btn['href'] ?? '');
+            if (trim($label) === '' || trim($href) === '') {
+                continue;
+            }
+            $variant = ($btn['variant'] ?? 'primary') === 'secondary' ? 'secondary' : 'primary';
+            $html .= '<a class="bynefit-' . $block . '__btn bynefit-' . $block . '__btn--' . $variant . '" href="' . esc_url($href) . '">' . esc_html($label) . '</a>';
+            $count++;
+        }
+        return $html;
+    }
+
+    public static function bg_media_html(array $bg_media, string $block, bool $high_priority): string {
+        $url = isset($bg_media['url']) ? esc_url((string) $bg_media['url']) : '';
+        if ($url === '') {
+            return '';
+        }
+        $focal = is_array($bg_media['focal'] ?? null) ? $bg_media['focal'] : [];
+        $fx = isset($focal['x']) && is_numeric($focal['x']) ? min(1.0, max(0.0, (float) $focal['x'])) : 0.5;
+        $fy = isset($focal['y']) && is_numeric($focal['y']) ? min(1.0, max(0.0, (float) $focal['y'])) : 0.5;
+        $bg_style = '--bynefit-focal:' . round($fx * 100, 2) . '% ' . round($fy * 100, 2) . '%;';
+
+        if (($bg_media['kind'] ?? 'image') === 'video') {
+            $poster = isset($bg_media['poster']) ? esc_url((string) $bg_media['poster']) : '';
+            $el = '<video class="bynefit-' . $block . '__bgel" src="' . $url . '"'
+                . ($poster !== '' ? ' poster="' . $poster . '"' : '')
+                . ' muted loop playsinline preload="metadata" data-bynefit-bgvideo aria-hidden="true"></video>';
+            wp_enqueue_script('bynefit-blocks');
+        } else {
+            $w = (isset($bg_media['width']) && is_numeric($bg_media['width'])) ? (int) $bg_media['width'] : 0;
+            $h = (isset($bg_media['height']) && is_numeric($bg_media['height'])) ? (int) $bg_media['height'] : 0;
+            $dims = ($w > 0 ? ' width="' . $w . '"' : '') . ($h > 0 ? ' height="' . $h . '"' : '');
+            $load = $high_priority ? ' fetchpriority="high" decoding="async"' : ' decoding="async"';
+            $img  = '<img class="bynefit-' . $block . '__bgel" src="' . $url . '" alt=""' . $dims . $load . '>';
+            $sources = is_array($bg_media['sources'] ?? null) ? $bg_media['sources'] : [];
+            $picture = '';
+            foreach (['avif' => 'image/avif', 'webp' => 'image/webp'] as $ext => $mime) {
+                if (!empty($sources[$ext]) && is_string($sources[$ext])) {
+                    $src = esc_url($sources[$ext]);
+                    if ($src !== '') {
+                        $picture .= '<source type="' . esc_attr($mime) . '" srcset="' . $src . '">';
+                    }
+                }
+            }
+            $el = $picture !== '' ? '<picture>' . $picture . $img . '</picture>' : $img;
+        }
+        return '<div class="bynefit-' . $block . '__bg" style="' . esc_attr($bg_style) . '">' . $el . '</div>';
+    }
+
+    public static function scrim_html(array $overlay, string $block, int $default_percent, ?string $fallback_color = null): string {
+        $color = self::token('color', $overlay['color'] ?? null);
+        if ($color === null && $fallback_color !== null) {
+            $color = $fallback_color;
+        }
+        $percent = isset($overlay['opacity']) && is_numeric($overlay['opacity'])
+            ? min(100, max(0, (int) $overlay['opacity']))
+            : $default_percent;
+        $style = ($color !== null ? '--bynefit-scrim-color:' . $color . ';' : '') . '--bynefit-scrim-opacity:' . ($percent / 100) . ';';
+        return '<div class="bynefit-' . $block . '__scrim" style="' . esc_attr($style) . '" aria-hidden="true"></div>';
     }
 
     /** Whitelisted icon names (for validation). */

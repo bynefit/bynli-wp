@@ -12,6 +12,7 @@ $bynli_connect_options = [
     'bynli_connect_site_slug',
     'bynli_connect_last_report',
     'bynli_connect_report_history',
+    'bynli_connect_verified_at',
     'bynli_connect_visibility',
     'bynli_connect_client_mode',
     'bynli_connect_badge',

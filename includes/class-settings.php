@@ -317,10 +317,11 @@ class Bynli_Connect_Settings {
     public function handle_test(): void {
         if (!current_user_can('manage_options')) wp_die('Forbidden.', 403);
         check_admin_referer(self::NONCE_ACTION);
+        $had_verified = Bynli_Connect_Reporter::was_verified();
         $res = Bynli_Connect_Reporter::send_heartbeat();
-        $msg = !empty($res['ok']) ? 'ok' : 'fail';
+        $msg = empty($res['ok']) ? 'fail' : ($had_verified ? 'ok' : 'first');
         wp_safe_redirect(add_query_arg(
-            ['page' => self::MENU_SLUG, 'section' => 'connection', 'tested' => $msg],
+            ['page' => self::MENU_SLUG, 'section' => $msg === 'first' ? 'overview' : 'connection', 'tested' => $msg],
             admin_url('options-general.php')
         ));
         exit;
@@ -336,6 +337,7 @@ class Bynli_Connect_Settings {
         if (self::key() === '') {
             wp_send_json_error(['message' => 'Save an API key before testing.']);
         }
+        $had_verified = Bynli_Connect_Reporter::was_verified();
         $res = Bynli_Connect_Reporter::send_heartbeat();
         $last = Bynli_Connect_Reporter::last_report();
         if (!empty($res['ok'])) {
@@ -343,6 +345,7 @@ class Bynli_Connect_Settings {
                 'message'       => 'Heartbeat OK. Bynefit received the ping.',
                 'status'        => isset($res['status']) ? (int)$res['status'] : 200,
                 'last_at_human' => !empty($last['at']) ? human_time_diff((int)$last['at']) . ' ago' : 'just now',
+                'first_connect' => !$had_verified,
             ]);
         }
         $msg = isset($res['response']['error'])
@@ -448,10 +451,18 @@ class Bynli_Connect_Settings {
             'update_actionable' => (!empty($upd['version'])
                 && version_compare($upd['version'], BYNLI_CONNECT_VERSION, '>')
                 && !Bynli_Connect_Updater::is_mu_install()),
-            'tested'           => isset($_GET['tested']) ? sanitize_text_field((string)$_GET['tested']) : '',
+            'tested'           => $this->tested_flag($is_connected),
             'cleared'          => isset($_GET['cleared']) && (string)$_GET['cleared'] === 'updates',
             'discon'           => isset($_GET['disconnected']) && (string)$_GET['disconnected'] === '1',
         ];
+    }
+
+    private function tested_flag(bool $is_connected): string {
+        $tested = isset($_GET['tested']) ? sanitize_text_field((string)$_GET['tested']) : '';
+        if ($tested === 'first' && !($is_connected && Bynli_Connect_Reporter::first_connect_fresh())) {
+            return 'ok';
+        }
+        return $tested;
     }
 
     private function render_topbar(array $ctx): void {
@@ -480,7 +491,10 @@ class Bynli_Connect_Settings {
     }
 
     private function render_flashes(array $ctx): void {
-        if ($ctx['tested'] === 'ok'): ?>
+        if ($ctx['tested'] === 'first'): ?>
+            <div class="bcn-notice bcn-notice-ok" role="status"><span class="dashicons dashicons-yes-alt" aria-hidden="true"></span>
+                <span>Connected — Bynefit received your first signed heartbeat.</span></div>
+        <?php elseif ($ctx['tested'] === 'ok' && $ctx['is_connected']): ?>
             <div class="bcn-notice bcn-notice-ok"><span class="dashicons dashicons-yes-alt"></span>
                 <span>Heartbeat sent — Bynefit received the ping.</span></div>
         <?php elseif ($ctx['tested'] === 'fail'): ?>
@@ -614,6 +628,7 @@ class Bynli_Connect_Settings {
         $series       = $this->spark_series($history);
         $last_ok      = empty($history) ? true : !empty($history[count($history) - 1]['ok']);
 
+        $celebrate  = $ctx['tested'] === 'first';
         $hero_state = $is_connected ? 'on' : 'off';
         $readout    = $is_connected ? 'CONNECTED' : 'NOT VERIFIED';
         $sub        = $is_connected
@@ -628,15 +643,16 @@ class Bynli_Connect_Settings {
         $update_actionable = $ctx['update_actionable'];
         $daily_recent = !empty($last['at']) && (time() - (int)$last['at']) < 2 * DAY_IN_SECONDS;
         ?>
-        <div class="bcn-hero" data-state="<?php echo esc_attr($hero_state); ?>">
+        <div class="bcn-hero<?php echo $celebrate ? ' is-first-connect' : ''; ?>" data-state="<?php echo esc_attr($hero_state); ?>" data-bcn="uplink-hero">
             <div class="bcn-hero-body">
                 <div class="bcn-hero-lead">
                     <span class="bcn-hero-eyebrow">Uplink</span>
                     <div class="bcn-hero-readout">
                         <span class="bcn-hero-dot" aria-hidden="true"></span>
-                        <span class="bcn-hero-status"><?php echo esc_html($readout); ?></span>
+                        <span class="bcn-hero-status" data-bcn="uplink-status"><?php echo esc_html($readout); ?></span>
                     </div>
-                    <p class="bcn-hero-sub"><?php echo wp_kses_post($sub); ?></p>
+                    <p class="bcn-hero-sub" data-bcn="uplink-sub"><?php echo wp_kses_post($sub); ?></p>
+                    <p class="bcn-hero-moment" data-bcn="uplink-moment"<?php echo $celebrate ? '' : ' hidden'; ?>>First signal received. Your site is connected.</p>
                 </div>
                 <figure class="bcn-hero-spark">
                     <div class="bcn-spark"
@@ -668,12 +684,12 @@ class Bynli_Connect_Settings {
         </div>
 
         <div class="bcn-tiles">
-            <div class="bcn-tile" data-state="<?php echo $is_connected ? 'ok' : 'warn'; ?>">
+            <div class="bcn-tile" data-bcn="tile-connection" data-state="<?php echo $is_connected ? 'ok' : 'warn'; ?>">
                 <span class="dashicons <?php echo $is_connected ? 'dashicons-yes-alt' : 'dashicons-warning'; ?>" aria-hidden="true"></span>
                 <span class="bcn-tile-label">Connection</span>
                 <span class="bcn-tile-value"><?php echo $is_connected ? 'Verified' : 'Unverified'; ?></span>
             </div>
-            <div class="bcn-tile" data-state="<?php echo $daily_recent ? 'ok' : 'warn'; ?>">
+            <div class="bcn-tile" data-bcn="tile-last" data-state="<?php echo $daily_recent ? 'ok' : 'warn'; ?>">
                 <span class="dashicons dashicons-backup" aria-hidden="true"></span>
                 <span class="bcn-tile-label">Daily report</span>
                 <span class="bcn-tile-value"><?php echo !empty($last['at']) ? esc_html(human_time_diff((int)$last['at']) . ' ago') : 'never'; ?></span>
@@ -800,7 +816,7 @@ class Bynli_Connect_Settings {
 
                     <div class="bcn-field">
                         <label class="bcn-label" for="bcn_beacons">Web analytics</label>
-                        <label for="bcn_beacons">
+                        <label class="bcn-check" for="bcn_beacons">
                             <input type="checkbox" id="bcn_beacons" name="<?php echo esc_attr(self::OPTION_BEACONS); ?>" value="1" <?php checked(self::beacons_enabled()); ?>>
                             Count page views for this site in Bynefit
                         </label>
@@ -867,6 +883,7 @@ class Bynli_Connect_Settings {
                 <div class="bcn-note" id="bcn-heartbeat-status" aria-live="polite" hidden>
                     <span class="dashicons" data-role="ico" aria-hidden="true"></span>
                     <span data-role="msg"></span>
+                    <a class="bcn-note-link" data-role="see-uplink" data-go="overview" href="<?php echo esc_url($this->section_url('overview')); ?>" hidden>See your uplink</a>
                 </div>
             </div>
         </section>
@@ -1158,10 +1175,44 @@ class Bynli_Connect_Settings {
                     // lost its readout — after an upgrade clears the cache, say.
                 ?>
                 <?php if (empty($history) && empty($upd['has'])): ?>
-                    <div class="bcn-empty" role="status">
-                        <span class="dashicons dashicons-backup bcn-empty-icon" aria-hidden="true"></span>
-                        <p class="bcn-empty-title">No activity yet.</p>
-                        <p class="bcn-empty-cta">The first daily report lands within 24 hours — or send a test heartbeat in Connection.</p>
+                    <?php
+                        $onramp = [
+                            ['done' => $ctx['is_configured'], 'title' => 'Save your key',          'text' => 'Paste the site key from Bynefit in Connection.'],
+                            ['done' => $ctx['is_connected'],  'title' => 'Send a test heartbeat',  'text' => 'Proves the signed path end to end. It takes a second.'],
+                            ['done' => false,                  'title' => 'First daily report',     'text' => 'Lands on its own within 24 hours of connecting.'],
+                        ];
+                        $next_step = null;
+                        foreach ($onramp as $i => $step) {
+                            if (!$step['done']) { $next_step = $i; break; }
+                        }
+                    ?>
+                    <div class="bcn-empty bcn-empty--onramp" role="status">
+                        <svg class="bcn-empty-art" viewBox="0 0 240 64" width="240" height="64" aria-hidden="true" focusable="false">
+                            <path class="bcn-empty-art-line" d="M20 40 H92 L106 22 L124 48 L138 34 H220"/>
+                            <circle class="bcn-empty-art-node" cx="20" cy="40" r="6"/>
+                            <circle class="bcn-empty-art-node" cx="124" cy="48" r="6"/>
+                            <circle class="bcn-empty-art-node bcn-empty-art-node--end" cx="220" cy="34" r="6"/>
+                        </svg>
+                        <p class="bcn-empty-title">Your uplink log starts here.</p>
+                        <p class="bcn-empty-lede">Every heartbeat and daily report this site sends to Bynefit is listed in this timeline.</p>
+                        <ol class="bcn-onramp" role="list" data-bcn="onramp">
+                            <?php foreach ($onramp as $i => $step):
+                                $cls = $step['done'] ? ' is-done' : ($i === $next_step ? ' is-next' : ''); ?>
+                                <li class="bcn-onramp-step<?php echo esc_attr($cls); ?>"<?php echo $i === $next_step ? ' aria-current="step"' : ''; ?>>
+                                    <span class="bcn-onramp-n" aria-hidden="true"><?php echo $step['done'] ? '<span class="dashicons dashicons-yes"></span>' : esc_html((string)($i + 1)); ?></span>
+                                    <span class="bcn-onramp-body">
+                                        <span class="bcn-onramp-title"><?php echo esc_html($step['title']); ?><?php echo $step['done'] ? '<span class="screen-reader-text"> (done)</span>' : ''; ?></span>
+                                        <span class="bcn-onramp-text"><?php echo esc_html($step['text']); ?></span>
+                                    </span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ol>
+                        <?php if ($next_step !== null && $next_step < 2): ?>
+                            <a class="bcn-btn primary" data-bcn="onramp-cta" data-go="connection" href="<?php echo esc_url($this->section_url('connection')); ?>">
+                                <span class="dashicons dashicons-admin-network" aria-hidden="true"></span>
+                                <?php echo $next_step === 0 ? 'Add your key' : 'Send a test heartbeat'; ?>
+                            </a>
+                        <?php endif; ?>
                     </div>
                 <?php else: ?>
                     <ul class="bcn-log">

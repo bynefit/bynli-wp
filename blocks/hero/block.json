@@ -1,0 +1,30 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "bynefit/hero",
+    "version": "0.1.0",
+    "title": "Bynefit Hero",
+    "category": "design",
+    "icon": "cover-image",
+    "description": "A page-opening hero: eyebrow, display heading, supporting line and up to two buttons, over an optional background image or video with a scrim that keeps the text legible.",
+    "textdomain": "bynli-connect",
+    "supports": {
+        "html": false,
+        "anchor": true
+    },
+    "attributes": {
+        "eyebrow": { "type": "string", "default": "" },
+        "heading": { "type": "string", "default": "" },
+        "level": { "type": "number", "default": 1 },
+        "text": { "type": "string", "default": "" },
+        "align": { "type": "string", "default": "start" },
+        "buttons": { "type": "array", "default": [] },
+        "bgMedia": { "type": "object" },
+        "overlay": { "type": "object" },
+        "minHeight": { "type": "string" },
+        "color": { "type": "string" },
+        "priority": { "type": "boolean", "default": false }
+    },
+    "render": "file:./render.php",
+    "style": "bynefit-blocks"
+}
