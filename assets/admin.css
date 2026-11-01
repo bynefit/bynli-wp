@@ -34,6 +34,7 @@
     --bcn-warn-on-ink:   #e0ad4a;
 
     --bcn-ok:   #1f9d57;  --bcn-ok-soft:   #e6f4ec;  --bcn-ok-line:   #bfe4cd;  --bcn-ok-ink: #16783f;
+    --bcn-warn-ink: #85590c;  --bcn-down-ink: #a93232;
     --bcn-warn: #b5811a;  --bcn-warn-soft: #f6eed9;  --bcn-warn-line: #e7d3a3;
     --bcn-down: #cf4444;  --bcn-down-soft: #f8e9e9;  --bcn-down-line: #eec6c6;
 
@@ -41,13 +42,13 @@
     --bcn-pill-open-bg:        var(--bcn-accent-soft);
     --bcn-pill-open-fg:        var(--bcn-accent-ink);
     --bcn-pill-in-progress-bg: var(--bcn-warn-soft);
-    --bcn-pill-in-progress-fg: var(--bcn-warn);
+    --bcn-pill-in-progress-fg: var(--bcn-warn-ink);
     --bcn-pill-resolved-bg:    var(--bcn-ok-soft);
     --bcn-pill-resolved-fg:    var(--bcn-ok-ink);
     --bcn-pill-high-bg:        var(--bcn-warn-soft);
-    --bcn-pill-high-fg:        var(--bcn-warn);
+    --bcn-pill-high-fg:        var(--bcn-warn-ink);
     --bcn-pill-urgent-bg:      var(--bcn-down-soft);
-    --bcn-pill-urgent-fg:      var(--bcn-down);
+    --bcn-pill-urgent-fg:      var(--bcn-down-ink);
 
     /* Radii / shadow / motion */
     --bcn-r-sm: 7px;  --bcn-r-md: 11px;  --bcn-r-lg: 16px;  --bcn-r-xl: 22px;
@@ -170,7 +171,7 @@
     border-radius: 999px; padding: 4px 11px 4px 9px; border: 1px solid transparent;
 }
 .bcn-signal-pill[data-state="on"]   { color: var(--bcn-ok-ink);   background: var(--bcn-ok-soft);   border-color: var(--bcn-ok-line); }
-.bcn-signal-pill[data-state="off"]  { color: var(--bcn-warn); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
+.bcn-signal-pill[data-state="off"]  { color: var(--bcn-warn-ink); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
 /* Fresh/unconfigured install — neutral, not an error. Red is reserved for
    actual failures; a brand-new site reading "Not connected" in red over-alarms. */
 .bcn-signal-pill[data-state="warn"] { color: var(--bcn-muted); background: var(--bcn-sunk); border-color: var(--bcn-rule); }
@@ -232,8 +233,8 @@
     padding: 3px 9px; border-radius: 999px; border: 1px solid transparent;
 }
 .bcn-chip.ok   { color: var(--bcn-ok-ink);   background: var(--bcn-ok-soft);   border-color: var(--bcn-ok-line); }
-.bcn-chip.warn { color: var(--bcn-warn); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
-.bcn-chip.down { color: var(--bcn-down); background: var(--bcn-down-soft); border-color: var(--bcn-down-line); }
+.bcn-chip.warn { color: var(--bcn-warn-ink); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
+.bcn-chip.down { color: var(--bcn-down-ink); background: var(--bcn-down-soft); border-color: var(--bcn-down-line); }
 .bcn-chip.acc  { color: var(--bcn-accent-ink); background: var(--bcn-accent-soft); border-color: var(--bcn-accent-line); }
 .bcn-chip.mute { color: var(--bcn-muted); background: var(--bcn-sunk); border-color: var(--bcn-rule); }
 
@@ -247,12 +248,12 @@
 .bcn-note .dashicons { flex: 0 0 auto; margin-top: 1px; color: var(--bcn-faint); }
 .bcn-note.info { background: var(--bcn-accent-soft); border-color: var(--bcn-accent-line); color: var(--bcn-accent-ink); }
 .bcn-note.info .dashicons { color: var(--bcn-accent); }
-.bcn-note.warn { background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); color: var(--bcn-warn); }
+.bcn-note.warn { background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); color: var(--bcn-warn-ink); }
 .bcn-note.warn .dashicons { color: var(--bcn-warn); }
-.bcn-note.down { background: var(--bcn-down-soft); border-color: var(--bcn-down-line); color: var(--bcn-down); }
+.bcn-note.down { background: var(--bcn-down-soft); border-color: var(--bcn-down-line); color: var(--bcn-down-ink); }
 .bcn-note.is-ok { background: var(--bcn-ok-soft); border-color: var(--bcn-ok-line); color: var(--bcn-ok-ink); }
 .bcn-note.is-ok .dashicons { color: var(--bcn-ok); }
-.bcn-note.is-err { background: var(--bcn-down-soft); border-color: var(--bcn-down-line); color: var(--bcn-down); }
+.bcn-note.is-err { background: var(--bcn-down-soft); border-color: var(--bcn-down-line); color: var(--bcn-down-ink); }
 .bcn-note.is-err .dashicons { color: var(--bcn-down); }
 .bcn-note.is-run { background: var(--bcn-panel-2); border-color: var(--bcn-rule); color: var(--bcn-muted); }
 .bcn-note.is-run .dashicons { color: var(--bcn-accent); }
@@ -438,7 +439,7 @@
 .bcn-new-ticket-form { padding: 16px; }
 .bcn-form-feedback { padding: 10px 12px; border-radius: var(--bcn-r-sm); font-size: 13px; margin-bottom: 12px; }
 .bcn-form-feedback.is-ok  { background: var(--bcn-ok-soft);   border: 1px solid var(--bcn-ok-line);   color: var(--bcn-ok-ink); }
-.bcn-form-feedback.is-err { background: var(--bcn-down-soft); border: 1px solid var(--bcn-down-line); color: var(--bcn-down); }
+.bcn-form-feedback.is-err { background: var(--bcn-down-soft); border: 1px solid var(--bcn-down-line); color: var(--bcn-down-ink); }
 
 @media (max-width: 620px) {
     .bcn-tk-head, .bcn-tk-detail-head { flex-direction: column; align-items: stretch; }
@@ -487,7 +488,7 @@
 .bcn-btn.primary:hover { background: var(--bcn-accent-btn-bg); filter: brightness(0.93); }
 .bcn-btn.ink { background: var(--bcn-ink); border-color: var(--bcn-ink); color: #fff; }
 .bcn-btn.ink:hover { opacity: 0.92; }
-.bcn-btn.danger { background: transparent; color: var(--bcn-down); border-color: var(--bcn-down-line); }
+.bcn-btn.danger { background: transparent; color: var(--bcn-down-ink); border-color: var(--bcn-down-line); }
 .bcn-btn.danger:hover { background: var(--bcn-down-soft); }
 .bcn-btn.sm { padding: 6px 11px; font-size: 12px; }
 .bcn-btn[disabled], .bcn-btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
@@ -516,7 +517,7 @@
 .bcn-icon-btn:hover { color: var(--bcn-accent-ink); border-color: var(--bcn-accent-line); }
 .bcn-validity { font-family: var(--bcn-mono); font-size: 11px; margin-top: 5px; min-height: 14px; }
 .bcn-validity.ok  { color: var(--bcn-ok-ink); }
-.bcn-validity.err { color: var(--bcn-down); }
+.bcn-validity.err { color: var(--bcn-down-ink); }
 .bcn-hint { font-size: 12px; color: var(--bcn-muted); margin: 6px 0 0; }
 .bcn-hint code, .bcn-wrap code {
     font-family: var(--bcn-mono); font-size: 0.9em;
@@ -546,7 +547,7 @@
 .bcn-stat-label { display: block; font-family: var(--bcn-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--bcn-faint); margin-bottom: 5px; }
 .bcn-stat-value { font-family: var(--bcn-mono); font-size: 15px; font-weight: 600; color: var(--bcn-ink); font-variant-numeric: tabular-nums; }
 .bcn-stat-value[data-state="ok"]  { color: var(--bcn-ok-ink); }
-.bcn-stat-value[data-state="err"] { color: var(--bcn-down); }
+.bcn-stat-value[data-state="err"] { color: var(--bcn-down-ink); }
 .bcn-update-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--bcn-rule-2); }
 .bcn-update-row:last-of-type { border-bottom: none; }
 .bcn-update-label { font-family: var(--bcn-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--bcn-faint); min-width: 90px; }
@@ -557,9 +558,9 @@
     font-size: 13px; border: 1px solid var(--bcn-rule);
 }
 .bcn-notice-ok   { color: var(--bcn-ok-ink);   background: var(--bcn-ok-soft);   border-color: var(--bcn-ok-line); }
-.bcn-notice-warn { color: var(--bcn-warn); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
+.bcn-notice-warn { color: var(--bcn-warn-ink); background: var(--bcn-warn-soft); border-color: var(--bcn-warn-line); }
 .bcn-notice-acc  { color: var(--bcn-accent-ink); background: var(--bcn-accent-soft); border-color: var(--bcn-accent-line); }
-.bcn-notice-err  { color: var(--bcn-down); background: var(--bcn-down-soft); border-color: var(--bcn-down-line); }
+.bcn-notice-err  { color: var(--bcn-down-ink); background: var(--bcn-down-soft); border-color: var(--bcn-down-line); }
 .bcn-shortcodes { display: flex; flex-direction: column; gap: 8px; }
 .bcn-shortcode-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bcn-sunk); border-radius: var(--bcn-r-sm); }
 .bcn-sc-name { font-family: var(--bcn-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--bcn-accent-ink); min-width: 66px; }

@@ -104,6 +104,18 @@ t_true(strpos(implode(' ', array_map(function ($n) { return $n->textContent; }, 
 $skewed = rc_page($connected_opts + ['bynli_connect_verified_at' => time() + 9999], ['tested' => 'first']);
 $hero = rc_q($skewed, '//*[@data-bcn="uplink-hero"]');
 t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') === false, 'overview: a verification time in the future does not count as fresh');
+$failed_after = rc_page([
+    'bynli_connect_api_key'        => RC_KEY,
+    'bynli_connect_verified_at'    => time() - 120,
+    'bynli_connect_last_report'    => ['at' => time() - 10, 'kind' => 'heartbeat', 'status' => 401, 'ok' => false],
+    'bynli_connect_report_history' => [['at' => time() - 120, 'kind' => 'heartbeat', 'ok' => true, 'status' => 200], ['at' => time() - 10, 'kind' => 'heartbeat', 'ok' => false, 'status' => 401]],
+], ['tested' => 'first']);
+$hero = rc_q($failed_after, '//*[@data-bcn="uplink-hero"]');
+t_eq($hero[0]->getAttribute('data-state') ?? null, 'off', 'overview: a site whose latest heartbeat failed reads unverified');
+t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') === false, 'overview: an old first-connect URL does not celebrate once the latest heartbeat has failed');
+$moment = rc_q($failed_after, '//*[@data-bcn="uplink-moment"]');
+t_true(count($moment) === 1 && $moment[0]->hasAttribute('hidden'), 'overview: the first-signal line stays hidden once the latest heartbeat has failed');
+t_eq(count(rc_q($failed_after, '//div[' . rc_cls('bcn-notice-ok') . ']')), 0, 'flash: no success banner once the latest heartbeat has failed');
 $unflagged = rc_page($connected_opts, ['tested' => 'first']);
 $hero = rc_q($unflagged, '//*[@data-bcn="uplink-hero"]');
 t_true(strpos($hero[0]->getAttribute('class') ?? '', 'is-first-connect') === false, 'overview: a first-connect URL with no recorded verification does not celebrate');

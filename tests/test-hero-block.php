@@ -264,6 +264,8 @@ t_eq(hg_codes([['type' => 'hero', 'heading' => 'Hi']]), [], 'gate: a bare hero p
 t_eq(hg_codes([['type' => 'hero', 'heading' => 'Hi', 'bgMedia' => ['media' => 'v1'], 'overlay' => ['opacity' => 60]]]), [], 'gate: a video background needs no dimensions');
 
 t_true(in_array('hero_heading_empty', hg_codes([['type' => 'hero', 'heading' => ' ']]), true), 'gate: a hero needs a heading');
+t_true(in_array('hero_heading_empty', hg_codes([['type' => 'hero']]), true), 'gate: a hero with no heading key is refused');
+t_true(in_array('hero_heading_empty', hg_codes([['type' => 'hero', 'heading' => null]]), true), 'gate: a hero with a null heading is refused');
 t_true(in_array('hero_level_range', hg_codes([['type' => 'hero', 'heading' => 'H', 'level' => 3]]), true), 'gate: level 3 is refused');
 t_true(in_array('hero_level_type', hg_codes([['type' => 'hero', 'heading' => 'H', 'level' => 1.5]]), true), 'gate: a fractional level is refused, not truncated');
 t_true(in_array('hero_level_type', hg_codes([['type' => 'hero', 'heading' => 'H', 'level' => 'x']]), true), 'gate: a non-numeric level is refused');
