@@ -24,6 +24,7 @@ class Bynli_Connect_Products {
     const TOMB          = 'bynefit_product_removed_';
     const TOMB_TTL      = 2592000;
     const TOMB_BATCH    = 500;
+    const TOMB_PASSES   = 20;
     const MAX_IMAGES    = 10;
     const MAX_VARIANTS  = 50;
     const MAX_NAME      = 160;
@@ -59,26 +60,41 @@ class Bynli_Connect_Products {
         if (!isset($wpdb) || !is_object($wpdb)) {
             return 0;
         }
-        $cutoff = (is_int($now) ? $now : time()) - self::TOMB_TTL;
-        try {
-            $rows = $wpdb->get_results($wpdb->prepare(
-                "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s ORDER BY option_id ASC LIMIT %d",
-                $wpdb->esc_like(self::TOMB) . '%',
-                self::TOMB_BATCH
-            ));
-        } catch (Throwable $e) {
-            error_log('[Bynli Connect] tombstone sweep failed: ' . $e->getMessage());
-            return 0;
-        }
-        $swept = 0;
-        foreach ((array) $rows as $row) {
-            $name = (string) $row->option_name;
-            if (!preg_match('/^' . preg_quote(self::TOMB, '/') . '\d+$/', $name)) {
-                continue;
+        $now     = is_int($now) ? $now : time();
+        $cutoff  = $now - self::TOMB_TTL;
+        $ceiling = $now + self::TOMB_TTL;
+        $swept   = 0;
+        $cursor  = 0;
+        for ($pass = 0; $pass < self::TOMB_PASSES; $pass++) {
+            try {
+                $rows = $wpdb->get_results($wpdb->prepare(
+                    "SELECT option_id, option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s AND option_id > %d ORDER BY option_id ASC LIMIT %d",
+                    $wpdb->esc_like(self::TOMB) . '%',
+                    $cursor,
+                    self::TOMB_BATCH
+                ));
+            } catch (Throwable $e) {
+                error_log('[Bynli Connect] tombstone sweep failed: ' . $e->getMessage());
+                return $swept;
             }
-            if ((int) $row->option_value < $cutoff) {
-                delete_option($name);
-                $swept++;
+            if ($rows === null || (isset($wpdb->last_error) && (string) $wpdb->last_error !== '')) {
+                error_log('[Bynli Connect] tombstone sweep query failed');
+                return $swept;
+            }
+            foreach ((array) $rows as $row) {
+                $cursor = max($cursor, (int) $row->option_id);
+                $name   = (string) $row->option_name;
+                if (!preg_match('/^' . preg_quote(self::TOMB, '/') . '\d+$/', $name)) {
+                    continue;
+                }
+                $stamp = (int) $row->option_value;
+                if ($stamp < $cutoff || $stamp > $ceiling) {
+                    delete_option($name);
+                    $swept++;
+                }
+            }
+            if (count((array) $rows) < self::TOMB_BATCH) {
+                break;
             }
         }
         return $swept;
