@@ -25,6 +25,7 @@ class Bynli_Connect_Products {
     const TOMB_TTL      = 2592000;
     const TOMB_BATCH    = 500;
     const TOMB_PASSES   = 20;
+    const TOMB_SECONDS  = 10;
     const MAX_IMAGES    = 10;
     const MAX_VARIANTS  = 50;
     const MAX_NAME      = 160;
@@ -55,17 +56,21 @@ class Bynli_Connect_Products {
         return new WP_REST_Response(self::capabilities(), 200);
     }
 
-    public static function sweep_tombstones($now = null) {
+    public static function sweep_tombstones($now = null, $budget = null) {
         global $wpdb;
         if (!isset($wpdb) || !is_object($wpdb)) {
             return 0;
         }
-        $now     = is_int($now) ? $now : time();
+        $now      = is_int($now) ? $now : time();
+        $deadline = microtime(true) + (is_numeric($budget) ? (float) $budget : (float) self::TOMB_SECONDS);
         $cutoff  = $now - self::TOMB_TTL;
         $ceiling = $now + self::TOMB_TTL;
         $swept   = 0;
         $cursor  = 0;
         for ($pass = 0; $pass < self::TOMB_PASSES; $pass++) {
+            if ($pass > 0 && microtime(true) >= $deadline) {
+                break;
+            }
             try {
                 $rows = $wpdb->get_results($wpdb->prepare(
                     "SELECT option_id, option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s AND option_id > %d ORDER BY option_id ASC LIMIT %d",
@@ -89,8 +94,24 @@ class Bynli_Connect_Products {
                 }
                 $stamp = (int) $row->option_value;
                 if ($stamp < $cutoff || $stamp > $ceiling) {
-                    delete_option($name);
-                    $swept++;
+                    try {
+                        $deleted = $wpdb->query($wpdb->prepare(
+                            "DELETE FROM {$wpdb->options} WHERE option_id = %d AND option_value = %s",
+                            (int) $row->option_id,
+                            (string) $row->option_value
+                        ));
+                    } catch (Throwable $e) {
+                        error_log('[Bynli Connect] tombstone sweep failed: ' . $e->getMessage());
+                        return $swept;
+                    }
+                    if ($deleted === false) {
+                        error_log('[Bynli Connect] tombstone sweep delete failed');
+                        return $swept;
+                    }
+                    if ((int) $deleted > 0) {
+                        wp_cache_delete($name, 'options');
+                        $swept++;
+                    }
                 }
             }
             if (count((array) $rows) < self::TOMB_BATCH) {
