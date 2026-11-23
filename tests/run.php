@@ -29,6 +29,15 @@ if (!function_exists('get_bloginfo')) {
     }
 }
 
+$GLOBALS['t_actions'] = [];
+if (!function_exists('add_action')) {
+    function add_action($hook, $callback, $priority = 10, $accepted_args = 1)
+    {
+        $GLOBALS['t_actions'][] = ['hook' => $hook, 'callback' => $callback, 'priority' => $priority, 'args' => $accepted_args];
+        return true;
+    }
+}
+
 $only = $argv[1] ?? '';
 foreach (glob(__DIR__ . '/test-*.php') as $file) {
     if ($only !== '' && strpos($file, $only) === false) {
